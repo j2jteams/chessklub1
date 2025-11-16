@@ -1,5 +1,6 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import EventsSection from "@/components/EventsSection";
 
 export default function Page() {
   return (
@@ -9,7 +10,7 @@ export default function Page() {
       {/* Hero Section */}
       <section className="bg-gradient-to-r from-slate-800 to-slate-900 text-white py-20 relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          {/* Banner Logo - Full width and prominent */}
+          {/* Banner Logo */}
           <div className="mb-6 md:mb-8 flex justify-center w-full">
             <img 
               src="/chess klub banner logo.jpg" 
@@ -17,10 +18,10 @@ export default function Page() {
               className="w-full max-w-5xl h-auto object-contain"
             />
           </div>
-          <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4 md:mb-6">
+          <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">
             Master Chess. Join the Klub.
           </h2>
-          <p className="text-lg md:text-xl lg:text-2xl mb-6 md:mb-8 text-gray-300">
+          <p className="text-xl md:text-2xl mb-8 text-gray-300">
             Compete in tournaments, learn from expert tutors, and connect with chess enthusiasts
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -191,32 +192,8 @@ export default function Page() {
         </div>
       </section>
 
-      {/* Events Section */}
-      <section id="events" className="py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-4xl font-bold text-slate-900 mb-8 text-center">Upcoming Events</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              { title: "Chess Workshop", date: "Feb 20", location: "NYC", price: "$25" },
-              { title: "Simul Exhibition", date: "Feb 28", location: "LA", price: "Free" },
-              { title: "Chess Camp", date: "Mar 1-3", location: "Chicago", price: "$200" },
-              { title: "Blitz Night", date: "Mar 8", location: "Boston", price: "$15" },
-            ].map((event, index) => (
-              <div key={index} className="bg-gray-50 rounded-lg p-6 hover:shadow-lg transition">
-                <div className="text-sm font-semibold text-orange-500 mb-2">{event.date}</div>
-                <h3 className="text-lg font-bold text-slate-900 mb-2">{event.title}</h3>
-                <p className="text-gray-600 mb-4">📍 {event.location}</p>
-                <div className="flex justify-between items-center">
-                  <span className="text-xl font-bold text-slate-900">{event.price}</span>
-                  <button className="text-orange-500 hover:text-orange-600 font-semibold">
-                    Learn More →
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* Events Section with Carousel */}
+      <EventsSection />
 
       {/* CTA Section */}
       <section className="py-16 bg-gradient-to-r from-slate-800 to-slate-900 text-white">

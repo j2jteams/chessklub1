@@ -37,7 +37,7 @@ export default function Header() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             <div className="flex items-center">
-              {/* Logo Image - Contains the full logo with text */}
+              {/* Logo Image */}
               <img 
                 src="/CKLOGO.jpg" 
                 alt="Chess Klub Logo" 
