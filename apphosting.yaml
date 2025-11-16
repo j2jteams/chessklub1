@@ -1,0 +1,54 @@
+# apphosting.yaml
+
+# This file configures the backend for your Firebase App Hosting site.
+# It's located in your project's root directory and is designed to be
+# committed to source control.
+
+# --- Runtime Configuration (runConfig) ---
+# These settings control the underlying infrastructure (Cloud Run service)
+# that hosts your backend.
+runConfig:
+  # Minimum number of instances to keep running.
+  # Useful for reducing cold start times, but incurs costs.
+  minInstances: 0 # Start with 0 instances to be cost-efficient if low traffic
+
+  # Maximum number of instances the service can scale to.
+  maxInstances: 1
+
+  # Maximum number of concurrent requests an instance can handle.
+  # Adjust based on your app's ability to handle parallel work.
+  concurrency: 80 # A common starting point
+
+  # CPU allocated per instance (in millicores or full CPU units).
+  # More CPU means faster processing, but higher cost.
+  cpu: 1 # 1 full CPU
+
+  # Memory allocated per instance (in MiB).
+  # More memory helps with larger workloads or complex data processing.
+  memoryMiB: 512 # 512 MB
+
+# --- Environment Variables ---
+# Map Firebase Secrets to environment variables
+# These secrets must be set in Firebase Console before deployment
+env:
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    secret: NEXT_PUBLIC_FIREBASE_API_KEY
+
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    secret: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    secret: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    secret: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    secret: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    secret: NEXT_PUBLIC_FIREBASE_APP_ID
+
+  - variable: NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+    secret: NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+
