@@ -10,14 +10,15 @@ console.log('[Firebase Config] Project ID:', process.env.NEXT_PUBLIC_FIREBASE_PR
 // Uses environment variables exclusively (no fallbacks)
 // For local development: Set in .env.local
 // For production: Set as Firebase Secrets in apphosting.yaml
+// Trim values to remove any trailing whitespace/newlines that may be added by secret managers
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.trim(),
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN?.trim(),
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID?.trim(),
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET?.trim(),
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID?.trim(),
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID?.trim(),
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID?.trim(),
 };
 
 console.log('[Firebase Config] Full config:', firebaseConfig);
