@@ -1,0 +1,45 @@
+# Firebase App Hosting Configuration
+# Documentation: https://firebase.google.com/docs/app-hosting/configure
+
+# Environment variables for Firebase configuration
+# These will be set as secrets in Firebase Secret Manager
+env:
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    secret: firebase-api-key
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    secret: firebase-auth-domain
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    secret: firebase-project-id
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    secret: firebase-storage-bucket
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    secret: firebase-messaging-sender-id
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    secret: firebase-app-id
+
+# Build and run scripts
+# Next.js is auto-detected by App Hosting, but you can override if needed
+# scripts:
+#   buildCommand: next build
+#   runCommand: next start
+
+# Output files configuration
+# App Hosting automatically optimizes Next.js builds
+# Uncomment and customize if you need specific files included
+# outputFiles:
+#   serverApp:
+#     include: [.next, public]
+
+# Runtime configuration
+runConfig:
+  # CPU allocation (1 CPU is sufficient for most Next.js apps)
+  cpu: 1
+  # Memory allocation (512Mi is good for Next.js, increase if needed)
+  memory: 512Mi
+  # Number of concurrent requests per instance
+  concurrency: 80
+  # Maximum number of instances (scale up for high traffic)
+  maxInstances: 10
+  # Minimum number of instances (0 = scale to zero, 1+ = always warm)
+  minInstances: 0
+
