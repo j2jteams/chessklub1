@@ -1,4 +1,21 @@
+'use client';
+
+import { useAuth } from '@/hooks/useAuth';
+import Link from 'next/link';
+import { signOut } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+
 export default function Header() {
+  const { user, role } = useAuth();
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
   return (
     <>
       {/* Top Bar - Black with contact info */}
@@ -51,10 +68,32 @@ export default function Header() {
               <a href="#locations" className="text-gray-700 hover:text-orange-500 transition font-medium">Locations</a>
               <a href="#more" className="text-gray-700 hover:text-orange-500 transition font-medium">More</a>
               <a href="#franchise" className="text-gray-700 hover:text-orange-500 transition font-medium">Become A Franchisee</a>
+              {(role === 'owner' || role === 'admin') && (
+                <Link href="/admin/events" className="text-gray-700 hover:text-orange-500 transition font-medium">
+                  Admin
+                </Link>
+              )}
             </div>
-            <button className="bg-orange-500 hover:bg-orange-600 text-white px-6 lg:px-8 py-3 rounded-md font-semibold transition shadow-lg">
-              Register
-            </button>
+            <div className="flex items-center gap-4">
+              {user ? (
+                <>
+                  <span className="text-sm text-gray-600 hidden sm:inline">{user.email}</span>
+                  <button
+                    onClick={handleSignOut}
+                    className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md font-semibold transition"
+                  >
+                    Sign Out
+                  </button>
+                </>
+              ) : (
+                <Link
+                  href="/login"
+                  className="bg-orange-500 hover:bg-orange-600 text-white px-6 lg:px-8 py-3 rounded-md font-semibold transition shadow-lg"
+                >
+                  Login
+                </Link>
+              )}
+            </div>
           </div>
         </div>
       </nav>

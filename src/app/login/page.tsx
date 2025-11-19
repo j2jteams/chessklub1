@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { createUserDocument } from '@/lib/userRoles';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -26,8 +27,17 @@ export default function LoginPage() {
       }
 
       if (isSignUp) {
-        // Sign up
-        await createUserWithEmailAndPassword(auth, email, password);
+        // Sign up - create user account and user document
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        // Create user document in Firestore with default role (null - no role by default)
+        // Owner role must be assigned manually by existing owner
+        // This won't fail if Firestore isn't set up yet - user can still sign up
+        try {
+          await createUserDocument(userCredential.user.uid, email, null);
+        } catch (firestoreError) {
+          // Firestore error is non-critical - user is still created in Firebase Auth
+          console.warn('Could not create user document in Firestore:', firestoreError);
+        }
         router.push('/');
       } else {
         // Sign in
