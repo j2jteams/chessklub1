@@ -43,7 +43,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
           <nav className="p-4 space-y-1">
             {navLinks
-              .filter((link) => link.roles.includes(role))
+              .filter((link) => role && link.roles.includes(role))
               .map((link) => (
                 <Link
                   key={link.href}
@@ -61,7 +61,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="p-4 border-t border-gray-100">
             <p className="text-xs uppercase text-gray-400 mb-1">Signed in as</p>
             <p className="text-sm font-semibold text-slate-900 truncate">{user.email}</p>
-            <p className="text-xs text-gray-500 capitalize">{role} role</p>
+            <p className="text-xs text-gray-500 capitalize">{role || 'user'} role</p>
           </div>
         </aside>
         <main className="flex-1 p-6">{children}</main>
