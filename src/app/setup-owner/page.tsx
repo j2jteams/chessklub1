@@ -139,9 +139,16 @@ export default function SetupOwnerPage() {
         </button>
 
         <div className="mt-6 pt-6 border-t border-gray-200">
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-xs font-semibold text-red-900 mb-1">⚠️ Security Warning:</p>
+            <p className="text-xs text-red-800">
+              If clicking links redirects you to suspicious sites, you may have browser malware. 
+              Type the Firebase Console URL manually instead of clicking links.
+            </p>
+          </div>
           <p className="text-sm font-semibold text-gray-900 mb-2">Manual Setup Instructions:</p>
           <ol className="text-xs text-gray-700 space-y-2 list-decimal list-inside">
-            <li>Go to <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer" className="text-orange-500 hover:underline">Firebase Console</a></li>
+            <li>Go to Firebase Console (type this URL manually in your browser): <code className="bg-gray-100 px-2 py-1 rounded text-xs">console.firebase.google.com</code></li>
             <li>Select your project: <strong>chessklub1-b65a1</strong></li>
             <li>Navigate to <strong>Firestore Database</strong> in the left sidebar</li>
             <li>Click on the <strong>users</strong> collection</li>
