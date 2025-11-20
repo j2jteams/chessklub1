@@ -1,16 +1,17 @@
-// User roles
-export type UserRole = 'owner' | 'admin' | null;
+export type UserRole = 'user' | 'admin' | 'owner';
 
-// User document structure in Firestore
 export interface UserData {
   uid: string;
   email: string;
   role: UserRole;
+  savedEvents: string[];
+  registeredEvents: string[];
   createdAt: Date;
   updatedAt: Date;
 }
 
-// Event document structure in Firestore
+export type EventStatus = 'draft' | 'pending' | 'approved' | 'rejected';
+
 export interface EventData {
   id?: string;
   title: string;
@@ -19,12 +20,14 @@ export interface EventData {
   price: string;
   description?: string;
   image?: string;
-  createdBy: string; // User UID
+  createdBy: string;
   createdByEmail: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: EventStatus;
+  registeredUsers: string[];
+  savedByUsers: string[];
+  approvedBy?: string;
+  approvedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
-  approvedBy?: string; // Owner UID who approved
-  approvedAt?: Date;
 }
 

@@ -28,14 +28,10 @@ export default function LoginPage() {
 
       if (isSignUp) {
         // Sign up - create user account and user document
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        // Create user document in Firestore with default role (null - no role by default)
-        // Owner role must be assigned manually by existing owner
-        // This won't fail if Firestore isn't set up yet - user can still sign up
+        const { user } = await createUserWithEmailAndPassword(auth, email, password);
         try {
-          await createUserDocument(userCredential.user.uid, email, null);
+          await createUserDocument(user.uid, user.email ?? email);
         } catch (firestoreError) {
-          // Firestore error is non-critical - user is still created in Firebase Auth
           console.warn('Could not create user document in Firestore:', firestoreError);
         }
         router.push('/');
