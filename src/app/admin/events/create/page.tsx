@@ -49,6 +49,8 @@ export default function CreateEventPage() {
         createdBy: user.uid,
         createdByEmail: user.email || '',
         status,
+        registeredUsers: [],
+        savedByUsers: [],
       });
 
       router.push('/admin/events');
