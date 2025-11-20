@@ -1,4 +1,25 @@
+'use client';
+
+import Link from 'next/link';
+import { useState } from 'react';
+import { signOut } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+import { useAuth } from '@/hooks/useAuth';
+
 export default function Header() {
+  const { user, role, loading } = useAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const dashboardLink = role === 'owner'
+    ? { href: '/dashboard/owner', label: 'Owner Console' }
+    : role === 'admin'
+      ? { href: '/dashboard/admin', label: 'Admin Console' }
+      : { href: '/dashboard', label: 'My Dashboard' };
+
+  const handleSignOut = async () => {
+    await signOut(auth);
+  };
+
   return (
     <>
       {/* Top Bar - Black with contact info */}
@@ -52,9 +73,54 @@ export default function Header() {
               <a href="#more" className="text-gray-700 hover:text-orange-500 transition font-medium">More</a>
               <a href="#franchise" className="text-gray-700 hover:text-orange-500 transition font-medium">Become A Franchisee</a>
             </div>
-            <button className="bg-orange-500 hover:bg-orange-600 text-white px-6 lg:px-8 py-3 rounded-md font-semibold transition shadow-lg">
-              Register
-            </button>
+            <div className="flex items-center gap-4 relative">
+              {user ? (
+                <>
+                  <button
+                    className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-full font-medium transition"
+                    onClick={() => setMenuOpen((prev) => !prev)}
+                  >
+                    <span className="hidden sm:inline text-sm">{user.email}</span>
+                    <span className="h-8 w-8 rounded-full bg-orange-500 text-white flex items-center justify-center text-sm font-semibold">
+                      {user.email?.[0]?.toUpperCase() ?? 'U'}
+                    </span>
+                  </button>
+                  {menuOpen && (
+                    <div className="absolute right-0 top-12 w-56 bg-white rounded-lg shadow-xl border border-gray-100 py-2 z-50">
+                      <div className="px-4 py-2 border-b border-gray-100">
+                        <p className="text-sm font-semibold text-slate-900">
+                          {dashboardLink.label.replace('Console', '')}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                      </div>
+                      <Link
+                        href={dashboardLink.href}
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition"
+                        onClick={() => setMenuOpen(false)}
+                      >
+                        Go to {dashboardLink.label}
+                      </Link>
+                      <button
+                        onClick={() => {
+                          setMenuOpen(false);
+                          handleSignOut();
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 transition"
+                      >
+                        Sign Out
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <Link
+                  href="/login"
+                  className="bg-orange-500 hover:bg-orange-600 text-white px-6 lg:px-8 py-3 rounded-md font-semibold transition shadow-lg"
+                >
+                  Login
+                </Link>
+              )}
+            </div>
           </div>
         </div>
       </nav>

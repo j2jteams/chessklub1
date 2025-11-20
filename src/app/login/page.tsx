@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { createUserDocument } from '@/lib/userRoles';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -22,7 +23,8 @@ export default function LoginPage() {
     try {
       if (isSignUp) {
         // Sign up
-        await createUserWithEmailAndPassword(auth, email, password);
+        const { user } = await createUserWithEmailAndPassword(auth, email, password);
+        await createUserDocument(user.uid, user.email ?? email);
         router.push('/');
       } else {
         // Sign in
