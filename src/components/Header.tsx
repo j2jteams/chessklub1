@@ -1,21 +1,42 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
+import { getApprovedEvents } from '@/lib/events';
+import { EventData } from '@/lib/types';
 
 export default function Header() {
   const { user, role } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [tournamentsOpen, setTournamentsOpen] = useState(false);
+  const [events, setEvents] = useState<EventData[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState(false);
 
   const dashboardLink =
     role === 'owner'
       ? { href: '/dashboard/owner', label: 'Owner Console' }
       : role === 'admin'
-      ? { href: '/dashboard/admin', label: 'Admin Console' }
-      : { href: '/dashboard', label: 'My Dashboard' };
+        ? { href: '/dashboard/admin', label: 'Admin Console' }
+        : { href: '/dashboard', label: 'My Dashboard' };
+
+  // Fetch approved events for tournaments dropdown
+  useEffect(() => {
+    const fetchEvents = async () => {
+      setLoadingEvents(true);
+      try {
+        const approvedEvents = await getApprovedEvents();
+        setEvents(approvedEvents);
+      } catch (error) {
+        console.error('Error fetching events:', error);
+      } finally {
+        setLoadingEvents(false);
+      }
+    };
+    fetchEvents();
+  }, []);
 
   const handleSignOut = async () => {
     try {
@@ -24,6 +45,27 @@ export default function Header() {
       console.error('Error signing out:', error);
     }
   };
+
+  // Filter events: new (last 7 days) and upcoming (future dates)
+  const now = new Date();
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  
+  const newTournaments = events.filter(event => {
+    const eventDate = event.createdAt ? new Date(event.createdAt) : null;
+    return eventDate && eventDate >= sevenDaysAgo;
+  });
+
+  const upcomingEvents = events.filter(event => {
+    // Try to parse the date string - handle various formats
+    if (!event.date) return false;
+    try {
+      const eventDate = new Date(event.date);
+      return !isNaN(eventDate.getTime()) && eventDate >= now;
+    } catch {
+      // If date parsing fails, include it anyway (better to show than hide)
+      return true;
+    }
+  });
 
   return (
     <>
@@ -59,20 +101,112 @@ export default function Header() {
       </div>
 
       {/* Main Navigation Header */}
-      <nav className="bg-white shadow-md border-b border-gray-200">
+      <nav className="bg-white shadow-md border-b border-gray-200 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
+            {/* Logo */}
             <div className="flex items-center">
-              <img src="/CKLOGO.jpg" alt="Chess Klub Logo" className="h-16 w-auto" />
+              <Link href="/">
+                <img src="/CKLOGO.jpg" alt="Chess Klub Logo" className="h-16 w-auto cursor-pointer" />
+              </Link>
             </div>
-            <div className="hidden md:flex space-x-6 lg:space-x-8 items-center">
-              <a href="#about" className="text-gray-700 hover:text-orange-500 transition font-medium">About</a>
-              <a href="#program" className="text-gray-700 hover:text-orange-500 transition font-medium">Program</a>
-              <a href="#coaching" className="text-gray-700 hover:text-orange-500 transition font-medium">Online Coaching</a>
-              <a href="#locations" className="text-gray-700 hover:text-orange-500 transition font-medium">Locations</a>
-              <a href="#more" className="text-gray-700 hover:text-orange-500 transition font-medium">More</a>
-              <a href="#franchise" className="text-gray-700 hover:text-orange-500 transition font-medium">Become A Franchisee</a>
+
+            {/* Navigation Menu */}
+            <div className="hidden md:flex space-x-1 lg:space-x-2 items-center">
+              {/* Tournaments Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setTournamentsOpen(!tournamentsOpen)}
+                  className="flex items-center gap-1 px-4 py-2 text-gray-700 hover:text-orange-500 transition font-medium rounded-md hover:bg-gray-50"
+                >
+                  Tournaments
+                  <svg
+                    className={`w-4 h-4 transition-transform ${tournamentsOpen ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {tournamentsOpen && (
+                  <div className="absolute top-full left-0 mt-1 w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
+                    <div className="px-4 py-2 border-b border-gray-100">
+                      <p className="text-xs font-semibold text-gray-500 uppercase">Tournaments</p>
+                    </div>
+                    <Link
+                      href="/tournaments?filter=new"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition"
+                      onClick={() => setTournamentsOpen(false)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span>New Tournaments</span>
+                        {newTournaments.length > 0 && (
+                          <span className="bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full">
+                            {newTournaments.length}
+                          </span>
+                        )}
+                      </div>
+                    </Link>
+                    <Link
+                      href="/tournaments?filter=upcoming"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition"
+                      onClick={() => setTournamentsOpen(false)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span>Upcoming Events</span>
+                        {upcomingEvents.length > 0 && (
+                          <span className="bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full">
+                            {upcomingEvents.length}
+                          </span>
+                        )}
+                      </div>
+                    </Link>
+                    <Link
+                      href="/tournaments"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition border-t border-gray-100 mt-1"
+                      onClick={() => setTournamentsOpen(false)}
+                    >
+                      View All Tournaments
+                    </Link>
+                  </div>
+                )}
+              </div>
+
+              {/* Online Tutoring */}
+              <Link
+                href="/online-tutoring"
+                className="px-4 py-2 text-gray-700 hover:text-orange-500 transition font-medium rounded-md hover:bg-gray-50"
+              >
+                Online Tutoring
+              </Link>
+
+              {/* Merchandise */}
+              <Link
+                href="/merchandise"
+                className="px-4 py-2 text-gray-700 hover:text-orange-500 transition font-medium rounded-md hover:bg-gray-50"
+              >
+                Merchandise
+              </Link>
+
+              {/* Ranking */}
+              <Link
+                href="/ranking"
+                className="px-4 py-2 text-gray-700 hover:text-orange-500 transition font-medium rounded-md hover:bg-gray-50"
+              >
+                Ranking
+              </Link>
+
+              {/* Locations */}
+              <Link
+                href="/locations"
+                className="px-4 py-2 text-gray-700 hover:text-orange-500 transition font-medium rounded-md hover:bg-gray-50"
+              >
+                Locations
+              </Link>
             </div>
+
+            {/* User Menu / Login */}
             <div className="flex items-center gap-4 relative">
               {user ? (
                 <>
@@ -124,7 +258,17 @@ export default function Header() {
           </div>
         </div>
       </nav>
+
+      {/* Close dropdowns when clicking outside */}
+      {(tournamentsOpen || menuOpen) && (
+        <div
+          className="fixed inset-0 z-30"
+          onClick={() => {
+            setTournamentsOpen(false);
+            setMenuOpen(false);
+          }}
+        />
+      )}
     </>
   );
 }
-
