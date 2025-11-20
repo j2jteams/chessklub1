@@ -21,10 +21,19 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      // Verify auth is initialized
+      if (!auth) {
+        throw new Error('Firebase authentication is not initialized. Please check your configuration.');
+      }
+
       if (isSignUp) {
-        // Sign up
+        // Sign up - create user account and user document
         const { user } = await createUserWithEmailAndPassword(auth, email, password);
-        await createUserDocument(user.uid, user.email ?? email);
+        try {
+          await createUserDocument(user.uid, user.email ?? email);
+        } catch (firestoreError) {
+          console.warn('Could not create user document in Firestore:', firestoreError);
+        }
         router.push('/');
       } else {
         // Sign in
@@ -32,7 +41,22 @@ export default function LoginPage() {
         router.push('/');
       }
     } catch (error: any) {
-      setError(error.message || 'An error occurred. Please try again.');
+      console.error('Authentication error:', error);
+      
+      // Provide more helpful error messages
+      let errorMessage = 'An error occurred. Please try again.';
+      
+      if (error.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error: Unable to connect to Firebase. Please check your internet connection and try again.';
+      } else if (error.code === 'auth/invalid-api-key') {
+        errorMessage = 'Configuration error: Invalid Firebase API key. Please contact support.';
+      } else if (error.code === 'auth/invalid-credential') {
+        errorMessage = 'Invalid email or password. Please try again.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

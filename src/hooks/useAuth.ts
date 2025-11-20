@@ -22,7 +22,7 @@ export function useAuth(): AuthState {
   });
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
         setState({
           user: null,
@@ -52,7 +52,7 @@ export function useAuth(): AuthState {
       }
     });
 
-    return () => unsub();
+    return () => unsubscribe();
   }, []);
 
   return state;

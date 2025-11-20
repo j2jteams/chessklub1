@@ -49,8 +49,7 @@ export async function getUserRole(uid: string): Promise<UserRole> {
     return 'user';
   }
 
-  const data = snapshot.data();
-  return (data.role ?? 'user') as UserRole;
+  return (snapshot.data().role ?? 'user') as UserRole;
 }
 
 export async function getUserData(uid: string): Promise<UserData | null> {
@@ -75,5 +74,15 @@ export async function updateUserRole(uid: string, role: UserRole) {
 export async function getAllUsers(): Promise<UserData[]> {
   const usersSnap = await getDocs(collection(db, 'users'));
   return usersSnap.docs.map((docSnap) => fromFirestoreUser(docSnap.data()));
+}
+
+export async function isOwner(uid: string) {
+  const role = await getUserRole(uid);
+  return role === 'owner';
+}
+
+export async function isAdminOrOwner(uid: string) {
+  const role = await getUserRole(uid);
+  return role === 'admin' || role === 'owner';
 }
 
