@@ -135,10 +135,32 @@ function TournamentsContent() {
       <Header />
       <div className="min-h-screen bg-gray-50">
         {/* Hero Section */}
-        <div className="bg-gradient-to-r from-slate-800 to-slate-900 text-white py-16">
+        <div 
+          className="text-white py-12"
+          style={{ 
+            backgroundColor: 'var(--color-dark)',
+            paddingTop: 'var(--space-md)',
+            paddingBottom: 'var(--space-md)'
+          }}
+        >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h1 className="text-4xl md:text-5xl font-bold mb-4">Chess Tournaments</h1>
-            <p className="text-xl text-gray-300">
+            <h1 
+              className="mb-4 font-bold"
+              style={{ 
+                fontSize: 'var(--font-size-h2)',
+                color: 'var(--color-light)',
+                fontFamily: 'var(--font-heading)'
+              }}
+            >
+              Chess Tournaments
+            </h1>
+            <p 
+              className="text-lg"
+              style={{ 
+                color: 'rgba(255, 255, 255, 0.9)',
+                fontFamily: 'var(--font-body)'
+              }}
+            >
               Compete, learn, and grow with our exciting tournament schedule
             </p>
           </div>

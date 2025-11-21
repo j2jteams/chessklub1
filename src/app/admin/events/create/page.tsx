@@ -1,19 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { createEvent } from '@/lib/events';
+import { uploadImage } from '@/lib/storage';
 import Link from 'next/link';
 
 export default function CreateEventPage() {
   const { user, role, loading: authLoading } = useAuth();
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [error, setError] = useState('');
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     title: '',
     date: '',
+    time: '',
     location: '',
     price: '',
     description: '',
@@ -33,6 +38,52 @@ export default function CreateEventPage() {
     }
   }, [user, role, authLoading, router]);
 
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image size must be less than 5MB');
+      return;
+    }
+
+    setError('');
+    setUploadingImage(true);
+
+    try {
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+
+      // Upload to Firebase Storage
+      const imageUrl = await uploadImage(file);
+      setFormData({ ...formData, image: imageUrl });
+    } catch (err: any) {
+      setError(err.message || 'Failed to upload image');
+      setImagePreview(null);
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setImagePreview(null);
+    setFormData({ ...formData, image: '' });
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -45,7 +96,13 @@ export default function CreateEventPage() {
       const status = role === 'owner' ? 'approved' : 'pending';
       
       await createEvent({
-        ...formData,
+        title: formData.title,
+        date: formData.date,
+        time: formData.time || undefined,
+        location: formData.location,
+        price: formData.price,
+        description: formData.description || undefined,
+        image: formData.image || undefined,
         createdBy: user.uid,
         createdByEmail: user.email || '',
         status,
@@ -132,29 +189,50 @@ export default function CreateEventPage() {
                 </label>
                 <input
                   id="date"
-                  type="text"
+                  type="date"
                   value={formData.date}
                   onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                   required
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition"
+                />
+                <p className="mt-1 text-xs text-gray-500">Or enter as text: March 15-17, 2024</p>
+                <input
+                  type="text"
+                  value={formData.date}
+                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                  className="w-full mt-2 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition text-sm"
                   placeholder="e.g., March 15-17, 2024"
                 />
               </div>
 
               <div>
-                <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
-                  Location *
+                <label htmlFor="time" className="block text-sm font-medium text-gray-700 mb-2">
+                  Time (Optional)
                 </label>
                 <input
-                  id="location"
+                  id="time"
                   type="text"
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  required
+                  value={formData.time}
+                  onChange={(e) => setFormData({ ...formData, time: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition"
-                  placeholder="e.g., New York, NY"
+                  placeholder="e.g., 10:00 AM - 5:00 PM or 9:00 AM"
                 />
               </div>
+            </div>
+
+            <div>
+              <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
+                Location *
+              </label>
+              <input
+                id="location"
+                type="text"
+                value={formData.location}
+                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                required
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition"
+                placeholder="e.g., Charlotte Convention Center, Charlotte, NC"
+              />
             </div>
 
             <div>
@@ -188,16 +266,82 @@ export default function CreateEventPage() {
 
             <div>
               <label htmlFor="image" className="block text-sm font-medium text-gray-700 mb-2">
-                Image URL (optional)
+                Event Flyer Image *
               </label>
-              <input
-                id="image"
-                type="url"
-                value={formData.image}
-                onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition"
-                placeholder="https://example.com/image.jpg"
-              />
+              <div className="space-y-4">
+                <div>
+                  <input
+                    ref={fileInputRef}
+                    id="image"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="image"
+                    className={`inline-flex items-center px-4 py-3 border-2 border-dashed rounded-lg cursor-pointer transition ${
+                      uploadingImage
+                        ? 'border-gray-300 bg-gray-50'
+                        : 'border-orange-300 hover:border-orange-500 hover:bg-orange-50'
+                    }`}
+                  >
+                    {uploadingImage ? (
+                      <span className="text-gray-600">Uploading...</span>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5 mr-2 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        <span className="text-gray-700 font-medium">Upload Flyer Image</span>
+                      </>
+                    )}
+                  </label>
+                  <p className="mt-2 text-xs text-gray-500">
+                    Recommended: JPG, PNG, or WebP. Max size: 5MB
+                  </p>
+                </div>
+
+                {imagePreview && (
+                  <div className="relative">
+                    <img
+                      src={imagePreview}
+                      alt="Flyer preview"
+                      className="w-full max-w-md h-auto rounded-lg border border-gray-300"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleRemoveImage}
+                      className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-2 transition"
+                      aria-label="Remove image"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+
+                {formData.image && !imagePreview && (
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <p className="text-sm text-green-800">✓ Image uploaded successfully</p>
+                  </div>
+                )}
+
+                <div className="text-sm text-gray-600">
+                  <p className="font-medium mb-1">Or enter image URL:</p>
+                  <input
+                    type="url"
+                    value={formData.image}
+                    onChange={(e) => {
+                      setFormData({ ...formData, image: e.target.value });
+                      setImagePreview(e.target.value);
+                    }}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition"
+                    placeholder="https://example.com/image.jpg"
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="flex gap-4">

@@ -1,190 +1,286 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import EventsSection from "@/components/EventsSection";
+import { getApprovedEvents } from "@/lib/events";
+import { EventData } from "@/lib/types";
+import Link from "next/link";
 
 export default function Page() {
+  const [allTournaments, setAllTournaments] = useState<EventData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTournaments = async () => {
+      setLoading(true);
+      try {
+        const allEvents = await getApprovedEvents();
+        const now = new Date();
+
+        // Get all future events (both current and upcoming)
+        const futureEvents: EventData[] = [];
+
+        allEvents.forEach((event) => {
+          try {
+            const eventDate = new Date(event.date);
+            if (isNaN(eventDate.getTime())) return; // Skip invalid dates
+
+            // Include all future events
+            if (eventDate >= now) {
+              futureEvents.push(event);
+            }
+          } catch (error) {
+            console.error('Error parsing date for event:', event.id, error);
+          }
+        });
+
+        // Sort by date
+        futureEvents.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+        setAllTournaments(futureEvents);
+      } catch (error) {
+        console.error('Error fetching tournaments:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTournaments();
+  }, []);
   return (
-    <main className="min-h-screen bg-gray-50">
+    <main className="min-h-screen" style={{ backgroundColor: 'var(--color-light)' }}>
       <Header />
 
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-slate-800 to-slate-900 text-white py-20 relative overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <section 
+        className="relative overflow-hidden text-center"
+        style={{ 
+          backgroundColor: 'var(--color-dark)',
+          paddingTop: 'var(--space-md)',
+          paddingBottom: 'var(--space-md)'
+        }}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Banner Logo */}
-          <div className="mb-6 md:mb-8 flex justify-center w-full">
+          <div className="mb-4 flex justify-center w-full">
             <img 
-              src="/chess klub banner logo.jpg" 
+              src="/CK banner logo Enhanced.png" 
               alt="Chess Klub Banner" 
-              className="w-full max-w-5xl h-auto object-contain"
+              className="w-full max-w-3xl h-auto object-contain"
             />
           </div>
-          <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">
+          <h1 
+            className="mb-3 font-bold"
+            style={{ 
+              fontSize: 'clamp(1.75rem, 4vw, 2.5rem)',
+              color: 'var(--color-light)',
+              fontFamily: 'var(--font-heading)'
+            }}
+          >
             Master Chess. Join the Klub.
-          </h2>
-          <p className="text-xl md:text-2xl mb-8 text-gray-300">
+          </h1>
+          <p 
+            className="mb-6 text-base"
+            style={{ 
+              fontSize: 'clamp(0.9rem, 2vw, 1rem)',
+              color: 'rgba(255, 255, 255, 0.9)',
+              fontFamily: 'var(--font-body)'
+            }}
+          >
             Compete in tournaments, learn from expert tutors, and connect with chess enthusiasts
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-4 rounded-lg text-lg font-semibold transition shadow-lg">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Link
+              href="/tournaments"
+              className="text-white font-semibold transition shadow-lg py-2.5 px-5 rounded hover:opacity-90 text-center text-sm"
+              style={{ backgroundColor: 'var(--color-accent)' }}
+            >
               Browse Tournaments
-            </button>
-            <button className="bg-white text-slate-900 hover:bg-gray-100 px-8 py-4 rounded-lg text-lg font-semibold transition">
+            </Link>
+            <button 
+              className="font-semibold transition py-2.5 px-5 rounded hover:bg-white hover:bg-opacity-10 text-sm"
+              style={{ 
+                backgroundColor: 'transparent',
+                border: '2px solid rgba(255, 255, 255, 0.5)',
+                color: 'var(--color-light)'
+              }}
+            >
               Find a Tutor
             </button>
           </div>
         </div>
       </section>
 
-      {/* Featured Tournaments Section */}
-      <section id="tournaments" className="py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-4xl font-bold text-slate-900 mb-8 text-center">Featured Tournaments</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Tournament Card 1 */}
-            <div className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition">
-              <div className="h-48 bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center">
-                <span className="text-white text-2xl font-bold">Chess Championship 2024</span>
-              </div>
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-xl font-bold text-slate-900">Grand Master Open</h3>
-                    <p className="text-gray-600 mt-1">📍 New York, NY</p>
-                  </div>
-                </div>
-                <div className="flex justify-between items-center mb-4">
-                  <span className="text-2xl font-bold text-orange-500">$150</span>
-                  <span className="text-gray-500 line-through">$200</span>
-                </div>
-                <p className="text-gray-600 mb-4">Join elite players in this prestigious tournament. Prizes up to $10,000!</p>
-                <div className="flex items-center text-sm text-gray-500 mb-4">
-                  <span>📅 March 15-17, 2024</span>
-                </div>
-                <button className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-md font-semibold transition">
-                  Register Now
-                </button>
-              </div>
-            </div>
-
-            {/* Tournament Card 2 */}
-            <div className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition">
-              <div className="h-48 bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center">
-                <span className="text-white text-2xl font-bold">Rapid Chess Blitz</span>
-              </div>
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-xl font-bold text-slate-900">Speed Chess Tournament</h3>
-                    <p className="text-gray-600 mt-1">📍 Los Angeles, CA</p>
-                  </div>
-                </div>
-                <div className="flex justify-between items-center mb-4">
-                  <span className="text-2xl font-bold text-orange-500">$75</span>
-                  <span className="text-gray-500 line-through">$100</span>
-                </div>
-                <p className="text-gray-600 mb-4">Fast-paced action! 5-minute games for the ultimate chess challenge.</p>
-                <div className="flex items-center text-sm text-gray-500 mb-4">
-                  <span>📅 April 5, 2024</span>
-                </div>
-                <button className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-md font-semibold transition">
-                  Register Now
-                </button>
-              </div>
-            </div>
-
-            {/* Tournament Card 3 */}
-            <div className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition">
-              <div className="h-48 bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center">
-                <span className="text-white text-2xl font-bold">Youth Championship</span>
-              </div>
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-xl font-bold text-slate-900">Junior Chess League</h3>
-                    <p className="text-gray-600 mt-1">📍 Chicago, IL</p>
-                  </div>
-                </div>
-                <div className="flex justify-between items-center mb-4">
-                  <span className="text-2xl font-bold text-orange-500">$50</span>
-                  <span className="text-gray-500 line-through">$75</span>
-                </div>
-                <p className="text-gray-600 mb-4">Perfect for young players! Ages 8-18 welcome. Build skills and make friends.</p>
-                <div className="flex items-center text-sm text-gray-500 mb-4">
-                  <span>📅 May 10-12, 2024</span>
-                </div>
-                <button className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-md font-semibold transition">
-                  Register Now
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* Events Section with Carousel */}
+      <EventsSection tournaments={allTournaments} loading={loading} />
 
       {/* Tutoring Section */}
-      <section id="tutoring" className="py-16 bg-gray-100">
+      <section 
+        id="tutoring"
+        style={{
+          backgroundColor: 'var(--color-medium)',
+          paddingTop: 'var(--space-lg)',
+          paddingBottom: 'var(--space-lg)'
+        }}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-4xl font-bold text-slate-900 mb-8 text-center">Expert Chess Tutoring</h2>
-          <p className="text-center text-gray-600 mb-12 text-lg max-w-3xl mx-auto">
+          <h2 
+            className="mb-8 text-center font-bold"
+            style={{ 
+              fontSize: 'var(--font-size-h2)',
+              color: 'var(--color-dark)',
+              fontFamily: 'var(--font-heading)'
+            }}
+          >
+            Expert Chess Tutoring
+          </h2>
+          <p 
+            className="text-center mb-12 max-w-3xl mx-auto"
+            style={{ 
+              fontSize: 'var(--font-size-body)',
+              color: 'var(--color-gray)',
+              fontFamily: 'var(--font-body)'
+            }}
+          >
             Learn from experienced masters. Choose between in-person or online sessions tailored to your skill level.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* In-Person Tutoring */}
-            <div className="bg-white rounded-lg shadow-lg p-8">
+            <div 
+              className="rounded-lg shadow-lg p-8"
+              style={{ backgroundColor: 'var(--color-light)' }}
+            >
               <div className="flex items-center mb-6">
-                <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mr-4">
+                <div 
+                  className="w-16 h-16 rounded-full flex items-center justify-center mr-4"
+                  style={{ backgroundColor: 'var(--color-dark)' }}
+                >
                   <span className="text-white text-2xl">👨‍🏫</span>
                 </div>
-                <h3 className="text-2xl font-bold text-slate-900">In-Person Tutoring</h3>
+                <h3 
+                  className="font-bold"
+                  style={{ 
+                    fontSize: '1.5rem',
+                    color: 'var(--color-dark)',
+                    fontFamily: 'var(--font-heading)'
+                  }}
+                >
+                  In-Person Tutoring
+                </h3>
               </div>
-              <p className="text-gray-600 mb-6">
+              <p 
+                className="mb-6"
+                style={{ 
+                  color: 'var(--color-gray)',
+                  fontFamily: 'var(--font-body)'
+                }}
+              >
                 Meet with certified chess instructors at our local centers. Personalized one-on-one or group sessions available.
               </p>
               <div className="space-y-3 mb-6">
                 <div className="flex items-center">
-                  <span className="text-orange-500 mr-2">✓</span>
-                  <span className="text-gray-700">Face-to-face instruction</span>
+                  <span 
+                    className="mr-2"
+                    style={{ color: 'var(--color-accent)' }}
+                  >
+                    ✓
+                  </span>
+                  <span style={{ color: 'var(--color-dark)' }}>Face-to-face instruction</span>
                 </div>
                 <div className="flex items-center">
-                  <span className="text-orange-500 mr-2">✓</span>
-                  <span className="text-gray-700">Physical board practice</span>
+                  <span 
+                    className="mr-2"
+                    style={{ color: 'var(--color-accent)' }}
+                  >
+                    ✓
+                  </span>
+                  <span style={{ color: 'var(--color-dark)' }}>Physical board practice</span>
                 </div>
                 <div className="flex items-center">
-                  <span className="text-orange-500 mr-2">✓</span>
-                  <span className="text-gray-700">Flexible scheduling</span>
+                  <span 
+                    className="mr-2"
+                    style={{ color: 'var(--color-accent)' }}
+                  >
+                    ✓
+                  </span>
+                  <span style={{ color: 'var(--color-dark)' }}>Flexible scheduling</span>
                 </div>
               </div>
-              <button className="w-full bg-slate-800 hover:bg-slate-900 text-white py-3 rounded-md font-semibold transition">
+              <button 
+                className="w-full text-white py-3 rounded font-semibold transition"
+                style={{ backgroundColor: 'var(--color-dark)' }}
+              >
                 Find In-Person Tutors
               </button>
             </div>
 
             {/* Online Tutoring */}
-            <div className="bg-white rounded-lg shadow-lg p-8">
+            <div 
+              className="rounded-lg shadow-lg p-8"
+              style={{ backgroundColor: 'var(--color-light)' }}
+            >
               <div className="flex items-center mb-6">
-                <div className="w-16 h-16 bg-orange-500 rounded-full flex items-center justify-center mr-4">
+                <div 
+                  className="w-16 h-16 rounded-full flex items-center justify-center mr-4"
+                  style={{ backgroundColor: 'var(--color-accent)' }}
+                >
                   <span className="text-white text-2xl">💻</span>
                 </div>
-                <h3 className="text-2xl font-bold text-slate-900">Online Tutoring</h3>
+                <h3 
+                  className="font-bold"
+                  style={{ 
+                    fontSize: '1.5rem',
+                    color: 'var(--color-dark)',
+                    fontFamily: 'var(--font-heading)'
+                  }}
+                >
+                  Online Tutoring
+                </h3>
               </div>
-              <p className="text-gray-600 mb-6">
+              <p 
+                className="mb-6"
+                style={{ 
+                  color: 'var(--color-gray)',
+                  fontFamily: 'var(--font-body)'
+                }}
+              >
                 Learn from anywhere! Interactive online sessions with top-rated chess coaches. Perfect for busy schedules.
               </p>
               <div className="space-y-3 mb-6">
                 <div className="flex items-center">
-                  <span className="text-orange-500 mr-2">✓</span>
-                  <span className="text-gray-700">Learn from home</span>
+                  <span 
+                    className="mr-2"
+                    style={{ color: 'var(--color-accent)' }}
+                  >
+                    ✓
+                  </span>
+                  <span style={{ color: 'var(--color-dark)' }}>Learn from home</span>
                 </div>
                 <div className="flex items-center">
-                  <span className="text-orange-500 mr-2">✓</span>
-                  <span className="text-gray-700">Interactive digital boards</span>
+                  <span 
+                    className="mr-2"
+                    style={{ color: 'var(--color-accent)' }}
+                  >
+                    ✓
+                  </span>
+                  <span style={{ color: 'var(--color-dark)' }}>Interactive digital boards</span>
                 </div>
                 <div className="flex items-center">
-                  <span className="text-orange-500 mr-2">✓</span>
-                  <span className="text-gray-700">Recorded sessions</span>
+                  <span 
+                    className="mr-2"
+                    style={{ color: 'var(--color-accent)' }}
+                  >
+                    ✓
+                  </span>
+                  <span style={{ color: 'var(--color-dark)' }}>Recorded sessions</span>
                 </div>
               </div>
-              <button className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-md font-semibold transition">
+              <button 
+                className="w-full text-white py-3 rounded font-semibold transition"
+                style={{ backgroundColor: 'var(--color-accent)' }}
+              >
                 Find Online Tutors
               </button>
             </div>
@@ -192,17 +288,40 @@ export default function Page() {
         </div>
       </section>
 
-      {/* Events Section with Carousel */}
-      <EventsSection />
 
       {/* CTA Section */}
-      <section className="py-16 bg-gradient-to-r from-slate-800 to-slate-900 text-white">
+      <section 
+        style={{
+          backgroundColor: 'var(--color-dark)',
+          paddingTop: 'var(--space-lg)',
+          paddingBottom: 'var(--space-lg)'
+        }}
+      >
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-4xl font-bold mb-6">Ready to Elevate Your Game?</h2>
-          <p className="text-xl text-gray-300 mb-8">
+          <h2 
+            className="mb-6 font-bold"
+            style={{ 
+              fontSize: 'var(--font-size-h2)',
+              color: 'var(--color-light)',
+              fontFamily: 'var(--font-heading)'
+            }}
+          >
+            Ready to Elevate Your Game?
+          </h2>
+          <p 
+            className="mb-8"
+            style={{ 
+              fontSize: 'var(--font-size-body)',
+              color: 'var(--color-light)',
+              fontFamily: 'var(--font-body)'
+            }}
+          >
             Join thousands of players improving their skills and competing in exciting tournaments
           </p>
-          <button className="bg-orange-500 hover:bg-orange-600 text-white px-10 py-4 rounded-lg text-lg font-semibold transition shadow-lg">
+          <button 
+            className="text-white font-semibold transition shadow-lg px-10 py-4 rounded"
+            style={{ backgroundColor: 'var(--color-accent)' }}
+          >
             Get Started Today
           </button>
         </div>

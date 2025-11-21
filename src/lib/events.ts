@@ -24,6 +24,7 @@ function fromFirestoreEvent(docId: string, data: any): EventData {
     id: docId,
     title: data.title,
     date: data.date,
+    time: data.time,
     location: data.location,
     price: data.price,
     description: data.description,
