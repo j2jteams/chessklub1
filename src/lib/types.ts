@@ -11,6 +11,7 @@ export interface UserData {
 }
 
 export type EventStatus = 'draft' | 'pending' | 'approved' | 'rejected';
+export type EventCategory = 'tournament' | 'event' | 'workshop' | 'simul' | 'other';
 
 export interface EventData {
   id?: string;
@@ -21,6 +22,9 @@ export interface EventData {
   price: string;
   description?: string;
   image?: string;
+  category: EventCategory; // Tournament, Event, Workshop, Simul, or Other
+  contactEmail?: string; // Contact email for the event
+  contactPhone?: string; // Contact phone for the event
   createdBy: string;
   createdByEmail: string;
   status: EventStatus;

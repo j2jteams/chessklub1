@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { createEvent } from '@/lib/events';
 import { uploadImage } from '@/lib/storage';
+import { EventCategory } from '@/lib/types';
 import Link from 'next/link';
 
 export default function CreateEventPage() {
@@ -23,6 +24,9 @@ export default function CreateEventPage() {
     price: '',
     description: '',
     image: '',
+    category: 'event' as EventCategory,
+    contactEmail: '',
+    contactPhone: '',
   });
 
   useEffect(() => {
@@ -98,11 +102,14 @@ export default function CreateEventPage() {
       await createEvent({
         title: formData.title,
         date: formData.date,
-        time: formData.time || undefined,
+        time: formData.time.trim() || undefined, // Empty strings will be filtered out in createEvent
         location: formData.location,
         price: formData.price,
-        description: formData.description || undefined,
-        image: formData.image || undefined,
+        description: formData.description.trim() || undefined, // Empty strings will be filtered out in createEvent
+        image: formData.image.trim() || undefined, // Empty strings will be filtered out in createEvent
+        category: formData.category,
+        contactEmail: formData.contactEmail.trim() || undefined,
+        contactPhone: formData.contactPhone.trim() || undefined,
         createdBy: user.uid,
         createdByEmail: user.email || '',
         status,
@@ -180,6 +187,28 @@ export default function CreateEventPage() {
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition"
                 placeholder="Enter event title"
               />
+            </div>
+
+            <div>
+              <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
+                Category *
+              </label>
+              <select
+                id="category"
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value as EventCategory })}
+                required
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition"
+              >
+                <option value="tournament">Tournament</option>
+                <option value="event">Event</option>
+                <option value="workshop">Workshop</option>
+                <option value="simul">Simul (Simultaneous Exhibition)</option>
+                <option value="other">Other</option>
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                Select the type of event. Tournaments are competitive chess competitions.
+              </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -340,6 +369,43 @@ export default function CreateEventPage() {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition"
                     placeholder="https://example.com/image.jpg"
                   />
+                </div>
+              </div>
+            </div>
+
+            {/* Contact Information */}
+            <div className="border-t border-gray-200 pt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
+              <p className="text-sm text-gray-500 mb-4">Provide contact details for participants to reach out with questions.</p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label htmlFor="contactEmail" className="block text-sm font-medium text-gray-700 mb-2">
+                    Contact Email
+                  </label>
+                  <input
+                    id="contactEmail"
+                    type="email"
+                    value={formData.contactEmail}
+                    onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition"
+                    placeholder="contact@example.com"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">Email for event inquiries</p>
+                </div>
+                <div>
+                  <label htmlFor="contactPhone" className="block text-sm font-medium text-gray-700 mb-2">
+                    Contact Phone
+                  </label>
+                  <input
+                    id="contactPhone"
+                    type="tel"
+                    value={formData.contactPhone}
+                    onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition"
+                    placeholder="(704) 123-4567"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">Phone number for event inquiries</p>
                 </div>
               </div>
             </div>
