@@ -1,0 +1,59 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to get user role (with null check)
+    function getUserRole() {
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return userDoc != null ? userDoc.data.role : null;
+    }
+    
+    function isOwner() {
+      return request.auth != null && getUserRole() == 'owner';
+    }
+    
+    function isAdminOrOwner() {
+      let role = getUserRole();
+      return request.auth != null && role in ['admin', 'owner'];
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      // Users can read their own data, owners can read all
+      allow read: if request.auth != null && 
+        (request.auth.uid == userId || isOwner());
+      
+      // Users can create their own document on signup
+      allow create: if request.auth != null && 
+        (request.auth.uid == userId);
+      
+      // Only owners can update user roles
+      allow update: if request.auth != null && isOwner();
+      allow delete: if request.auth != null && isOwner();
+    }
+    
+    // Events collection
+    match /events/{eventId} {
+      // Public can read approved events
+      // Owners and admins can read all events
+      allow read: if resource == null || 
+        resource.data.status == 'approved' || 
+        (request.auth != null && isAdminOrOwner());
+      
+      // Owners and admins can create events
+      allow create: if request.auth != null && isAdminOrOwner();
+      
+      // Owners can update any event
+      // Admins can only update their own events
+      allow update: if request.auth != null && 
+        (isOwner() || 
+         (getUserRole() == 'admin' && resource.data.createdBy == request.auth.uid));
+      
+      // Owners can delete any event
+      // Admins can only delete their own events
+      allow delete: if request.auth != null && 
+        (isOwner() || 
+         (getUserRole() == 'admin' && resource.data.createdBy == request.auth.uid));
+    }
+  }
+}
+

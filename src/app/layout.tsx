@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Poppins, Roboto } from "next/font/google";
 import "./globals.css";
 
@@ -27,6 +27,22 @@ const roboto = Roboto({
 export const metadata: Metadata = {
   title: "Chess Klub - Master Chess. Join the Klub.",
   description: "Compete in tournaments, learn from expert tutors, and connect with chess enthusiasts. Join Chess Klub today!",
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+    ],
+    shortcut: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
+  },
+  manifest: '/site.webmanifest',
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
 };
 
 export default function RootLayout({

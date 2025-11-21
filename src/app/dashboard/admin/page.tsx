@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { EventData } from '@/lib/types';
 import { getEventsCreatedBy } from '@/lib/events';
@@ -12,6 +12,26 @@ export default function AdminDashboardPage() {
   const router = useRouter();
   const [events, setEvents] = useState<EventData[]>([]);
   const [fetchLoading, setFetchLoading] = useState(false);
+
+  const loadEvents = useCallback(async () => {
+    if (!user) return;
+    setFetchLoading(true);
+    try {
+      const data = await getEventsCreatedBy(user.uid);
+      setEvents(data);
+    } catch (error: any) {
+      console.error('Error loading events:', error);
+      // If it's an index error, show a helpful message
+      if (error.code === 'failed-precondition') {
+        console.error('Missing Firestore index! The query requires an index for createdBy + createdAt.');
+        console.error('Check the browser console for a link to create the index, or see FIREBASE_INDEXES_NEEDED.md');
+        // Set events to empty array to prevent UI errors
+        setEvents([]);
+      }
+    } finally {
+      setFetchLoading(false);
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!loading) {
@@ -24,19 +44,9 @@ export default function AdminDashboardPage() {
         return;
       }
 
-      const loadEvents = async () => {
-        setFetchLoading(true);
-        try {
-          const data = await getEventsCreatedBy(user.uid);
-          setEvents(data);
-        } finally {
-          setFetchLoading(false);
-        }
-      };
-
       loadEvents();
     }
-  }, [user, role, loading, router]);
+  }, [user, role, loading, router, loadEvents]);
 
   if (!user || loading) {
     return (

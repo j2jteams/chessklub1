@@ -1,0 +1,30 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Events flyer images - allow authenticated users to upload
+    // NOTE: Storage rules cannot directly check Firestore user roles
+    // Client-side protection ensures only admin/owner pages can access upload functionality
+    // Firestore security rules provide additional server-side protection
+    match /events/flyers/{imageId} {
+      // Allow authenticated users to upload (client-side role check required)
+      // In production, consider using custom claims for additional security
+      allow write: if request.auth != null;
+      // Allow public read
+      allow read: if true;
+    }
+    
+    // Event flyers in user-specific folders
+    match /event_flyers/{userId}/{imageId} {
+      // Allow authenticated users to upload their own images
+      allow write: if request.auth != null && request.auth.uid == userId;
+      // Allow public read
+      allow read: if true;
+    }
+    
+    // Default: deny all other access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
