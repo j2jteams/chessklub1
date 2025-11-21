@@ -16,6 +16,7 @@ export interface EventData {
   id?: string;
   title: string;
   date: string;
+  time?: string; // e.g., "10:00 AM - 5:00 PM" or "9:00 AM"
   location: string;
   price: string;
   description?: string;

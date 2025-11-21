@@ -1,26 +1,44 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Colors */
+  --color-dark: #171717; /* Headings, Main Text */
+  --color-accent: #FF7A00; /* Primary Buttons, Highlights, Logo Orange */
+  --color-light: #FFFFFF; /* Main Background */
+  --color-medium: #F5F5F5; /* Section Separator, Card Background */
+  --color-gray: #6A6A6A; /* Secondary Text, Borders */
+
+  /* Typography */
+  --font-heading: 'Poppins', sans-serif;
+  --font-body: 'Roboto', sans-serif;
+  --font-size-h1: 3rem; /* 48px */
+  --font-size-h2: 2rem; /* 32px */
+  --font-size-body: 1rem; /* 16px */
+
+  /* Spacing */
+  --space-sm: 16px;
+  --space-md: 32px;
+  --space-lg: 64px; /* Section Padding */
+
+  /* Legacy variables for compatibility */
+  --background: var(--color-light);
+  --foreground: var(--color-dark);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-body);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  font-family: var(--font-body);
+  color: var(--color-dark);
+  background-color: var(--color-light);
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  color: var(--color-dark);
 }

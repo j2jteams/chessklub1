@@ -101,13 +101,13 @@ export default function Header() {
       </div>
 
       {/* Main Navigation Header */}
-      <nav className="bg-white shadow-md border-b border-gray-200 sticky top-0 z-40">
+      <nav className="bg-white shadow-md border-b border-gray-200 sticky top-0 z-40" style={{ backgroundColor: 'var(--color-light)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             {/* Logo */}
             <div className="flex items-center">
               <Link href="/">
-                <img src="/CKLOGO.jpg" alt="Chess Klub Logo" className="h-16 w-auto cursor-pointer" />
+                <img src="/Ck Logo Enchanced.png" alt="Chess Klub Logo" className="h-16 w-auto cursor-pointer" />
               </Link>
             </div>
 
@@ -117,7 +117,8 @@ export default function Header() {
               <div className="relative">
                 <button
                   onClick={() => setTournamentsOpen(!tournamentsOpen)}
-                  className="flex items-center gap-1 px-4 py-2 text-gray-700 hover:text-orange-500 transition font-medium rounded-md hover:bg-gray-50"
+                  className="flex items-center gap-1 px-4 py-2 transition font-medium rounded-md hover:bg-gray-50"
+                  style={{ color: 'var(--color-dark)' }}
                 >
                   Tournaments
                   <svg
@@ -176,7 +177,8 @@ export default function Header() {
               {/* Online Tutoring */}
               <Link
                 href="/online-tutoring"
-                className="px-4 py-2 text-gray-700 hover:text-orange-500 transition font-medium rounded-md hover:bg-gray-50"
+                className="px-4 py-2 transition font-medium rounded-md hover:bg-gray-50"
+                style={{ color: 'var(--color-dark)' }}
               >
                 Online Tutoring
               </Link>
@@ -184,7 +186,8 @@ export default function Header() {
               {/* Merchandise */}
               <Link
                 href="/merchandise"
-                className="px-4 py-2 text-gray-700 hover:text-orange-500 transition font-medium rounded-md hover:bg-gray-50"
+                className="px-4 py-2 transition font-medium rounded-md hover:bg-gray-50"
+                style={{ color: 'var(--color-dark)' }}
               >
                 Merchandise
               </Link>
@@ -192,7 +195,8 @@ export default function Header() {
               {/* Ranking */}
               <Link
                 href="/ranking"
-                className="px-4 py-2 text-gray-700 hover:text-orange-500 transition font-medium rounded-md hover:bg-gray-50"
+                className="px-4 py-2 transition font-medium rounded-md hover:bg-gray-50"
+                style={{ color: 'var(--color-dark)' }}
               >
                 Ranking
               </Link>
@@ -200,7 +204,8 @@ export default function Header() {
               {/* Locations */}
               <Link
                 href="/locations"
-                className="px-4 py-2 text-gray-700 hover:text-orange-500 transition font-medium rounded-md hover:bg-gray-50"
+                className="px-4 py-2 transition font-medium rounded-md hover:bg-gray-50"
+                style={{ color: 'var(--color-dark)' }}
               >
                 Locations
               </Link>
@@ -249,7 +254,13 @@ export default function Header() {
               ) : (
                 <Link
                   href="/login"
-                  className="bg-orange-500 hover:bg-orange-600 text-white px-6 lg:px-8 py-3 rounded-md font-semibold transition shadow-lg"
+                  className="text-white font-semibold transition shadow-lg"
+                  style={{
+                    backgroundColor: 'var(--color-accent)',
+                    color: 'var(--color-light)',
+                    padding: '8px 16px',
+                    borderRadius: '4px',
+                  }}
                 >
                   Login
                 </Link>
