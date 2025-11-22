@@ -19,6 +19,7 @@ import { db } from './firebase';
 import { EventData, EventStatus, EventCategory } from './types';
 
 const EVENTS_COLLECTION = 'events';
+const USERS_COLLECTION = 'users';
 
 function fromFirestoreEvent(docId: string, data: any): EventData {
   return {
@@ -219,29 +220,57 @@ export async function getEventsByIds(ids: string[]): Promise<EventData[]> {
 }
 
 export async function registerUserForEvent(eventId: string, uid: string) {
+  // Update event document - add user to registeredUsers
   await updateDoc(doc(db, EVENTS_COLLECTION, eventId), {
     registeredUsers: arrayUnion(uid),
+    updatedAt: serverTimestamp(),
+  });
+  
+  // Update user document - add event to registeredEvents
+  await updateDoc(doc(db, USERS_COLLECTION, uid), {
+    registeredEvents: arrayUnion(eventId),
     updatedAt: serverTimestamp(),
   });
 }
 
 export async function unregisterUserFromEvent(eventId: string, uid: string) {
+  // Update event document - remove user from registeredUsers
   await updateDoc(doc(db, EVENTS_COLLECTION, eventId), {
     registeredUsers: arrayRemove(uid),
+    updatedAt: serverTimestamp(),
+  });
+  
+  // Update user document - remove event from registeredEvents
+  await updateDoc(doc(db, USERS_COLLECTION, uid), {
+    registeredEvents: arrayRemove(eventId),
     updatedAt: serverTimestamp(),
   });
 }
 
 export async function saveEvent(eventId: string, uid: string) {
+  // Update event document - add user to savedByUsers
   await updateDoc(doc(db, EVENTS_COLLECTION, eventId), {
     savedByUsers: arrayUnion(uid),
+    updatedAt: serverTimestamp(),
+  });
+  
+  // Update user document - add event to savedEvents
+  await updateDoc(doc(db, USERS_COLLECTION, uid), {
+    savedEvents: arrayUnion(eventId),
     updatedAt: serverTimestamp(),
   });
 }
 
 export async function unsaveEvent(eventId: string, uid: string) {
+  // Update event document - remove user from savedByUsers
   await updateDoc(doc(db, EVENTS_COLLECTION, eventId), {
     savedByUsers: arrayRemove(uid),
+    updatedAt: serverTimestamp(),
+  });
+  
+  // Update user document - remove event from savedEvents
+  await updateDoc(doc(db, USERS_COLLECTION, uid), {
+    savedEvents: arrayRemove(eventId),
     updatedAt: serverTimestamp(),
   });
 }

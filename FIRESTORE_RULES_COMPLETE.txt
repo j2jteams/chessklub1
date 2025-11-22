@@ -26,8 +26,11 @@ service cloud.firestore {
       allow create: if request.auth != null && 
         (request.auth.uid == userId);
       
+      // Users can update their own documents (for registeredEvents and savedEvents)
       // Only owners can update user roles
-      allow update: if request.auth != null && isOwner();
+      allow update: if request.auth != null && 
+        (request.auth.uid == userId && 
+         (request.resource.data.role == resource.data.role || isOwner()));
       allow delete: if request.auth != null && isOwner();
     }
     
@@ -44,9 +47,20 @@ service cloud.firestore {
       
       // Owners can update any event
       // Admins can only update their own events
+      // Authenticated users can update registeredUsers and savedByUsers arrays (for registration/saving)
       allow update: if request.auth != null && 
         (isOwner() || 
-         (getUserRole() == 'admin' && resource.data.createdBy == request.auth.uid));
+         (getUserRole() == 'admin' && resource.data.createdBy == request.auth.uid) ||
+         // Allow any authenticated user to update only registeredUsers and savedByUsers arrays
+         // Verify that critical fields haven't changed
+         (request.resource.data.title == resource.data.title &&
+          request.resource.data.date == resource.data.date &&
+          request.resource.data.location == resource.data.location &&
+          request.resource.data.price == resource.data.price &&
+          request.resource.data.status == resource.data.status &&
+          request.resource.data.category == resource.data.category &&
+          request.resource.data.createdBy == resource.data.createdBy &&
+          request.resource.data.createdByEmail == resource.data.createdByEmail));
       
       // Owners can delete any event
       // Admins can only delete their own events

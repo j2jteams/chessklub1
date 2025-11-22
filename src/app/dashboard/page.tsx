@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { EventData } from '@/lib/types';
 import { getEventsByIds } from '@/lib/events';
@@ -36,7 +37,11 @@ function EventsGrid({ events, emptyLabel }: { events: EventData[]; emptyLabel: s
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
       {events.map((event) => (
-        <div key={event.id} className="border border-gray-100 rounded-xl p-4 hover:shadow-md transition">
+        <Link
+          key={event.id}
+          href={`/events/${event.id}`}
+          className="block border border-gray-100 rounded-xl p-4 hover:shadow-md hover:border-orange-300 transition cursor-pointer"
+        >
           <div className="flex items-start justify-between">
             <div>
               <p className="text-xs text-gray-400 uppercase tracking-wide">{event.date}</p>
@@ -49,7 +54,7 @@ function EventsGrid({ events, emptyLabel }: { events: EventData[]; emptyLabel: s
             <span>📍 {event.location}</span>
             <span className="capitalize">{event.status}</span>
           </div>
-        </div>
+        </Link>
       ))}
     </div>
   );
