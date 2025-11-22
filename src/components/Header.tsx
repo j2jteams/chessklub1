@@ -425,40 +425,131 @@ export default function Header() {
                 </svg>
               </button>
               {tournamentsOpen && (
-                <div className="pl-4 mt-2 space-y-1">
-                  <Link
-                    href="/tournaments?filter=new"
-                    className="block px-4 py-2 text-sm rounded-md hover:bg-orange-50 transition"
-                    onClick={() => {
-                      setTournamentsOpen(false);
-                      setMobileMenuOpen(false);
-                    }}
-                    style={{ color: 'var(--color-dark)' }}
-                  >
-                    New Tournaments {newTournaments.length > 0 && `(${newTournaments.length})`}
-                  </Link>
-                  <Link
-                    href="/tournaments?filter=upcoming"
-                    className="block px-4 py-2 text-sm rounded-md hover:bg-orange-50 transition"
-                    onClick={() => {
-                      setTournamentsOpen(false);
-                      setMobileMenuOpen(false);
-                    }}
-                    style={{ color: 'var(--color-dark)' }}
-                  >
-                    Upcoming Tournaments & Events {upcomingEvents.length > 0 && `(${upcomingEvents.length})`}
-                  </Link>
-                  <Link
-                    href="/all"
-                    className="block px-4 py-2 text-sm rounded-md hover:bg-orange-50 transition"
-                    onClick={() => {
-                      setTournamentsOpen(false);
-                      setMobileMenuOpen(false);
-                    }}
-                    style={{ color: 'var(--color-dark)' }}
-                  >
-                    View All
-                  </Link>
+                <div className="mt-2 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+                  {/* Featured Preview Cards */}
+                  {upcomingEvents.length > 0 && (
+                    <div className="p-3 bg-gradient-to-r from-orange-50 to-orange-100 border-b border-gray-200">
+                      <p className="text-xs font-semibold text-gray-600 uppercase mb-2">Featured</p>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {upcomingEvents.slice(0, 2).map((event) => (
+                          <Link
+                            key={event.id}
+                            href={`/events/${event.id}`}
+                            onClick={() => {
+                              setTournamentsOpen(false);
+                              setMobileMenuOpen(false);
+                            }}
+                            className="block p-2 bg-white rounded-lg hover:shadow-md transition border border-gray-200"
+                          >
+                            <div className="flex gap-2">
+                              {event.image && (
+                                <img 
+                                  src={event.image} 
+                                  alt={event.title}
+                                  className="w-14 h-14 object-cover rounded flex-shrink-0"
+                                />
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-semibold text-xs text-gray-900 line-clamp-1 mb-1">{event.title}</h4>
+                                <p className="text-xs text-gray-600 mb-1">{event.date}</p>
+                                <p className="text-xs font-bold text-orange-600">
+                                  {event.price && !event.price.startsWith('$') ? `$${event.price}` : event.price || 'Free'}
+                                </p>
+                              </div>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Quick Links Section */}
+                  <div className="py-2">
+                    {/* Tournaments Section */}
+                    <div className="px-3 py-2 border-b border-gray-100">
+                      <div className="flex items-center gap-2 mb-2">
+                        <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                        </svg>
+                        <p className="text-xs font-semibold text-gray-700 uppercase">Tournaments</p>
+                      </div>
+                      <Link
+                        href="/tournaments?filter=new"
+                        className="flex items-center justify-between px-2 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-md transition group"
+                        onClick={() => {
+                          setTournamentsOpen(false);
+                          setMobileMenuOpen(false);
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <svg className="w-4 h-4 text-gray-400 group-hover:text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span>New Tournaments</span>
+                        </div>
+                        {newTournaments.length > 0 && (
+                          <span className="bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full font-semibold">
+                            {newTournaments.length}
+                          </span>
+                        )}
+                      </Link>
+                      <Link
+                        href="/tournaments"
+                        className="flex items-center justify-between px-2 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-md transition group"
+                        onClick={() => {
+                          setTournamentsOpen(false);
+                          setMobileMenuOpen(false);
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <svg className="w-4 h-4 text-gray-400 group-hover:text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <span>All Tournaments</span>
+                        </div>
+                      </Link>
+                    </div>
+
+                    {/* Events Section */}
+                    <div className="px-3 py-2 border-b border-gray-100">
+                      <div className="flex items-center gap-2 mb-2">
+                        <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <p className="text-xs font-semibold text-gray-700 uppercase">Events</p>
+                      </div>
+                      <Link
+                        href="/events"
+                        className="flex items-center justify-between px-2 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-md transition group"
+                        onClick={() => {
+                          setTournamentsOpen(false);
+                          setMobileMenuOpen(false);
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <svg className="w-4 h-4 text-gray-400 group-hover:text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <span>All Events</span>
+                        </div>
+                      </Link>
+                    </div>
+
+                    {/* View All Link */}
+                    <Link
+                      href="/all"
+                      className="flex items-center justify-between px-3 py-3 text-sm font-semibold text-orange-600 hover:bg-orange-50 transition border-t border-gray-100"
+                      onClick={() => {
+                        setTournamentsOpen(false);
+                        setMobileMenuOpen(false);
+                      }}
+                    >
+                      <span>View All Tournaments & Events</span>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </Link>
+                  </div>
                 </div>
               )}
             </div>
