@@ -1,15 +1,18 @@
+// UPDATED: role-based routing and approval flows - Phase 0.5
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useRequireRole } from '@/hooks/useRequireRole';
 import { EventData } from '@/lib/types';
 import { getEventsCreatedBy } from '@/lib/events';
 
 export default function AdminDashboardPage() {
+  // Protect route - allow both admin and owner
+  useRequireRole(['admin', 'owner']);
+  
   const { user, role, loading } = useAuth();
-  const router = useRouter();
   const [events, setEvents] = useState<EventData[]>([]);
   const [fetchLoading, setFetchLoading] = useState(false);
 
@@ -17,8 +20,15 @@ export default function AdminDashboardPage() {
     if (!user) return;
     setFetchLoading(true);
     try {
-      const data = await getEventsCreatedBy(user.uid);
-      setEvents(data);
+      // UPDATED: Owners can see ALL events, admins see only their own
+      if (role === 'owner') {
+        const { getAllEvents } = await import('@/lib/events');
+        const data = await getAllEvents();
+        setEvents(data);
+      } else {
+        const data = await getEventsCreatedBy(user.uid);
+        setEvents(data);
+      }
     } catch (error: any) {
       console.error('Error loading events:', error);
       // If it's an index error, show a helpful message
@@ -31,22 +41,13 @@ export default function AdminDashboardPage() {
     } finally {
       setFetchLoading(false);
     }
-  }, [user]);
+  }, [user, role]);
 
   useEffect(() => {
-    if (!loading) {
-      if (!user) {
-        router.push('/login');
-        return;
-      }
-      if (role !== 'admin' && role !== 'owner') {
-        router.push('/dashboard');
-        return;
-      }
-
+    if (!loading && user && (role === 'admin' || role === 'owner')) {
       loadEvents();
     }
-  }, [user, role, loading, router, loadEvents]);
+  }, [user, role, loading, loadEvents]);
 
   if (!user || loading) {
     return (
@@ -78,7 +79,7 @@ export default function AdminDashboardPage() {
         <div className="bg-white border border-gray-100 rounded-2xl p-5">
           <p className="text-xs text-gray-500 uppercase tracking-wide">Total Events</p>
           <p className="text-3xl font-bold text-slate-900 mt-2">{events.length}</p>
-          <p className="text-xs text-gray-400 mt-1">Created by you</p>
+          <p className="text-xs text-gray-400 mt-1">{role === 'owner' ? 'All events' : 'Created by you'}</p>
         </div>
         <div className="bg-white border border-gray-100 rounded-2xl p-5">
           <p className="text-xs text-gray-500 uppercase tracking-wide">Pending Approval</p>
@@ -99,8 +100,8 @@ export default function AdminDashboardPage() {
       <section className="bg-white border border-gray-100 rounded-2xl p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">Your Events</h2>
-            <p className="text-sm text-gray-500">Edit details or track approval status</p>
+            <h2 className="text-lg font-semibold text-slate-900">{role === 'owner' ? 'All Events' : 'Your Events'}</h2>
+            <p className="text-sm text-gray-500">{role === 'owner' ? 'View, edit, or delete any event' : 'Edit details or track approval status'}</p>
           </div>
           <Link href="/admin/events" className="text-sm text-orange-600 font-medium hover:text-orange-700">
             View all
@@ -134,12 +135,32 @@ export default function AdminDashboardPage() {
                   >
                     {event.status}
                   </span>
-                  <Link
-                    href={`/admin/events/edit/${event.id}`}
-                    className="px-3 py-1 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50"
-                  >
-                    Edit
-                  </Link>
+                  {(role === 'owner' || event.createdBy === user?.uid) && (
+                    <Link
+                      href={`/admin/events/edit/${event.id}`}
+                      className="px-3 py-1 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                    >
+                      Edit
+                    </Link>
+                  )}
+                  {role === 'owner' && (
+                    <button
+                      onClick={async () => {
+                        if (!confirm(`Are you sure you want to delete "${event.title}"?`)) return;
+                        try {
+                          const { deleteEvent } = await import('@/lib/events');
+                          await deleteEvent(event.id!);
+                          await loadEvents();
+                        } catch (error: any) {
+                          console.error('Error deleting event:', error);
+                          alert('Failed to delete event: ' + (error.message || 'Unknown error'));
+                        }
+                      }}
+                      className="px-3 py-1 rounded-lg bg-red-500 text-white text-sm font-medium hover:bg-red-600"
+                    >
+                      Delete
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

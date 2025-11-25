@@ -2,24 +2,28 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { getApprovedEvents } from '@/lib/events';
+import { getApprovedEvents, getAllEvents, deleteEvent } from '@/lib/events';
 import { EventData } from '@/lib/types';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { useAuth } from '@/hooks/useAuth';
 
 function EventsContent() {
   const searchParams = useSearchParams();
   const filter = searchParams.get('filter') || 'all';
+  const { user, role } = useAuth();
   const [events, setEvents] = useState<EventData[]>([]);
   const [loading, setLoading] = useState(true);
+  const isOwner = role === 'owner';
 
   useEffect(() => {
     const fetchEvents = async () => {
       setLoading(true);
       try {
-        const approvedEvents = await getApprovedEvents();
-        setEvents(approvedEvents);
+        // Owners can see all events (including pending), others see only approved
+        const fetchedEvents = isOwner ? await getAllEvents() : await getApprovedEvents();
+        setEvents(fetchedEvents);
       } catch (error) {
         console.error('Error fetching events:', error);
       } finally {
@@ -27,7 +31,7 @@ function EventsContent() {
       }
     };
     fetchEvents();
-  }, []);
+  }, [isOwner]);
 
   // Filter events - show ONLY events (category === 'event')
   const now = new Date();
@@ -187,13 +191,39 @@ function EventsContent() {
                     {event.description && (
                       <p className="text-gray-700 text-sm mb-4 line-clamp-3">{event.description}</p>
                     )}
-                    <div className="mt-auto">
+                    <div className="mt-auto flex flex-col gap-2">
                       <Link
                         href={`/events/${event.id}`}
                         className="inline-flex items-center text-orange-500 font-semibold hover:text-orange-600 transition"
                       >
                         Learn More →
                       </Link>
+                      {isOwner && event.id && (
+                        <div className="flex gap-2 pt-2 border-t border-gray-200">
+                          <Link
+                            href={`/admin/events/edit/${event.id}`}
+                            className="flex-1 text-center px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded transition"
+                          >
+                            Edit
+                          </Link>
+                          <button
+                            onClick={async () => {
+                              if (!confirm(`Are you sure you want to delete "${event.title}"?`)) return;
+                              try {
+                                await deleteEvent(event.id!);
+                                setEvents(prev => prev.filter(e => e.id !== event.id));
+                                alert('Event deleted successfully');
+                              } catch (error: any) {
+                                console.error('Error deleting event:', error);
+                                alert('Failed to delete event: ' + (error.message || 'Unknown error'));
+                              }
+                            }}
+                            className="flex-1 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded transition"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -13,7 +13,7 @@ import Link from 'next/link';
 function EventDetailContent() {
   const params = useParams();
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, role, loading: authLoading } = useAuth();
   const eventId = params.id as string;
   const [event, setEvent] = useState<EventData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -58,13 +58,14 @@ function EventDetailContent() {
     try {
       if (event.registeredUsers?.includes(user.uid)) {
         await unregisterUserFromEvent(eventId, user.uid);
-        setEvent({ ...event, registeredUsers: event.registeredUsers.filter(uid => uid !== user.uid) });
       } else {
         await registerUserForEvent(eventId, user.uid);
-        setEvent({ ...event, registeredUsers: [...(event.registeredUsers || []), user.uid] });
       }
+      // Reload event to get latest state from Firestore
+      await loadEvent();
     } catch (err: any) {
-      setError(err.message || 'Failed to register for event');
+      console.error('Registration error:', err);
+      setError(err.message || 'Failed to register for event. Please try again.');
     } finally {
       setRegistering(false);
     }
@@ -84,13 +85,14 @@ function EventDetailContent() {
     try {
       if (event.savedByUsers?.includes(user.uid)) {
         await unsaveEvent(eventId, user.uid);
-        setEvent({ ...event, savedByUsers: event.savedByUsers.filter(uid => uid !== user.uid) });
       } else {
         await saveEvent(eventId, user.uid);
-        setEvent({ ...event, savedByUsers: [...(event.savedByUsers || []), user.uid] });
       }
+      // Reload event to get latest state from Firestore
+      await loadEvent();
     } catch (err: any) {
-      setError(err.message || 'Failed to save event');
+      console.error('Save error:', err);
+      setError(err.message || 'Failed to save event. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -429,12 +431,15 @@ function EventDetailContent() {
                     <span className="text-gray-600">Category:</span>
                     <span className="font-semibold text-gray-900 capitalize">{event.category}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Status:</span>
-                    <span className={`font-semibold ${event.status === 'approved' ? 'text-green-600' : 'text-yellow-600'}`}>
-                      {event.status}
-                    </span>
-                  </div>
+                  {/* Only show status to admins and owners */}
+                  {(role === 'admin' || role === 'owner') && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Status:</span>
+                      <span className={`font-semibold ${event.status === 'approved' ? 'text-green-600' : 'text-yellow-600'}`}>
+                        {event.status}
+                      </span>
+                    </div>
+                  )}
                   {event.registeredUsers && (
                     <div className="flex justify-between">
                       <span className="text-gray-600">Registrations:</span>

@@ -1,3 +1,4 @@
+// UPDATED: role-based routing and approval flows - Phase 0.5
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -17,7 +18,7 @@ export function useAuth(): AuthState {
   const [state, setState] = useState<AuthState>({
     user: null,
     profile: null,
-    role: 'user',
+    role: 'player',
     loading: true,
   });
 
@@ -27,7 +28,7 @@ export function useAuth(): AuthState {
         setState({
           user: null,
           profile: null,
-          role: 'user',
+          role: 'player',
           loading: false,
         });
         return;
@@ -35,10 +36,12 @@ export function useAuth(): AuthState {
 
       try {
         const profile = await getUserData(firebaseUser.uid);
+        // Migration: Convert old 'user' role to 'player' (handled in getUserData)
+        const role = profile?.role ?? 'player';
         setState({
           user: firebaseUser,
           profile: profile ?? null,
-          role: profile?.role ?? 'user',
+          role,
           loading: false,
         });
       } catch (error) {
@@ -46,7 +49,7 @@ export function useAuth(): AuthState {
         setState({
           user: firebaseUser,
           profile: null,
-          role: 'user',
+          role: 'player',
           loading: false,
         });
       }

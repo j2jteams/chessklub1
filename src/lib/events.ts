@@ -19,8 +19,16 @@ import { db } from './firebase';
 import { EventData, EventStatus, EventCategory } from './types';
 
 const EVENTS_COLLECTION = 'events';
+const USERS_COLLECTION = 'users';
 
+// UPDATED: role-based routing and approval flows - Phase 0.5
 function fromFirestoreEvent(docId: string, data: any): EventData {
+  // Migration: Convert old 'pending' status to 'pendingApproval' for backward compatibility
+  let eventStatus = data.status ?? 'approved';
+  if (eventStatus === 'pending') {
+    eventStatus = 'pendingApproval';
+  }
+  
   return {
     id: docId,
     title: data.title,
@@ -35,7 +43,7 @@ function fromFirestoreEvent(docId: string, data: any): EventData {
     contactPhone: data.contactPhone,
     createdBy: data.createdBy,
     createdByEmail: data.createdByEmail,
-    status: data.status,
+    status: eventStatus as EventStatus,
     registeredUsers: data.registeredUsers ?? [],
     savedByUsers: data.savedByUsers ?? [],
     approvedBy: data.approvedBy,
@@ -181,13 +189,56 @@ export async function getApprovedEvents(): Promise<EventData[]> {
 }
 
 export async function getPendingEvents(): Promise<EventData[]> {
-  const snapshot = await getDocs(
-    query(collection(db, EVENTS_COLLECTION), where('status', '==', 'pending'), orderBy('createdAt', 'desc')),
+  // UPDATED: Use 'pendingApproval' status - Phase 0.5
+  // Also query for old 'pending' status for backward compatibility
+  const [newPending, oldPending] = await Promise.all([
+    getDocs(
+      query(collection(db, EVENTS_COLLECTION), where('status', '==', 'pendingApproval'), orderBy('createdAt', 'desc')),
+    ),
+    getDocs(
+      query(collection(db, EVENTS_COLLECTION), where('status', '==', 'pending'), orderBy('createdAt', 'desc')),
+    ),
+  ]);
+  
+  const allPending = [
+    ...newPending.docs.map((docSnap) => fromFirestoreEvent(docSnap.id, docSnap.data())),
+    ...oldPending.docs.map((docSnap) => fromFirestoreEvent(docSnap.id, docSnap.data())),
+  ];
+  
+  // Remove duplicates by ID
+  const uniquePending = Array.from(
+    new Map(allPending.map(event => [event.id, event])).values()
   );
-  return snapshot.docs.map((docSnap) => fromFirestoreEvent(docSnap.id, docSnap.data()));
+  
+  return uniquePending;
 }
 
 export async function getEventsByStatus(status: EventStatus): Promise<EventData[]> {
+  // UPDATED: role-based routing and approval flows - Phase 0.5
+  // Handle migration from 'pending' to 'pendingApproval'
+  if (status === 'pendingApproval') {
+    // Query both new and old status for backward compatibility
+    const [newPending, oldPending] = await Promise.all([
+      getDocs(
+        query(collection(db, EVENTS_COLLECTION), where('status', '==', 'pendingApproval'), orderBy('createdAt', 'desc')),
+      ),
+      getDocs(
+        query(collection(db, EVENTS_COLLECTION), where('status', '==', 'pending'), orderBy('createdAt', 'desc')),
+      ),
+    ]);
+    
+    const allPending = [
+      ...newPending.docs.map((docSnap) => fromFirestoreEvent(docSnap.id, docSnap.data())),
+      ...oldPending.docs.map((docSnap) => fromFirestoreEvent(docSnap.id, docSnap.data())),
+    ];
+    
+    // Remove duplicates by ID
+    return Array.from(
+      new Map(allPending.map(event => [event.id, event])).values()
+    );
+  }
+  
+  // For other statuses, query normally
   const snapshot = await getDocs(
     query(collection(db, EVENTS_COLLECTION), where('status', '==', status), orderBy('createdAt', 'desc')),
   );
@@ -219,29 +270,76 @@ export async function getEventsByIds(ids: string[]): Promise<EventData[]> {
 }
 
 export async function registerUserForEvent(eventId: string, uid: string) {
-  await updateDoc(doc(db, EVENTS_COLLECTION, eventId), {
-    registeredUsers: arrayUnion(uid),
-    updatedAt: serverTimestamp(),
-  });
+  try {
+    // Update event document - add user to registeredUsers
+    await updateDoc(doc(db, EVENTS_COLLECTION, eventId), {
+      registeredUsers: arrayUnion(uid),
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error: any) {
+    console.error('Error updating event document:', error);
+    throw new Error(`Failed to update event: ${error.message || 'Permission denied'}`);
+  }
+  
+  try {
+    // Update user document - add event to registeredEvents
+    await updateDoc(doc(db, USERS_COLLECTION, uid), {
+      registeredEvents: arrayUnion(eventId),
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error: any) {
+    console.error('Error updating user document:', error);
+    // Try to rollback event update
+    try {
+      await updateDoc(doc(db, EVENTS_COLLECTION, eventId), {
+        registeredUsers: arrayRemove(uid),
+        updatedAt: serverTimestamp(),
+      });
+    } catch (rollbackError) {
+      console.error('Error rolling back event update:', rollbackError);
+    }
+    throw new Error(`Failed to update user: ${error.message || 'Permission denied'}`);
+  }
 }
 
 export async function unregisterUserFromEvent(eventId: string, uid: string) {
+  // Update event document - remove user from registeredUsers
   await updateDoc(doc(db, EVENTS_COLLECTION, eventId), {
     registeredUsers: arrayRemove(uid),
+    updatedAt: serverTimestamp(),
+  });
+  
+  // Update user document - remove event from registeredEvents
+  await updateDoc(doc(db, USERS_COLLECTION, uid), {
+    registeredEvents: arrayRemove(eventId),
     updatedAt: serverTimestamp(),
   });
 }
 
 export async function saveEvent(eventId: string, uid: string) {
+  // Update event document - add user to savedByUsers
   await updateDoc(doc(db, EVENTS_COLLECTION, eventId), {
     savedByUsers: arrayUnion(uid),
+    updatedAt: serverTimestamp(),
+  });
+  
+  // Update user document - add event to savedEvents
+  await updateDoc(doc(db, USERS_COLLECTION, uid), {
+    savedEvents: arrayUnion(eventId),
     updatedAt: serverTimestamp(),
   });
 }
 
 export async function unsaveEvent(eventId: string, uid: string) {
+  // Update event document - remove user from savedByUsers
   await updateDoc(doc(db, EVENTS_COLLECTION, eventId), {
     savedByUsers: arrayRemove(uid),
+    updatedAt: serverTimestamp(),
+  });
+  
+  // Update user document - remove event from savedEvents
+  await updateDoc(doc(db, USERS_COLLECTION, uid), {
+    savedEvents: arrayRemove(eventId),
     updatedAt: serverTimestamp(),
   });
 }

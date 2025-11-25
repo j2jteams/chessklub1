@@ -1,8 +1,10 @@
+// UPDATED: role-based routing and approval flows - Phase 0.5
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { useRequireRole } from '@/hooks/useRequireRole';
 import { getAllEvents, updateEvent } from '@/lib/events';
 import { uploadImage } from '@/lib/storage';
 import { EventData, EventCategory } from '@/lib/types';
@@ -11,6 +13,9 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 export default function EditEventPage() {
+  // Protect route - allow both admin and owner
+  useRequireRole(['admin', 'owner']);
+  
   const { user, role, loading: authLoading } = useAuth();
   const router = useRouter();
   const params = useParams();
@@ -136,7 +141,8 @@ export default function EditEventPage() {
 
     try {
       // If admin edits, event goes back to pending for owner approval
-      const status = role === 'owner' ? 'approved' : 'pending';
+      // UPDATED: role-based routing and approval flows - Phase 0.5
+      const status = role === 'owner' ? 'approved' : 'pendingApproval';
       
       await updateEvent(eventId, {
         title: formData.title,
