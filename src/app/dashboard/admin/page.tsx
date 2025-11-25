@@ -84,7 +84,7 @@ export default function AdminDashboardPage() {
         <div className="bg-white border border-gray-100 rounded-2xl p-5">
           <p className="text-xs text-gray-500 uppercase tracking-wide">Pending Approval</p>
           <p className="text-3xl font-bold text-slate-900 mt-2">
-            {events.filter((event) => event.status === 'pending').length}
+            {events.filter((event) => event.status === 'pendingApproval').length}
           </p>
           <p className="text-xs text-gray-400 mt-1">Awaiting owner review</p>
         </div>
@@ -128,7 +128,7 @@ export default function AdminDashboardPage() {
                     className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${
                       event.status === 'approved'
                         ? 'bg-green-100 text-green-700'
-                        : event.status === 'pending'
+                        : event.status === 'pendingApproval'
                         ? 'bg-yellow-100 text-yellow-700'
                         : 'bg-gray-100 text-gray-600'
                     }`}
