@@ -166,12 +166,12 @@ export default function EventsManagementPage() {
                           className={`px-2 py-1 text-xs font-semibold rounded-full ${
                             event.status === 'approved'
                               ? 'bg-green-100 text-green-800'
-                              : event.status === 'pendingApproval' || event.status === 'pending'
+                              : event.status === 'pendingApproval'
                               ? 'bg-yellow-100 text-yellow-800'
                               : 'bg-red-100 text-red-800'
                           }`}
                         >
-                          {event.status === 'pending' ? 'pendingApproval' : event.status}
+                          {event.status}
                         </span>
                       </div>
                       <p className="text-gray-600 mb-2">{event.description}</p>
@@ -189,7 +189,7 @@ export default function EventsManagementPage() {
                       </p>
                     </div>
                     <div className="flex gap-2 ml-4">
-                      {role === 'owner' && (event.status === 'pendingApproval' || event.status === 'pending') && (
+                      {role === 'owner' && event.status === 'pendingApproval' && (
                         <>
                           <button
                             onClick={() => handleApprove(event.id!)}
