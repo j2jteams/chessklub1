@@ -3,14 +3,20 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { useRequireRole } from '@/hooks/useRequireRole';
 import { createEvent } from '@/lib/events';
 import { uploadImage } from '@/lib/storage';
 import { EventCategory } from '@/lib/types';
 import Link from 'next/link';
 
 export default function CreateEventPage() {
+  // UPDATED: role-based routing and approval flows - Phase 0.5
+  // Protect route - allow both admin and owner
   const { user, role, loading: authLoading } = useAuth();
   const router = useRouter();
+  
+  // Use useRequireRole for route protection
+  const { authorized } = useRequireRole(['admin', 'owner']);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -29,18 +35,7 @@ export default function CreateEventPage() {
     contactPhone: '',
   });
 
-  useEffect(() => {
-    if (!authLoading) {
-      if (!user) {
-        router.push('/login');
-        return;
-      }
-      if (role !== 'owner' && role !== 'admin') {
-        router.push('/');
-        return;
-      }
-    }
-  }, [user, role, authLoading, router]);
+  // Route protection is handled by useRequireRole hook
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -96,8 +91,9 @@ export default function CreateEventPage() {
     setLoading(true);
 
     try {
+      // UPDATED: role-based routing and approval flows - Phase 0.5
       // Owners' events are auto-approved, admins' events need approval
-      const status = role === 'owner' ? 'approved' : 'pending';
+      const status = role === 'owner' ? 'approved' : 'pendingApproval';
       
       await createEvent({
         title: formData.title,
@@ -125,7 +121,7 @@ export default function CreateEventPage() {
     }
   };
 
-  if (authLoading) {
+  if (authLoading || !authorized) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -134,10 +130,6 @@ export default function CreateEventPage() {
         </div>
       </div>
     );
-  }
-
-  if (!user || (role !== 'owner' && role !== 'admin')) {
-    return null; // Will redirect
   }
 
   return (

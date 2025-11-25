@@ -1,16 +1,18 @@
-export type UserRole = 'user' | 'admin' | 'owner' | null;
+// UPDATED: role-based routing and approval flows - Phase 0.5
+export type UserRole = 'player' | 'admin' | 'owner' | null;
 
 export interface UserData {
   uid: string;
   email: string;
   role: UserRole;
+  isGodOwner?: boolean; // UPDATED: God Owner system - only God Owner can transfer ownership
   savedEvents: string[];
   registeredEvents: string[];
   createdAt: Date;
   updatedAt: Date;
 }
 
-export type EventStatus = 'draft' | 'pending' | 'approved' | 'rejected';
+export type EventStatus = 'draft' | 'pendingApproval' | 'approved' | 'rejected';
 export type EventCategory = 'tournament' | 'event' | 'workshop' | 'simul' | 'other';
 
 export interface EventData {

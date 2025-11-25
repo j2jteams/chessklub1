@@ -1,32 +1,27 @@
+// UPDATED: role-based routing and approval flows - Phase 0.5
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { useRequireRole } from '@/hooks/useRequireRole';
 import { getAllUsers, updateUserRole } from '@/lib/userRoles';
 import { UserData, UserRole } from '@/lib/types';
 import Link from 'next/link';
 
 export default function AdminPage() {
+  // Protect route - only owners can access
+  useRequireRole(['owner']);
+  
   const { user, role, loading: authLoading } = useAuth();
-  const router = useRouter();
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!authLoading) {
-      if (!user) {
-        router.push('/login');
-        return;
-      }
-      if (role !== 'owner') {
-        router.push('/');
-        return;
-      }
+    if (!authLoading && user && role === 'owner') {
       loadUsers();
     }
-  }, [user, role, authLoading, router]);
+  }, [user, role, authLoading]);
 
   const loadUsers = async () => {
     try {
@@ -58,10 +53,6 @@ export default function AdminPage() {
         </div>
       </div>
     );
-  }
-
-  if (!user || role !== 'owner') {
-    return null; // Will redirect
   }
 
   return (
@@ -131,7 +122,7 @@ export default function AdminPage() {
                           ? 'bg-blue-100 text-blue-800'
                           : 'bg-gray-100 text-gray-800'
                       }`}>
-                        {userData.role || 'No Role'}
+                        {userData.role || 'player'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -172,7 +163,7 @@ export default function AdminPage() {
           <ul className="text-sm text-blue-800 space-y-1">
             <li><strong>Owner:</strong> Can create events, manage admins, and approve events posted by admins</li>
             <li><strong>Admin:</strong> Can create and edit events (requires owner approval)</li>
-            <li><strong>No Role:</strong> Regular user with no special permissions</li>
+            <li><strong>Player:</strong> Regular user with no special permissions (default role)</li>
           </ul>
         </div>
       </div>

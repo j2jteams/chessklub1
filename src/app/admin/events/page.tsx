@@ -1,33 +1,29 @@
+// UPDATED: role-based routing and approval flows - Phase 0.5
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { useRequireRole } from '@/hooks/useRequireRole';
 import { getAllEvents, approveEvent, rejectEvent, deleteEvent } from '@/lib/events';
 import { EventData } from '@/lib/types';
 import Link from 'next/link';
 
 export default function EventsManagementPage() {
+  // Protect route - allow both admin and owner
+  useRequireRole(['admin', 'owner']);
+  
   const { user, role, loading: authLoading } = useAuth();
-  const router = useRouter();
   const [events, setEvents] = useState<EventData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  // UPDATED: role-based routing and approval flows - Phase 0.5
+  const [filter, setFilter] = useState<'all' | 'pendingApproval' | 'approved' | 'rejected'>('all');
 
   useEffect(() => {
-    if (!authLoading) {
-      if (!user) {
-        router.push('/login');
-        return;
-      }
-      if (role !== 'owner' && role !== 'admin') {
-        router.push('/');
-        return;
-      }
+    if (!authLoading && user && (role === 'admin' || role === 'owner')) {
       loadEvents();
     }
-  }, [user, role, authLoading, router, filter]);
+  }, [user, role, authLoading, filter]);
 
   const loadEvents = async () => {
     try {
@@ -135,7 +131,7 @@ export default function EventsManagementPage() {
         {/* Filter Tabs */}
         <div className="mb-6 border-b border-gray-200">
           <nav className="-mb-px flex space-x-8">
-            {(['all', 'pending', 'approved', 'rejected'] as const).map((tab) => (
+            {(['all', 'pendingApproval', 'approved', 'rejected'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setFilter(tab)}
@@ -170,12 +166,12 @@ export default function EventsManagementPage() {
                           className={`px-2 py-1 text-xs font-semibold rounded-full ${
                             event.status === 'approved'
                               ? 'bg-green-100 text-green-800'
-                              : event.status === 'pending'
+                              : event.status === 'pendingApproval' || event.status === 'pending'
                               ? 'bg-yellow-100 text-yellow-800'
                               : 'bg-red-100 text-red-800'
                           }`}
                         >
-                          {event.status}
+                          {event.status === 'pending' ? 'pendingApproval' : event.status}
                         </span>
                       </div>
                       <p className="text-gray-600 mb-2">{event.description}</p>
@@ -193,7 +189,7 @@ export default function EventsManagementPage() {
                       </p>
                     </div>
                     <div className="flex gap-2 ml-4">
-                      {role === 'owner' && event.status === 'pending' && (
+                      {role === 'owner' && (event.status === 'pendingApproval' || event.status === 'pending') && (
                         <>
                           <button
                             onClick={() => handleApprove(event.id!)}

@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { updateUserRole, getUserData } from '@/lib/userRoles';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 
 export default function SetupOwnerPage() {
@@ -37,8 +39,14 @@ export default function SetupOwnerPage() {
         return;
       }
 
-      // Set role to owner
+      // Set role to owner and mark as God Owner (first owner)
       await updateUserRole(user.uid, 'owner');
+      // Set isGodOwner to true for the first owner
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        isGodOwner: true,
+        updatedAt: serverTimestamp(),
+      });
       
       setMessage({ type: 'success', text: 'Successfully set as Owner! Redirecting...' });
       
@@ -105,7 +113,7 @@ export default function SetupOwnerPage() {
             <strong>Current User:</strong> {user.email}
           </p>
           <p className="text-sm text-blue-800 mt-1">
-            <strong>Current Role:</strong> {role || 'No role (user)'}
+            <strong>Current Role:</strong> {role || 'player'}
           </p>
           <p className="text-xs text-blue-700 mt-2 break-all">
             <strong>User UID:</strong> {user.uid}

@@ -61,7 +61,7 @@ function EventsGrid({ events, emptyLabel }: { events: EventData[]; emptyLabel: s
 }
 
 export default function UserDashboardPage() {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, role, loading } = useAuth();
   const router = useRouter();
   const [savedEvents, setSavedEvents] = useState<EventData[]>([]);
   const [registeredEvents, setRegisteredEvents] = useState<EventData[]>([]);
@@ -123,6 +123,26 @@ export default function UserDashboardPage() {
           <p className="text-xs text-gray-400 mt-1">Events bookmarked to revisit later</p>
         </div>
       </div>
+
+      {/* Request Admin Access - Only for players */}
+      {(role === 'player' || role === null) && (
+        <div className="bg-gradient-to-r from-orange-50 to-orange-100 border border-orange-200 rounded-2xl p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-1">Want to become an Admin?</h3>
+              <p className="text-sm text-gray-600">
+                Request admin access to create and manage events. An owner will review your request.
+              </p>
+            </div>
+            <Link
+              href="/request-admin"
+              className="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg transition shadow-lg"
+            >
+              Request Admin Access
+            </Link>
+          </div>
+        </div>
+      )}
 
       <SectionWrapper title="Registered Events">
         {fetchLoading ? (

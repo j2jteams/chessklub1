@@ -16,8 +16,15 @@ service cloud.firestore {
       return request.auth != null && role in ['admin', 'owner'];
     }
     
+    // Helper function to check if current user is God Owner
+    function isGodOwner() {
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return userDoc != null && userDoc.data.isGodOwner == true;
+    }
+    
     // Users collection
     match /users/{userId} {
+      
       // Users can read their own data, owners can read all
       allow read: if request.auth != null && 
         (request.auth.uid == userId || isOwner());
@@ -27,17 +34,24 @@ service cloud.firestore {
         (request.auth.uid == userId);
       
       // Users can update their own documents (for registeredEvents and savedEvents)
-      // Only owners can update user roles
+      // Only God Owner can update user roles to owner or transfer God Owner status
+      // Regular owners can update roles for admin approval
+      // UPDATED: God Owner system - Phase 0.5
+      // UPDATED: Fixed user document update permissions for registration/saving
       allow update: if request.auth != null && 
-        (request.auth.uid == userId && 
-         (request.resource.data.role == resource.data.role || isOwner()));
+        (isGodOwner() ||
+         (isOwner() && request.resource.data.isGodOwner == resource.data.isGodOwner) ||
+         (request.auth.uid == userId && 
+          request.resource.data.role == resource.data.role &&
+          request.resource.data.isGodOwner != true));
       allow delete: if request.auth != null && isOwner();
     }
     
     // Events collection
     match /events/{eventId} {
-      // Public can read approved events
-      // Owners and admins can read all events
+      // Public can read approved events only
+      // Owners and admins can read all events (including pendingApproval, draft, rejected)
+      // UPDATED: role-based routing and approval flows - Phase 0.5
       allow read: if resource == null || 
         resource.data.status == 'approved' || 
         (request.auth != null && isAdminOrOwner());
@@ -48,11 +62,13 @@ service cloud.firestore {
       // Owners can update any event
       // Admins can only update their own events
       // Authenticated users can update registeredUsers and savedByUsers arrays (for registration/saving)
+      // UPDATED: Fixed registration/save permissions - simplified to allow array updates
       allow update: if request.auth != null && 
         (isOwner() || 
          (getUserRole() == 'admin' && resource.data.createdBy == request.auth.uid) ||
-         // Allow any authenticated user to update only registeredUsers and savedByUsers arrays
-         // Verify that critical fields haven't changed
+         // Allow any authenticated user to update registeredUsers and savedByUsers arrays
+         // Only verify that immutable required fields haven't changed
+         // Note: updateDoc() only updates specified fields, so other fields remain unchanged
          (request.resource.data.title == resource.data.title &&
           request.resource.data.date == resource.data.date &&
           request.resource.data.location == resource.data.location &&
@@ -67,6 +83,26 @@ service cloud.firestore {
       allow delete: if request.auth != null && 
         (isOwner() || 
          (getUserRole() == 'admin' && resource.data.createdBy == request.auth.uid));
+    }
+    
+    // Admin Requests collection
+    // UPDATED: role-based routing and approval flows - Phase 0.5
+    match /adminRequests/{requestId} {
+      // Players can read their own pending requests
+      // Owners can read all requests
+      allow read: if request.auth != null && 
+        (resource.data.userId == request.auth.uid || isOwner());
+      
+      // Players can create their own admin requests
+      allow create: if request.auth != null && 
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.status == 'pending';
+      
+      // Only owners can update (approve/reject) admin requests
+      allow update: if request.auth != null && isOwner();
+      
+      // Only owners can delete admin requests
+      allow delete: if request.auth != null && isOwner();
     }
   }
 }
