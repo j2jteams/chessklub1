@@ -8,7 +8,7 @@ export default function OnlineTutoringPage() {
   return (
     <>
       <Header />
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 chess-themed-bg">
         {/* Hero Section */}
         <div 
           className="text-white py-12"

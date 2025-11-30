@@ -16,12 +16,14 @@ import {
   where,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { EventData, EventStatus, EventCategory } from './types';
+import { EventData, EventStatus, EventCategory, TournamentSection, EventAddOn, ChessEvent } from './types';
+import { Timestamp } from 'firebase/firestore';
 
 const EVENTS_COLLECTION = 'events';
 const USERS_COLLECTION = 'users';
 
 // UPDATED: role-based routing and approval flows - Phase 0.5
+// UPDATED: Tournament data standardization
 function fromFirestoreEvent(docId: string, data: any): EventData {
   // Migration: Convert old 'pending' status to 'pendingApproval' for backward compatibility
   let eventStatus = data.status ?? 'approved';
@@ -29,9 +31,61 @@ function fromFirestoreEvent(docId: string, data: any): EventData {
     eventStatus = 'pendingApproval';
   }
   
+  // Handle tournament-specific fields with backward compatibility
+  let startDate: Date | string | undefined;
+  let endDate: Date | string | undefined;
+  
+  if (data.startDate) {
+    // Handle Firestore Timestamp
+    if (data.startDate.toDate) {
+      startDate = data.startDate.toDate();
+    } else if (data.startDate instanceof Date) {
+      startDate = data.startDate;
+    } else {
+      startDate = data.startDate;
+    }
+  }
+  
+  if (data.endDate) {
+    // Handle Firestore Timestamp
+    if (data.endDate.toDate) {
+      endDate = data.endDate.toDate();
+    } else if (data.endDate instanceof Date) {
+      endDate = data.endDate;
+    } else {
+      endDate = data.endDate;
+    }
+  }
+  
+  // Parse sections array if present
+  let sections: TournamentSection[] = [];
+  if (data.sections && Array.isArray(data.sections)) {
+    sections = data.sections.map((section: any) => ({
+      id: section.id || '',
+      name: section.name || '',
+      minRating: section.minRating ?? null,
+      maxRating: section.maxRating ?? null,
+      entryFee: section.entryFee ?? null,
+    }));
+  }
+
+  // Parse add-ons array if present
+  let addOns: EventAddOn[] = [];
+  if (data.addOns && Array.isArray(data.addOns)) {
+    addOns = data.addOns.map((addOn: any) => ({
+      id: addOn.id || '',
+      name: addOn.name || '',
+      description: addOn.description || '',
+      price: addOn.price ?? null,
+      isRequired: addOn.isRequired || false,
+      appliesToSections: Array.isArray(addOn.appliesToSections) ? addOn.appliesToSections : [],
+    }));
+  }
+  
   return {
     id: docId,
-    title: data.title,
+    title: data.title || data.name || '',
+    name: data.name || data.title || '', // Include both for compatibility
     date: data.date,
     time: data.time,
     location: data.location,
@@ -50,6 +104,18 @@ function fromFirestoreEvent(docId: string, data: any): EventData {
     approvedAt: data.approvedAt?.toDate?.(),
     createdAt: data.createdAt?.toDate?.() ?? new Date(),
     updatedAt: data.updatedAt?.toDate?.() ?? new Date(),
+    // Tournament-specific fields (backward compatible - only if present)
+    venue: data.venue,
+    startDate: startDate,
+    endDate: endDate,
+    startTime: data.startTime,
+    endTime: data.endTime,
+    timeControl: data.timeControl,
+    sections: sections.length > 0 ? sections : undefined,
+    // Add-ons (new unified model)
+    addOns: addOns.length > 0 ? addOns : undefined,
+    // Unified type field (maps from category or type)
+    type: data.type || (data.category === 'tournament' ? 'tournament' : 'other'),
   };
 }
 
@@ -88,6 +154,95 @@ export async function createEvent(event: Omit<EventData, 'id' | 'createdAt' | 'u
       eventData.contactPhone = event.contactPhone.trim();
     }
     
+    // Tournament-specific fields (only for tournaments)
+    // Required fields: venue, startDate, endDate, timeControl
+    // Optional fields: sections
+    if (event.category === 'tournament') {
+      // Venue (required for tournaments - validated in form)
+      if (event.venue !== undefined && event.venue !== null) {
+        const venueStr = typeof event.venue === 'string' ? event.venue.trim() : String(event.venue).trim();
+        if (venueStr) {
+          eventData.venue = venueStr;
+        }
+      }
+      
+      // Start date (required for tournaments - validated in form)
+      if (event.startDate) {
+        if (event.startDate instanceof Date) {
+          eventData.startDate = Timestamp.fromDate(event.startDate);
+        } else if (typeof event.startDate === 'string') {
+          const startDateObj = new Date(event.startDate);
+          if (!isNaN(startDateObj.getTime())) {
+            eventData.startDate = Timestamp.fromDate(startDateObj);
+          }
+        }
+      }
+      
+      // End date (required for tournaments - validated in form)
+      if (event.endDate) {
+        if (event.endDate instanceof Date) {
+          eventData.endDate = Timestamp.fromDate(event.endDate);
+        } else if (typeof event.endDate === 'string') {
+          const endDateObj = new Date(event.endDate);
+          if (!isNaN(endDateObj.getTime())) {
+            eventData.endDate = Timestamp.fromDate(endDateObj);
+          }
+        }
+      }
+      
+      // Time control (required for tournaments - validated in form)
+      if (event.timeControl !== undefined && event.timeControl !== null) {
+        const timeControlStr = typeof event.timeControl === 'string' ? event.timeControl.trim() : String(event.timeControl).trim();
+        if (timeControlStr) {
+          eventData.timeControl = timeControlStr;
+        }
+      }
+
+      // Time fields
+      if (event.startTime !== undefined && event.startTime !== null) {
+        const startTimeStr = typeof event.startTime === 'string' ? event.startTime.trim() : String(event.startTime).trim();
+        if (startTimeStr) {
+          eventData.startTime = startTimeStr;
+        }
+      }
+      if (event.endTime !== undefined && event.endTime !== null) {
+        const endTimeStr = typeof event.endTime === 'string' ? event.endTime.trim() : String(event.endTime).trim();
+        if (endTimeStr) {
+          eventData.endTime = endTimeStr;
+        }
+      }
+      
+      // Sections array (optional - only if provided)
+      if (event.sections && Array.isArray(event.sections) && event.sections.length > 0) {
+        eventData.sections = event.sections.map(section => ({
+          id: section.id || `section-${Date.now()}-${Math.random()}`,
+          name: section.name || '',
+          minRating: section.minRating ?? null,
+          maxRating: section.maxRating ?? null,
+          entryFee: section.entryFee ?? null,
+        }));
+      }
+    }
+
+    // Add-ons (for all event types)
+    if (event.addOns && Array.isArray(event.addOns) && event.addOns.length > 0) {
+      eventData.addOns = event.addOns.map(addOn => ({
+        id: addOn.id || `addon-${Date.now()}-${Math.random()}`,
+        name: addOn.name || '',
+        description: addOn.description || '',
+        price: addOn.price ?? null,
+        isRequired: addOn.isRequired || false,
+        appliesToSections: Array.isArray(addOn.appliesToSections) ? addOn.appliesToSections : [],
+      }));
+    }
+
+    // Unified type field
+    if (event.type) {
+      eventData.type = event.type;
+    } else if (event.category === 'tournament') {
+      eventData.type = 'tournament';
+    }
+    
     const docRef = await addDoc(collection(db, EVENTS_COLLECTION), eventData);
     return docRef.id;
   } catch (error: any) {
@@ -119,6 +274,104 @@ export async function updateEvent(eventId: string, updates: Partial<EventData>) 
   if (updates.price !== undefined) updateData.price = updates.price;
   if (updates.category !== undefined) updateData.category = updates.category;
   if (updates.status !== undefined) updateData.status = updates.status;
+  
+  // Tournament-specific fields
+  if (updates.venue !== undefined) {
+    const venueValue = typeof updates.venue === 'string' ? updates.venue.trim() : updates.venue;
+    if (venueValue && venueValue !== '') {
+      updateData.venue = venueValue;
+    } else {
+      updateData.venue = deleteField();
+    }
+  }
+  
+  if (updates.startDate !== undefined) {
+    if (updates.startDate instanceof Date) {
+      updateData.startDate = Timestamp.fromDate(updates.startDate);
+    } else if (typeof updates.startDate === 'string') {
+      const startDateObj = new Date(updates.startDate);
+      if (!isNaN(startDateObj.getTime())) {
+        updateData.startDate = Timestamp.fromDate(startDateObj);
+      }
+    } else if (updates.startDate === null) {
+      updateData.startDate = deleteField();
+    }
+  }
+  
+  if (updates.endDate !== undefined) {
+    if (updates.endDate instanceof Date) {
+      updateData.endDate = Timestamp.fromDate(updates.endDate);
+    } else if (typeof updates.endDate === 'string') {
+      const endDateObj = new Date(updates.endDate);
+      if (!isNaN(endDateObj.getTime())) {
+        updateData.endDate = Timestamp.fromDate(endDateObj);
+      }
+    } else if (updates.endDate === null) {
+      updateData.endDate = deleteField();
+    }
+  }
+  
+  if (updates.timeControl !== undefined) {
+    const timeControlValue = typeof updates.timeControl === 'string' ? updates.timeControl.trim() : updates.timeControl;
+    if (timeControlValue && timeControlValue !== '') {
+      updateData.timeControl = timeControlValue;
+    } else {
+      updateData.timeControl = deleteField();
+    }
+  }
+
+  if (updates.startTime !== undefined) {
+    const startTimeValue = typeof updates.startTime === 'string' ? updates.startTime.trim() : updates.startTime;
+    if (startTimeValue && startTimeValue !== '') {
+      updateData.startTime = startTimeValue;
+    } else {
+      updateData.startTime = deleteField();
+    }
+  }
+
+  if (updates.endTime !== undefined) {
+    const endTimeValue = typeof updates.endTime === 'string' ? updates.endTime.trim() : updates.endTime;
+    if (endTimeValue && endTimeValue !== '') {
+      updateData.endTime = endTimeValue;
+    } else {
+      updateData.endTime = deleteField();
+    }
+  }
+  
+  if (updates.sections !== undefined) {
+    if (updates.sections && Array.isArray(updates.sections) && updates.sections.length > 0) {
+      updateData.sections = updates.sections.map(section => ({
+        id: section.id,
+        name: section.name,
+        minRating: section.minRating ?? null,
+        maxRating: section.maxRating ?? null,
+        entryFee: section.entryFee ?? null,
+      }));
+    } else {
+      updateData.sections = deleteField();
+    }
+  }
+
+  // Add-ons
+  if (updates.addOns !== undefined) {
+    if (updates.addOns && Array.isArray(updates.addOns) && updates.addOns.length > 0) {
+      updateData.addOns = updates.addOns.map(addOn => ({
+        id: addOn.id,
+        name: addOn.name,
+        description: addOn.description || '',
+        price: addOn.price ?? null,
+        isRequired: addOn.isRequired || false,
+        appliesToSections: Array.isArray(addOn.appliesToSections) ? addOn.appliesToSections : [],
+      }));
+    } else {
+      updateData.addOns = deleteField();
+    }
+  }
+
+  // Unified type field
+  if (updates.type !== undefined) {
+    updateData.type = updates.type;
+  }
   
   // For optional fields, only include if they have values (not empty strings)
   // If empty, we'll just omit the field (don't set it to null or deleteField)
@@ -174,6 +427,41 @@ export async function getEvent(eventId: string): Promise<EventData | null> {
   const snap = await getDoc(doc(db, EVENTS_COLLECTION, eventId));
   if (!snap.exists()) return null;
   return fromFirestoreEvent(snap.id, snap.data());
+}
+
+// UPDATED: Helper function to convert EventData to ChessEvent format
+export function eventDataToChessEvent(eventData: EventData): ChessEvent {
+  return {
+    id: eventData.id || '',
+    type: (eventData.type || (eventData.category === 'tournament' ? 'tournament' : 'other')) as any,
+    name: eventData.title || '',
+    description: eventData.description || '',
+    venue: eventData.venue || eventData.location || '',
+    startDate: eventData.startDate || new Date(eventData.date || Date.now()),
+    endDate: eventData.endDate || new Date(eventData.date || Date.now()),
+    startTime: eventData.startTime,
+    endTime: eventData.endTime,
+    timeControl: eventData.timeControl,
+    status: eventData.status,
+    sections: eventData.sections || [],
+    addOns: eventData.addOns || [],
+    createdBy: eventData.createdBy,
+    createdByEmail: eventData.createdByEmail,
+    createdAt: eventData.createdAt,
+    updatedAt: eventData.updatedAt,
+    approvedBy: eventData.approvedBy,
+    approvedAt: eventData.approvedAt,
+    // Legacy fields
+    title: eventData.title,
+    date: eventData.date,
+    location: eventData.location,
+    price: eventData.price,
+    time: eventData.time,
+    image: eventData.image,
+    contactEmail: eventData.contactEmail,
+    contactPhone: eventData.contactPhone,
+    category: eventData.category,
+  };
 }
 
 export async function getAllEvents(): Promise<EventData[]> {

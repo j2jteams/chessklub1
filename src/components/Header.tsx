@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
@@ -10,6 +11,7 @@ import { EventData } from '@/lib/types';
 
 export default function Header() {
   const { user, role } = useAuth();
+  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [tournamentsOpen, setTournamentsOpen] = useState(false);
@@ -38,6 +40,8 @@ export default function Header() {
     };
     fetchEvents();
   }, []);
+
+  // Close dropdowns when clicking outside - REMOVED to prevent interference with navigation
 
   const handleSignOut = async () => {
     try {
@@ -79,9 +83,9 @@ export default function Header() {
   );
 
   return (
-    <>
+    <div style={{ position: 'relative', zIndex: 1000 }}>
       {/* Top Bar - Black with contact info */}
-      <div className="bg-black text-white py-2 text-xs sm:text-sm">
+      <div className="bg-black text-white py-2 text-xs sm:text-sm" style={{ position: 'relative', zIndex: 1001 }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-0">
             <div className="flex items-center">
@@ -118,7 +122,7 @@ export default function Header() {
       </div>
 
       {/* Main Navigation Header */}
-      <nav className="bg-white shadow-md border-b border-gray-200 sticky top-0 z-40" style={{ backgroundColor: 'var(--color-light)' }}>
+      <nav className="bg-white shadow-md border-b border-gray-200 sticky top-0 z-[1000]" style={{ backgroundColor: 'var(--color-light)', position: 'relative' }}>
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
           <div className="flex justify-between items-center h-16 sm:h-20">
             {/* Logo */}
@@ -168,9 +172,13 @@ export default function Header() {
               </Link>
 
               {/* Tournaments Dropdown */}
-              <div className="relative">
+              <div className="relative tournaments-dropdown">
                 <button
-                  onClick={() => setTournamentsOpen(!tournamentsOpen)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setTournamentsOpen(!tournamentsOpen);
+                  }}
                   className="flex items-center gap-1 px-4 py-2 transition font-medium rounded-md hover:bg-gray-50"
                   style={{ color: 'var(--color-dark)' }}
                 >
@@ -185,7 +193,7 @@ export default function Header() {
                   </svg>
                 </button>
                 {tournamentsOpen && (
-                  <div className="absolute top-full left-0 mt-2 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden">
+                  <div className="absolute top-full left-0 mt-2 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 z-[200] overflow-hidden" onClick={(e) => e.stopPropagation()}>
                     {/* Featured Preview Cards */}
                     {upcomingEvents.length > 0 && (
                       <div className="p-4 bg-gradient-to-r from-orange-50 to-orange-100 border-b border-gray-200">
@@ -196,21 +204,44 @@ export default function Header() {
                               key={event.id}
                               href={`/events/${event.id}`}
                               onClick={() => setTournamentsOpen(false)}
-                              className="block p-3 bg-white rounded-lg hover:shadow-md transition border border-gray-200"
+                              className="w-full text-left block p-3 bg-white rounded-lg hover:shadow-md transition border border-gray-200 cursor-pointer"
                             >
                               <div className="flex gap-3">
                                 {event.image && (
                                   <img 
                                     src={event.image} 
                                     alt={event.title}
-                                    className="w-16 h-16 object-cover rounded flex-shrink-0"
+                                    className="w-16 h-16 object-cover rounded flex-shrink-0 pointer-events-none"
                                   />
                                 )}
                                 <div className="flex-1 min-w-0">
                                   <h4 className="font-semibold text-sm text-gray-900 line-clamp-1 mb-1">{event.title}</h4>
                                   <p className="text-xs text-gray-600 mb-1">{event.date}</p>
                                   <p className="text-xs font-bold text-orange-600">
-                                    {event.price && !event.price.startsWith('$') ? `$${event.price}` : event.price || 'Free'}
+                                    {(() => {
+                                      // Get display price - prefer sections entry fees, then base price
+                                      if (event.category === 'tournament' && event.sections && event.sections.length > 0) {
+                                        const sectionsWithFee = event.sections.filter((s: any) => s.entryFee !== null && s.entryFee !== undefined);
+                                        if (sectionsWithFee.length > 0) {
+                                          const fees = sectionsWithFee.map((s: any) => s.entryFee!);
+                                          const minFee = Math.min(...fees);
+                                          const maxFee = Math.max(...fees);
+                                          if (minFee === maxFee) {
+                                            return `$${minFee.toFixed(2)}`;
+                                          } else {
+                                            return `$${minFee.toFixed(2)} - $${maxFee.toFixed(2)}`;
+                                          }
+                                        }
+                                      }
+                                      // Fall back to base price
+                                      if (event.price) {
+                                        if (!event.price.startsWith('$') && !event.price.toLowerCase().includes('free')) {
+                                          return `$${event.price}`;
+                                        }
+                                        return event.price;
+                                      }
+                                      return 'Free';
+                                    })()}
                                   </p>
                                 </div>
                               </div>
@@ -232,8 +263,7 @@ export default function Header() {
                         </div>
                         <Link
                           href="/tournaments?filter=new"
-                          className="flex items-center justify-between px-2 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-md transition group"
-                          onClick={() => setTournamentsOpen(false)}
+                          className="w-full flex items-center justify-between px-2 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-md transition group cursor-pointer"
                         >
                           <div className="flex items-center gap-2">
                             <svg className="w-4 h-4 text-gray-400 group-hover:text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -249,8 +279,7 @@ export default function Header() {
                         </Link>
                         <Link
                           href="/tournaments"
-                          className="flex items-center justify-between px-2 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-md transition group"
-                          onClick={() => setTournamentsOpen(false)}
+                          className="w-full flex items-center justify-between px-2 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-md transition group cursor-pointer"
                         >
                           <div className="flex items-center gap-2">
                             <svg className="w-4 h-4 text-gray-400 group-hover:text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -271,8 +300,12 @@ export default function Header() {
                         </div>
                         <Link
                           href="/events"
-                          className="flex items-center justify-between px-2 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-md transition group"
-                          onClick={() => setTournamentsOpen(false)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTournamentsOpen(false);
+                          }}
+                          className="w-full flex items-center justify-between px-2 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-md transition group cursor-pointer relative z-[2010]"
+                          style={{ position: 'relative', zIndex: 2010 }}
                         >
                           <div className="flex items-center gap-2">
                             <svg className="w-4 h-4 text-gray-400 group-hover:text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -286,8 +319,8 @@ export default function Header() {
                       {/* View All Link */}
                       <Link
                         href="/all"
-                        className="flex items-center justify-between px-4 py-3 text-sm font-semibold text-orange-600 hover:bg-orange-50 transition border-t border-gray-100"
                         onClick={() => setTournamentsOpen(false)}
+                        className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-orange-600 hover:bg-orange-50 transition border-t border-gray-100 cursor-pointer"
                       >
                         <span>View All Tournaments & Events</span>
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -350,20 +383,24 @@ export default function Header() {
                     </span>
                   </button>
                   {menuOpen && (
-                    <div className="absolute right-0 top-12 w-56 bg-white rounded-lg shadow-xl border border-gray-100 py-2 z-50">
+                    <div className="absolute right-0 top-12 w-56 bg-white rounded-lg shadow-xl border border-gray-100 py-2 z-[200] user-menu-dropdown" onClick={(e) => e.stopPropagation()}>
                       <div className="px-4 py-2 border-b border-gray-100">
                         <p className="text-sm font-semibold text-slate-900">
                           {dashboardLink.label.replace('Console', '')}
                         </p>
                         <p className="text-xs text-gray-500 truncate">{user.email}</p>
                       </div>
-                      <Link
-                        href={dashboardLink.href}
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition"
-                        onClick={() => setMenuOpen(false)}
-                      >
-                        Go to {dashboardLink.label}
-                      </Link>
+                  <Link
+                    href={dashboardLink.href}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMenuOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition cursor-pointer block relative z-[2010]"
+                    style={{ position: 'relative', zIndex: 2010 }}
+                  >
+                    Go to {dashboardLink.label}
+                  </Link>
                       <button
                         onClick={() => {
                           setMenuOpen(false);
@@ -395,7 +432,7 @@ export default function Header() {
 
       {/* Mobile Navigation Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden bg-white border-t border-gray-200 shadow-lg relative z-50">
+        <div className="md:hidden bg-white border-t border-gray-200 shadow-lg relative z-[200]">
           <div className="px-4 py-4 space-y-2">
             {/* Home Link */}
             <Link
@@ -410,7 +447,11 @@ export default function Header() {
             {/* Tournaments Dropdown */}
             <div>
               <button
-                onClick={() => setTournamentsOpen(!tournamentsOpen)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setTournamentsOpen(!tournamentsOpen);
+                }}
                 className="w-full flex items-center justify-between px-4 py-3 text-left font-medium rounded-md hover:bg-gray-50 transition"
                 style={{ color: 'var(--color-dark)' }}
               >
@@ -439,21 +480,44 @@ export default function Header() {
                               setTournamentsOpen(false);
                               setMobileMenuOpen(false);
                             }}
-                            className="block p-2 bg-white rounded-lg hover:shadow-md transition border border-gray-200"
+                            className="w-full text-left block p-2 bg-white rounded-lg hover:shadow-md transition border border-gray-200 cursor-pointer"
                           >
                             <div className="flex gap-2">
                               {event.image && (
                                 <img 
                                   src={event.image} 
                                   alt={event.title}
-                                  className="w-14 h-14 object-cover rounded flex-shrink-0"
+                                  className="w-14 h-14 object-cover rounded flex-shrink-0 pointer-events-none"
                                 />
                               )}
                               <div className="flex-1 min-w-0">
                                 <h4 className="font-semibold text-xs text-gray-900 line-clamp-1 mb-1">{event.title}</h4>
                                 <p className="text-xs text-gray-600 mb-1">{event.date}</p>
                                 <p className="text-xs font-bold text-orange-600">
-                                  {event.price && !event.price.startsWith('$') ? `$${event.price}` : event.price || 'Free'}
+                                  {(() => {
+                                    // Get display price - prefer sections entry fees, then base price
+                                    if (event.category === 'tournament' && event.sections && event.sections.length > 0) {
+                                      const sectionsWithFee = event.sections.filter((s: any) => s.entryFee !== null && s.entryFee !== undefined);
+                                      if (sectionsWithFee.length > 0) {
+                                        const fees = sectionsWithFee.map((s: any) => s.entryFee!);
+                                        const minFee = Math.min(...fees);
+                                        const maxFee = Math.max(...fees);
+                                        if (minFee === maxFee) {
+                                          return `$${minFee.toFixed(2)}`;
+                                        } else {
+                                          return `$${minFee.toFixed(2)} - $${maxFee.toFixed(2)}`;
+                                        }
+                                      }
+                                    }
+                                    // Fall back to base price
+                                    if (event.price) {
+                                      if (!event.price.startsWith('$') && !event.price.toLowerCase().includes('free')) {
+                                        return `$${event.price}`;
+                                      }
+                                      return event.price;
+                                    }
+                                    return 'Free';
+                                  })()}
                                 </p>
                               </div>
                             </div>
@@ -475,11 +539,7 @@ export default function Header() {
                       </div>
                       <Link
                         href="/tournaments?filter=new"
-                        className="flex items-center justify-between px-2 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-md transition group"
-                        onClick={() => {
-                          setTournamentsOpen(false);
-                          setMobileMenuOpen(false);
-                        }}
+                        className="w-full flex items-center justify-between px-2 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-md transition group cursor-pointer"
                       >
                         <div className="flex items-center gap-2">
                           <svg className="w-4 h-4 text-gray-400 group-hover:text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -495,11 +555,7 @@ export default function Header() {
                       </Link>
                       <Link
                         href="/tournaments"
-                        className="flex items-center justify-between px-2 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-md transition group"
-                        onClick={() => {
-                          setTournamentsOpen(false);
-                          setMobileMenuOpen(false);
-                        }}
+                        className="w-full flex items-center justify-between px-2 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-md transition group cursor-pointer"
                       >
                         <div className="flex items-center gap-2">
                           <svg className="w-4 h-4 text-gray-400 group-hover:text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -520,11 +576,11 @@ export default function Header() {
                       </div>
                       <Link
                         href="/events"
-                        className="flex items-center justify-between px-2 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-md transition group"
                         onClick={() => {
                           setTournamentsOpen(false);
                           setMobileMenuOpen(false);
                         }}
+                        className="w-full flex items-center justify-between px-2 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-md transition group cursor-pointer"
                       >
                         <div className="flex items-center gap-2">
                           <svg className="w-4 h-4 text-gray-400 group-hover:text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -538,11 +594,11 @@ export default function Header() {
                     {/* View All Link */}
                     <Link
                       href="/all"
-                      className="flex items-center justify-between px-3 py-3 text-sm font-semibold text-orange-600 hover:bg-orange-50 transition border-t border-gray-100"
                       onClick={() => {
                         setTournamentsOpen(false);
                         setMobileMenuOpen(false);
                       }}
+                      className="w-full flex items-center justify-between px-3 py-3 text-sm font-semibold text-orange-600 hover:bg-orange-50 transition border-t border-gray-100 cursor-pointer"
                     >
                       <span>View All Tournaments & Events</span>
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -615,17 +671,7 @@ export default function Header() {
         </div>
       )}
 
-      {/* Close dropdowns when clicking outside */}
-      {(tournamentsOpen || menuOpen || mobileMenuOpen) && (
-        <div
-          className="fixed inset-0 z-30"
-          onClick={() => {
-            setTournamentsOpen(false);
-            setMenuOpen(false);
-            setMobileMenuOpen(false);
-          }}
-        />
-      )}
-    </>
+      {/* Click outside handler - REMOVED to prevent blocking navigation */}
+    </div>
   );
 }
