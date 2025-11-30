@@ -147,7 +147,7 @@ function TournamentsContent() {
   return (
     <>
       <Header />
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 chess-themed-bg">
         {/* Hero Section */}
         <div 
           className="text-white py-12"
@@ -232,47 +232,112 @@ function TournamentsContent() {
                   key={tournament.id}
                   className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow flex flex-col"
                 >
-                  {/* Tournament Image */}
-                  {tournament.image ? (
-                    <div className="w-full h-48 overflow-hidden">
+                  {/* Tournament Image - Clickable */}
+                  <Link href={`/events/${tournament.id}`} className="block w-full h-48 overflow-hidden">
+                    {tournament.image ? (
                       <img 
                         src={tournament.image} 
                         alt={tournament.title}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-300 cursor-pointer"
                         onError={(e) => {
                           e.currentTarget.style.display = 'none';
                         }}
                       />
-                    </div>
-                  ) : (
-                    <div className="w-full h-48 bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center">
-                      <span className="text-white text-xl font-bold text-center px-4">{tournament.title}</span>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="w-full h-48 bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center hover:opacity-90 transition-opacity cursor-pointer">
+                        <span className="text-white text-xl font-bold text-center px-4">{tournament.title}</span>
+                      </div>
+                    )}
+                  </Link>
                   
                   <div className="p-6 flex-grow flex flex-col">
-                    <h3 className="text-xl font-bold text-slate-900 mb-2">{tournament.title}</h3>
+                    <div className="flex items-start justify-between mb-2">
+                      <h3 className="text-xl font-bold text-slate-900">{tournament.title || tournament.name}</h3>
+                      {/* Event Type Badge */}
+                      {(tournament.type || tournament.category) && (
+                        <span className="ml-2 px-2 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-800">
+                          {tournament.type === 'tournament' || tournament.category === 'tournament' ? 'Tournament' :
+                           tournament.type === 'camp' ? 'Camp' :
+                           tournament.type === 'class' ? 'Class' :
+                           tournament.type === 'simul' ? 'Simul' :
+                           tournament.type === 'clubNight' ? 'Club Night' :
+                           tournament.type === 'other' ? 'Event' : 'Event'}
+                        </span>
+                      )}
+                    </div>
                     <div className="space-y-2 mb-4">
+                      {/* Date display - prefer startDate/endDate for tournaments, fallback to date */}
                       <p className="text-gray-600 flex items-center">
                         <svg className="w-5 h-5 mr-2 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        {tournament.date}
+                        {tournament.category === 'tournament' && tournament.startDate && tournament.endDate ? (
+                          (() => {
+                            const startDate = tournament.startDate instanceof Date ? tournament.startDate : new Date(tournament.startDate);
+                            const endDate = tournament.endDate instanceof Date ? tournament.endDate : new Date(tournament.endDate);
+                            const startStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                            const endStr = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                            return startStr === endStr ? startStr : `${startStr} - ${endStr}`;
+                          })()
+                        ) : tournament.date}
                       </p>
+                      {/* Venue/Location display - prefer venue for tournaments */}
                       <p className="text-gray-600 flex items-center">
                         <svg className="w-5 h-5 mr-2 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
-                        {tournament.location}
+                        {tournament.category === 'tournament' && tournament.venue ? tournament.venue : tournament.location}
                       </p>
+                      {/* Time Control for tournaments */}
+                      {tournament.category === 'tournament' && tournament.timeControl && (
+                        <p className="text-gray-600 flex items-center">
+                          <svg className="w-5 h-5 mr-2 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          {tournament.timeControl}
+                        </p>
+                      )}
                       <p className="text-gray-600 flex items-center">
                         <svg className="w-5 h-5 mr-2 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        {tournament.price && !tournament.price.startsWith('$') && !tournament.price.toLowerCase().includes('free') 
-                          ? `$${tournament.price}` 
-                          : tournament.price}
+                        {(() => {
+                          // Get display price - prefer sections entry fees, then base price
+                          if (tournament.category === 'tournament' && tournament.sections && tournament.sections.length > 0) {
+                            const sectionsWithFee = tournament.sections.filter((s: any) => s.entryFee !== null && s.entryFee !== undefined);
+                            if (sectionsWithFee.length > 0) {
+                              const fees = sectionsWithFee.map((s: any) => s.entryFee!);
+                              const minFee = Math.min(...fees);
+                              const maxFee = Math.max(...fees);
+                              if (minFee === maxFee) {
+                                return `$${minFee.toFixed(2)}`;
+                              } else {
+                                return `$${minFee.toFixed(2)} - $${maxFee.toFixed(2)}`;
+                              }
+                            }
+                          }
+                          // Fall back to base price
+                          if (tournament.price) {
+                            if (!tournament.price.startsWith('$') && !tournament.price.toLowerCase().includes('free')) {
+                              return `$${tournament.price}`;
+                            }
+                            return tournament.price;
+                          }
+                          return 'Free';
+                        })()}
+                        {/* Show sections summary if available */}
+                        {tournament.category === 'tournament' && tournament.sections && tournament.sections.length > 0 && (
+                          <span className="ml-2 text-xs text-gray-500">
+                            ({tournament.sections.length} section{tournament.sections.length !== 1 ? 's' : ''})
+                          </span>
+                        )}
+                        {/* Show add-ons indicator if available */}
+                        {tournament.addOns && tournament.addOns.length > 0 && (
+                          <span className="ml-2 text-xs text-orange-600 font-medium">
+                            + {tournament.addOns.length} add-on{tournament.addOns.length !== 1 ? 's' : ''} available
+                          </span>
+                        )}
                       </p>
                     </div>
                     {tournament.description && (

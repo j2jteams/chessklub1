@@ -50,7 +50,7 @@ export default function Page() {
     fetchTournaments();
   }, []);
   return (
-    <main className="min-h-screen" style={{ backgroundColor: 'var(--color-light)' }}>
+    <main className="min-h-screen chess-themed-bg" style={{ backgroundColor: 'var(--color-light)' }}>
       <Header />
 
       {/* Hero Section */}

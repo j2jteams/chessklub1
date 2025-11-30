@@ -42,3 +42,92 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
   color: var(--color-dark);
 }
+
+/* Chess-themed background patterns */
+.chess-board-pattern {
+  background-image: 
+    repeating-linear-gradient(0deg, transparent, transparent 40px, rgba(0, 0, 0, 0.03) 40px, rgba(0, 0, 0, 0.03) 80px),
+    repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(0, 0, 0, 0.03) 40px, rgba(0, 0, 0, 0.03) 80px);
+  background-size: 80px 80px;
+}
+
+.chess-themed-bg {
+  position: relative;
+  overflow: visible; /* Changed from hidden to visible to allow dropdowns */
+  background-color: #f8f8f8; /* Light grey base like the image */
+}
+
+.chess-themed-bg::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none !important;
+  /* Chess board pattern inspired by the minimalist 3D rendered image */
+  background-image: 
+    /* Impact/shatter effects around pieces - starburst patterns */
+    radial-gradient(circle at 15% 25%, rgba(0, 0, 0, 0.08) 0%, rgba(0, 0, 0, 0.04) 15px, transparent 30px),
+    radial-gradient(circle at 85% 75%, rgba(0, 0, 0, 0.07) 0%, rgba(0, 0, 0, 0.03) 18px, transparent 35px),
+    radial-gradient(circle at 45% 60%, rgba(0, 0, 0, 0.06) 0%, rgba(0, 0, 0, 0.03) 20px, transparent 40px),
+    radial-gradient(circle at 70% 30%, rgba(0, 0, 0, 0.07) 0%, rgba(0, 0, 0, 0.03) 16px, transparent 32px),
+    radial-gradient(circle at 30% 80%, rgba(0, 0, 0, 0.06) 0%, rgba(0, 0, 0, 0.03) 14px, transparent 28px),
+    /* Scattered white chess pieces - pawns, bishops, knights, queen, rook */
+    url("data:image/svg+xml,%3Csvg width='800' height='800' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cfilter id='shadow'%3E%3CfeGaussianBlur in='SourceAlpha' stdDeviation='2'/%3E%3CfeOffset dx='1' dy='1' result='offsetblur'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='0.3'/%3E%3C/feComponentTransfer%3E%3CfeMerge%3E%3CfeMergeNode/%3E%3CfeMergeNode in='SourceGraphic'/%3E%3C/feMerge%3E%3C/filter%3E%3C/defs%3E%3Cg fill='rgba(255,255,255,0.15)' filter='url(%23shadow)'%3E%3C!-- Pawns --%3E%3Ccircle cx='100' cy='100' r='8'/%3E%3Ccircle cx='200' cy='200' r='8'/%3E%3Ccircle cx='300' cy='200' r='8'/%3E%3Ccircle cx='400' cy='200' r='8'/%3E%3Ccircle cx='100' cy='300' r='8'/%3E%3Ccircle cx='300' cy='300' r='8'/%3E%3Ccircle cx='100' cy='400' r='8'/%3E%3C!-- Bishops --%3E%3Cpath d='M200 100 L205 95 L210 100 L208 115 L202 115 Z'/%3E%3Cpath d='M300 300 L305 295 L310 300 L308 315 L302 315 Z'/%3E%3C!-- Knights --%3E%3Cpath d='M300 100 L310 95 L315 105 L312 120 L298 120 Z'/%3E%3Cpath d='M200 300 L210 295 L215 305 L212 320 L198 320 Z'/%3E%3C!-- Queen --%3E%3Ccircle cx='400' cy='100' r='6'/%3E%3Cpath d='M400 100 L395 110 L405 110 Z'/%3E%3Cpath d='M400 100 L390 105 L410 105 Z'/%3E%3C!-- Rook --%3E%3Crect x='295' y='395' width='10' height='15' rx='2'/%3E%3Crect x='293' y='395' width='14' height='3'/%3E%3C!-- Additional scattered pieces --%3E%3Ccircle cx='500' cy='150' r='7'/%3E%3Ccircle cx='600' cy='250' r='7'/%3E%3Cpath d='M550 350 L555 345 L560 350 L558 365 L552 365 Z'/%3E%3Cpath d='M700 200 L710 195 L715 205 L712 220 L698 220 Z'/%3E%3Ccircle cx='650' cy='400' r='6'/%3E%3C/g%3E%3C/svg%3E"),
+    /* Subtle chess board grid - light grey lines */
+    repeating-linear-gradient(0deg, transparent, transparent 60px, rgba(0, 0, 0, 0.03) 60px, rgba(0, 0, 0, 0.03) 61px),
+    repeating-linear-gradient(90deg, transparent, transparent 60px, rgba(0, 0, 0, 0.03) 60px, rgba(0, 0, 0, 0.03) 61px);
+  background-size: 
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    800px 800px,
+    120px 120px,
+    120px 120px;
+  background-position: 
+    0 0,
+    0 0,
+    0 0,
+    0 0,
+    0 0,
+    0 0,
+    0 0,
+    0 0;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, repeat, repeat, repeat;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 1;
+}
+
+.chess-themed-bg > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Ensure Header and navigation are above background */
+nav,
+header,
+[role="navigation"] {
+  position: relative !important;
+  z-index: 1000 !important;
+}
+
+/* Ensure dropdowns are above everything */
+.absolute.z-50,
+[class*="dropdown"],
+[class*="menu"] {
+  z-index: 2000 !important;
+}
+
+/* Ensure all Links in header are clickable */
+nav a,
+nav Link,
+header a,
+header Link {
+  position: relative !important;
+  z-index: 1010 !important;
+  pointer-events: auto !important;
+}

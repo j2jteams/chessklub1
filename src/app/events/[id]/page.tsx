@@ -141,10 +141,31 @@ function EventDetailContent() {
     if (!/^[\$£€¥₹]/.test(priceStr.trim())) {
       const numPrice = parseFloat(priceStr.trim());
       if (!isNaN(numPrice)) {
-        return `$${numPrice}`;
+        return `$${numPrice.toFixed(2)}`;
       }
     }
     return priceStr;
+  };
+
+  // Get the price to display - prefer sections entry fees, then base price
+  const getDisplayPrice = () => {
+    // For tournaments, check if sections have entry fees
+    if (event.category === 'tournament' && event.sections && event.sections.length > 0) {
+      const sectionsWithFee = event.sections.filter(s => s.entryFee !== null && s.entryFee !== undefined);
+      if (sectionsWithFee.length > 0) {
+        // If all sections have the same fee, show that. Otherwise show range
+        const fees = sectionsWithFee.map(s => s.entryFee!);
+        const minFee = Math.min(...fees);
+        const maxFee = Math.max(...fees);
+        if (minFee === maxFee) {
+          return `$${minFee.toFixed(2)}`;
+        } else {
+          return `$${minFee.toFixed(2)} - $${maxFee.toFixed(2)}`;
+        }
+      }
+    }
+    // Fall back to base price
+    return formatPrice(event.price || '');
   };
 
   const formatDate = (dateStr: string) => {
@@ -162,7 +183,7 @@ function EventDetailContent() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white chess-themed-bg">
       <Header />
       
       {error && (
@@ -213,8 +234,26 @@ function EventDetailContent() {
                   <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
-                  <span className="font-semibold">{formatDate(event.date)}</span>
+                  <span className="font-semibold">
+                    {event.category === 'tournament' && event.startDate && event.endDate ? (
+                      (() => {
+                        const startDate = event.startDate instanceof Date ? event.startDate : new Date(event.startDate);
+                        const endDate = event.endDate instanceof Date ? event.endDate : new Date(event.endDate);
+                        const startStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                        const endStr = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                        return startStr === endStr ? startStr : `${startStr} - ${endStr}`;
+                      })()
+                    ) : formatDate(event.date)}
+                  </span>
                 </div>
+                {event.category === 'tournament' && event.timeControl && (
+                  <div className="flex items-center bg-white/20 backdrop-blur-sm px-4 py-2 rounded-lg">
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="font-medium">{event.timeControl}</span>
+                  </div>
+                )}
                 {event.time && (
                   <div className="flex items-center bg-white/20 backdrop-blur-sm px-4 py-2 rounded-lg">
                     <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -228,13 +267,15 @@ function EventDetailContent() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
-                  <span className="font-medium">{event.location}</span>
+                  <span className="font-medium">
+                    {event.category === 'tournament' && event.venue ? event.venue : event.location}
+                  </span>
                 </div>
                 <div className="flex items-center bg-orange-500/90 backdrop-blur-sm px-4 py-2 rounded-lg">
                   <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <span className="font-bold text-lg">{formatPrice(event.price)}</span>
+                  <span className="font-bold text-lg">{getDisplayPrice()}</span>
                 </div>
               </div>
             </div>
@@ -245,9 +286,20 @@ function EventDetailContent() {
               <div className="text-center text-white px-4">
                 <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6">{event.title}</h1>
                 <div className="flex flex-wrap justify-center gap-4 text-white/90">
-                  <span className="font-semibold">{formatDate(event.date)}</span>
+                  <span className="font-semibold">
+                    {event.category === 'tournament' && event.startDate && event.endDate ? (
+                      (() => {
+                        const startDate = event.startDate instanceof Date ? event.startDate : new Date(event.startDate);
+                        const endDate = event.endDate instanceof Date ? event.endDate : new Date(event.endDate);
+                        const startStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                        const endStr = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                        return startStr === endStr ? startStr : `${startStr} - ${endStr}`;
+                      })()
+                    ) : formatDate(event.date)}
+                  </span>
                   {event.time && <span>• {event.time}</span>}
-                  <span>• {event.location}</span>
+                  <span>• {event.category === 'tournament' && event.venue ? event.venue : event.location}</span>
+                  {event.category === 'tournament' && event.timeControl && <span>• {event.timeControl}</span>}
                 </div>
               </div>
             </div>
@@ -291,8 +343,21 @@ function EventDetailContent() {
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-900 mb-1">Date & Time</h3>
-                    <p className="text-gray-700">{formatDate(event.date)}</p>
+                    <p className="text-gray-700">
+                      {event.category === 'tournament' && event.startDate && event.endDate ? (
+                        (() => {
+                          const startDate = event.startDate instanceof Date ? event.startDate : new Date(event.startDate);
+                          const endDate = event.endDate instanceof Date ? event.endDate : new Date(event.endDate);
+                          const startStr = startDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+                          const endStr = endDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+                          return startStr === endStr ? startStr : `${startStr} - ${endStr}`;
+                        })()
+                      ) : formatDate(event.date)}
+                    </p>
                     {event.time && <p className="text-gray-600 text-sm mt-1">{event.time}</p>}
+                    {event.category === 'tournament' && event.timeControl && (
+                      <p className="text-gray-600 text-sm mt-1">Time Control: {event.timeControl}</p>
+                    )}
                   </div>
                 </div>
 
@@ -305,9 +370,95 @@ function EventDetailContent() {
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-900 mb-1">Location</h3>
-                    <p className="text-gray-700">{event.location}</p>
+                    <p className="text-gray-700">
+                      {event.category === 'tournament' && event.venue ? event.venue : event.location}
+                    </p>
                   </div>
                 </div>
+                
+                {/* Tournament Sections */}
+                {event.category === 'tournament' && event.sections && event.sections.length > 0 && (
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0 w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mr-4">
+                      <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-gray-900 mb-2">Tournament Sections</h3>
+                      <div className="space-y-2">
+                        {event.sections.map((section, index) => (
+                          <div key={section.id || index} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium text-gray-900">{section.name}</span>
+                              {section.entryFee !== null && section.entryFee !== undefined && (
+                                <span className="text-orange-600 font-semibold">
+                                  ${section.entryFee.toFixed(2)}
+                                </span>
+                              )}
+                            </div>
+                            {(section.minRating !== null || section.maxRating !== null) && (
+                              <p className="text-sm text-gray-600 mt-1">
+                                Rating: {section.minRating !== null ? `U${section.minRating}` : 'Open'}
+                                {section.minRating !== null && section.maxRating !== null && ' - '}
+                                {section.maxRating !== null && section.minRating === null && 'U'}
+                                {section.maxRating !== null && `U${section.maxRating}`}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Add-Ons (for all event types) */}
+                {event.addOns && event.addOns.length > 0 && (
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0 w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mr-4">
+                      <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-gray-900 mb-2">Add-Ons</h3>
+                      <div className="space-y-2">
+                        {event.addOns.map((addOn, index) => (
+                          <div key={addOn.id || index} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium text-gray-900">{addOn.name}</span>
+                                  {addOn.isRequired && (
+                                    <span className="px-2 py-0.5 text-xs font-medium bg-orange-100 text-orange-800 rounded">
+                                      Required
+                                    </span>
+                                  )}
+                                </div>
+                                {addOn.description && (
+                                  <p className="text-sm text-gray-600 mt-1">{addOn.description}</p>
+                                )}
+                                {addOn.appliesToSections && addOn.appliesToSections.length > 0 && event.sections && (
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    Applies to: {addOn.appliesToSections.map(sectionId => {
+                                      const section = event.sections?.find(s => s.id === sectionId);
+                                      return section?.name || sectionId;
+                                    }).join(', ')}
+                                  </p>
+                                )}
+                              </div>
+                              {addOn.price !== null && addOn.price !== undefined && (
+                                <span className="text-orange-600 font-semibold ml-4">
+                                  ${addOn.price.toFixed(2)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex items-start">
                   <div className="flex-shrink-0 w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mr-4">
@@ -317,7 +468,7 @@ function EventDetailContent() {
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-900 mb-1">Price</h3>
-                    <p className="text-2xl font-bold text-orange-600">{formatPrice(event.price)}</p>
+                    <p className="text-2xl font-bold text-orange-600">{getDisplayPrice()}</p>
                   </div>
                 </div>
               </div>
@@ -375,8 +526,12 @@ function EventDetailContent() {
               {/* Registration Card */}
               <div className="bg-white rounded-xl shadow-xl border-2 border-gray-200 p-6 mb-6">
                 <div className="text-center mb-6">
-                  <div className="text-4xl font-bold text-orange-600 mb-2">{formatPrice(event.price)}</div>
-                  <p className="text-gray-600 text-sm">per {event.category === 'tournament' ? 'tournament' : 'event'}</p>
+                  <div className="text-4xl font-bold text-orange-600 mb-2">{getDisplayPrice()}</div>
+                  <p className="text-gray-600 text-sm">
+                    {event.category === 'tournament' && event.sections && event.sections.length > 0
+                      ? 'per section'
+                      : `per ${event.category === 'tournament' ? 'tournament' : 'event'}`}
+                  </p>
                 </div>
 
                 {/* Registration Count */}
