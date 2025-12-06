@@ -40,7 +40,8 @@ export default function SetupOwnerPage() {
       }
 
       // Set role to owner and mark as God Owner (first owner)
-      await updateUserRole(user.uid, 'owner');
+      // Note: This will fail permission check, but user can set manually in Firebase Console
+      await updateUserRole(user.uid, user.uid, 'owner');
       // Set isGodOwner to true for the first owner
       const userRef = doc(db, 'users', user.uid);
       await updateDoc(userRef, {

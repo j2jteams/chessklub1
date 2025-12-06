@@ -65,9 +65,10 @@ export default function OwnerDashboardPage() {
   };
 
   const handleRoleChange = async (uid: string, newRole: 'player' | 'admin') => {
+    if (!user) return;
     setActionLoading(uid);
     try {
-      await updateUserRole(uid, newRole);
+      await updateUserRole(user.uid, uid, newRole);
       setTeam((prev) =>
         prev.map((member) =>
           member.uid === uid ? { ...member, role: newRole } : member,
