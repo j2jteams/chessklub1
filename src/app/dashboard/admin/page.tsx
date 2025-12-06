@@ -9,13 +9,18 @@ import { EventData, UserData, UserRole } from '@/lib/types';
 import { getEventsCreatedBy, getEventsByFranchise, getAllEvents, approveEvent, rejectEvent, deleteEvent } from '@/lib/events';
 import { getAllUsers } from '@/lib/userRoles';
 
+// Type guard to ensure full UserRole union type (prevents TypeScript narrowing)
+function ensureUserRole(role: UserRole | undefined | null): UserRole {
+  return (role ?? 'player') as UserRole;
+}
+
 export default function AdminDashboardPage() {
   // Protect route - allow standaloneAdmin, franchisee, and superAdmin (for migration)
   useRequireRole(['standaloneAdmin', 'franchisee', 'superAdmin', 'admin', 'owner']);
   
   const { user, role: roleValue, loading } = useAuth();
-  // Assert role type immediately to prevent TypeScript narrowing
-  const role = roleValue as UserRole;
+  // Use type guard to prevent TypeScript narrowing
+  const role = ensureUserRole(roleValue);
   const [events, setEvents] = useState<EventData[]>([]);
   const [allUsers, setAllUsers] = useState<UserData[]>([]);
   const [fetchLoading, setFetchLoading] = useState(false);
@@ -68,7 +73,7 @@ export default function AdminDashboardPage() {
     setFetchLoading(true);
     try {
       // Migration: Handle old roles
-      const userRole = (role ?? 'player') as UserRole;
+      const userRole = ensureUserRole(role);
       const isOldOwner = userRole === 'owner';
       const isOldAdmin = userRole === 'admin';
       
@@ -109,7 +114,7 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     if (!loading && user) {
-      const userRole = (role ?? 'player') as UserRole;
+      const userRole = ensureUserRole(role);
       if (userRole === 'standaloneAdmin' || userRole === 'franchisee' || 
           userRole === 'superAdmin' || userRole === 'admin' || userRole === 'owner') {
       loadEvents();
@@ -171,8 +176,8 @@ export default function AdminDashboardPage() {
     );
   }
 
-  // Type assertion ensures full UserRole union type (prevents narrowing)
-  const userRole: UserRole = (role ?? 'player') as UserRole;
+  // Use type guard to ensure full UserRole union type (prevents narrowing)
+  const userRole = ensureUserRole(role);
   const isSuperAdmin = userRole === 'superAdmin' || userRole === 'owner';
 
   return (
