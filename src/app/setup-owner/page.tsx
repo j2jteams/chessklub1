@@ -14,9 +14,9 @@ export default function SetupOwnerPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
-    // If already owner, redirect to dashboard
-    if (!loading && role === 'owner') {
-      router.push('/dashboard/owner');
+    // If already owner/superAdmin, redirect to dashboard
+    if (!loading && (role === 'owner' || role === 'superAdmin')) {
+      router.push('/dashboard/super-admin');
     }
   }, [role, loading, router]);
 
@@ -52,7 +52,7 @@ export default function SetupOwnerPage() {
       
       // Wait a moment then redirect
       setTimeout(() => {
-        router.push('/dashboard/owner');
+        router.push('/dashboard/super-admin');
         // Force a page reload to refresh auth state
         window.location.reload();
       }, 1500);
@@ -89,12 +89,12 @@ export default function SetupOwnerPage() {
     );
   }
 
-  if (role === 'owner') {
+  if (role === 'owner' || role === 'superAdmin') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <p className="text-green-600 mb-4">You are already set as Owner!</p>
-          <a href="/dashboard/owner" className="text-orange-500 hover:underline">Go to Owner Dashboard</a>
+          <p className="text-green-600 mb-4">You are already set as Owner/Super Admin!</p>
+          <a href="/dashboard/super-admin" className="text-orange-500 hover:underline">Go to Super Admin Dashboard</a>
         </div>
       </div>
     );

@@ -19,10 +19,10 @@ export default function Header() {
   const [loadingEvents, setLoadingEvents] = useState(false);
 
   const dashboardLink =
-    role === 'owner'
-      ? { href: '/dashboard/owner', label: 'Owner Console' }
-      : role === 'admin'
-        ? { href: '/dashboard/admin', label: 'Admin Console' }
+    role === 'superAdmin' || role === 'owner'
+      ? { href: '/dashboard/super-admin', label: 'Super Admin Console' }
+      : role === 'franchisee' || role === 'standaloneAdmin' || role === 'admin'
+        ? { href: '/dashboard/admin', label: 'Event Management' }
         : { href: '/dashboard', label: 'My Dashboard' };
 
   // Fetch approved events for tournaments dropdown
