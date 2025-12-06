@@ -16,7 +16,8 @@ export default function EditEventPage() {
   const params = useParams();
   const eventId = params.id as string;
   
-  const { authorized } = useRequireRole(['admin', 'owner']);
+  // UPDATED: Chess Tourneys - Allow Super Admin, Franchisee, and Standalone Admin
+  const { authorized } = useRequireRole(['superAdmin', 'franchisee', 'standaloneAdmin', 'admin', 'owner']);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [eventData, setEventData] = useState<ChessEvent | null>(null);
@@ -37,8 +38,14 @@ export default function EditEventPage() {
         return;
       }
 
-      // Check permissions
-      if (role !== 'owner' && event.createdBy !== user?.uid) {
+      // Check permissions based on new role system
+      const userRole = role ?? 'player';
+      const canEdit = 
+        userRole === 'superAdmin' || userRole === 'owner' || // Super Admin can edit all
+        (userRole === 'franchisee' && event.franchiseId === user?.uid) || // Franchisee can edit their franchise events
+        ((userRole === 'standaloneAdmin' || userRole === 'admin') && event.createdBy === user?.uid); // Standalone Admin can edit own events
+      
+      if (!canEdit) {
         setError('You do not have permission to edit this event');
         return;
       }
@@ -81,10 +88,10 @@ export default function EditEventPage() {
         <div className="text-center">
           <p className="text-red-600 mb-4">{error}</p>
           <Link
-            href="/admin/events"
+            href="/dashboard/admin"
             className="text-orange-600 hover:text-orange-700 font-medium"
           >
-            ← Back to Events
+            ← Back to Event Management
           </Link>
         </div>
       </div>
@@ -97,10 +104,10 @@ export default function EditEventPage() {
         <div className="text-center">
           <p className="text-gray-600 mb-4">Event not found</p>
           <Link
-            href="/admin/events"
+            href="/dashboard/admin"
             className="text-orange-600 hover:text-orange-700 font-medium"
           >
-            ← Back to Events
+            ← Back to Event Management
           </Link>
         </div>
       </div>
@@ -111,12 +118,6 @@ export default function EditEventPage() {
     <div className="min-h-screen bg-gray-50 py-8 chess-themed-bg">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-6">
-          <Link
-            href="/admin/events"
-            className="text-orange-600 hover:text-orange-700 text-sm font-medium mb-4 inline-block"
-          >
-            ← Back to Events
-          </Link>
           <h1 className="text-3xl font-bold text-gray-900">Edit Event</h1>
           <p className="mt-2 text-gray-600">
             Update event details, sections, and add-ons.

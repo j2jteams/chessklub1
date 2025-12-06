@@ -1,0 +1,147 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to get user role (with null check)
+    function getUserRole() {
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return userDoc != null ? userDoc.data.role : null;
+    }
+    
+    // UPDATED: Chess Tourneys - New role system
+    // Check if user is Super Admin (with backward compatibility for 'owner')
+    function isSuperAdmin() {
+      let role = getUserRole();
+      return request.auth != null && (role == 'superAdmin' || role == 'owner');
+    }
+    
+    // Check if user is Franchisee
+    function isFranchisee() {
+      return request.auth != null && getUserRole() == 'franchisee';
+    }
+    
+    // Check if user is Standalone Admin (with backward compatibility for 'admin')
+    function isStandaloneAdmin() {
+      let role = getUserRole();
+      return request.auth != null && (role == 'standaloneAdmin' || role == 'admin');
+    }
+    
+    // Check if user can create/edit events (Super Admin, Franchisee, or Standalone Admin)
+    function canManageEvents() {
+      let role = getUserRole();
+      return request.auth != null && role in ['superAdmin', 'franchisee', 'standaloneAdmin', 'owner', 'admin'];
+    }
+    
+    // Check if user can read all events (Super Admin, Franchisee, or Standalone Admin)
+    function canReadAllEvents() {
+      let role = getUserRole();
+      return request.auth != null && role in ['superAdmin', 'franchisee', 'standaloneAdmin', 'owner', 'admin'];
+    }
+    
+    // Check if user can update a specific event
+    // Super Admin can update any event
+    // Franchisee can update events where franchiseId matches their UID
+    // Standalone Admin can update their own events
+    function canUpdateEvent(eventData) {
+      let role = getUserRole();
+      return request.auth != null && (
+        // Super Admin can update any event
+        (role == 'superAdmin' || role == 'owner') ||
+        // Franchisee can update events where franchiseId matches their UID
+        (role == 'franchisee' && eventData.franchiseId == request.auth.uid) ||
+        // Standalone Admin can update their own events
+        ((role == 'standaloneAdmin' || role == 'admin') && eventData.createdBy == request.auth.uid)
+      );
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      
+      // Users can read their own data, Super Admin can read all
+      // Standalone Admins and Franchisees can read franchisee users (for event linking)
+      allow read: if request.auth != null && 
+        (request.auth.uid == userId || 
+         isSuperAdmin() ||
+         (isStandaloneAdmin() && resource.data.role == 'franchisee') ||
+         (isFranchisee() && resource.data.role == 'franchisee'));
+      
+      // Users can create their own document on signup
+      allow create: if request.auth != null && 
+        (request.auth.uid == userId);
+      
+      // Users can update their own documents (for registeredEvents and savedEvents)
+      // Only Super Admin can update user roles
+      // UPDATED: Chess Tourneys - Removed isGodOwner checks
+      allow update: if request.auth != null && 
+        (isSuperAdmin() ||
+         (request.auth.uid == userId && 
+          // Users can only update their own savedEvents and registeredEvents
+          // Cannot change their role or other critical fields
+          request.resource.data.role == resource.data.role));
+      
+      // Only Super Admin can delete users
+      allow delete: if request.auth != null && isSuperAdmin();
+    }
+    
+    // Events collection
+    match /events/{eventId} {
+      // Public can read approved events only
+      // Super Admin, Franchisee, and Standalone Admin can read all events (including pendingApproval, draft, rejected)
+      // UPDATED: Chess Tourneys - New role system
+      allow read: if resource == null || 
+        resource.data.status == 'approved' || 
+        (request.auth != null && canReadAllEvents());
+      
+      // Super Admin, Franchisee, and Standalone Admin can create events
+      // UPDATED: Chess Tourneys - New role system
+      allow create: if request.auth != null && canManageEvents();
+      
+      // Event update permissions:
+      // - Super Admin can update any event
+      // - Franchisee can update events where franchiseId matches their UID
+      // - Standalone Admin can only update their own events
+      // - Authenticated users can update registeredUsers and savedByUsers arrays (for registration/saving)
+      // UPDATED: Chess Tourneys - New role system with franchise permissions
+      allow update: if request.auth != null && 
+        (canUpdateEvent(resource.data) ||
+         // Allow any authenticated user to update registeredUsers and savedByUsers arrays
+         // Only verify that immutable required fields haven't changed
+         // Note: updateDoc() only updates specified fields, so other fields remain unchanged
+         (request.resource.data.title == resource.data.title &&
+          request.resource.data.date == resource.data.date &&
+          request.resource.data.location == resource.data.location &&
+          request.resource.data.price == resource.data.price &&
+          request.resource.data.status == resource.data.status &&
+          request.resource.data.category == resource.data.category &&
+          request.resource.data.createdBy == resource.data.createdBy &&
+          request.resource.data.createdByEmail == resource.data.createdByEmail));
+      
+      // Event delete permissions:
+      // - Super Admin can delete any event
+      // - Franchisee can delete events where franchiseId matches their UID
+      // - Standalone Admin can only delete their own events
+      // UPDATED: Chess Tourneys - New role system
+      allow delete: if request.auth != null && canUpdateEvent(resource.data);
+    }
+    
+    // Admin Requests collection
+    // UPDATED: Chess Tourneys - Only Super Admin can approve admin requests
+    match /adminRequests/{requestId} {
+      // Players can read their own pending requests
+      // Super Admin can read all requests
+      allow read: if request.auth != null && 
+        (resource.data.userId == request.auth.uid || isSuperAdmin());
+      
+      // Players can create their own admin requests
+      allow create: if request.auth != null && 
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.status == 'pending';
+      
+      // Only Super Admin can update (approve/reject) admin requests
+      allow update: if request.auth != null && isSuperAdmin();
+      
+      // Only Super Admin can delete admin requests
+      allow delete: if request.auth != null && isSuperAdmin();
+    }
+  }
+}
+

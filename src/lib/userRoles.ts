@@ -10,19 +10,34 @@ import {
 import { db } from './firebase';
 import { UserData, UserRole } from './types';
 
-// UPDATED: role-based routing and approval flows - Phase 0.5
+// UPDATED: Chess Tourneys - New role system with migration support
 function fromFirestoreUser(data: any): UserData {
-  // Migration: Convert old 'user' role to 'player' for backward compatibility
+  // Migration: Convert old roles to new roles for backward compatibility
   let userRole = data.role ?? 'player';
+  
+  // Migrate old 'user' role to 'player'
   if (userRole === 'user') {
     userRole = 'player';
+  }
+  // Migrate old 'owner' role to 'superAdmin'
+  if (userRole === 'owner') {
+    userRole = 'superAdmin';
+  }
+  // Migrate old 'admin' role to 'standaloneAdmin' (default migration)
+  // Note: This assumes existing admins should be standalone admins
+  // If you need franchise admins, they should be manually assigned
+  if (userRole === 'admin') {
+    userRole = 'standaloneAdmin';
   }
   
   return {
     uid: data.uid,
     email: data.email,
     role: userRole as UserRole,
-    isGodOwner: data.isGodOwner ?? false, // UPDATED: God Owner system
+    firstName: data.firstName,
+    lastName: data.lastName,
+    uscfId: data.uscfId,
+    franchiseId: data.franchiseId ?? null,
     savedEvents: data.savedEvents ?? [],
     registeredEvents: data.registeredEvents ?? [],
     createdAt: data.createdAt?.toDate?.() ?? new Date(),
@@ -30,7 +45,17 @@ function fromFirestoreUser(data: any): UserData {
   };
 }
 
-export async function createUserDocument(uid: string, email: string, role: UserRole = 'player') {
+export async function createUserDocument(
+  uid: string,
+  email: string,
+  role: UserRole = 'player',
+  options?: {
+    firstName?: string;
+    lastName?: string;
+    uscfId?: string;
+    franchiseId?: string | null;
+  }
+) {
   const userRef = doc(db, 'users', uid);
   const snapshot = await getDoc(userRef);
 
@@ -38,16 +63,23 @@ export async function createUserDocument(uid: string, email: string, role: UserR
     return;
   }
 
-  await setDoc(userRef, {
+  const userData: any = {
     uid,
     email,
     role,
-    isGodOwner: false, // UPDATED: God Owner system - default to false
     savedEvents: [],
     registeredEvents: [],
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-  });
+  };
+
+  // Add optional fields if provided
+  if (options?.firstName) userData.firstName = options.firstName;
+  if (options?.lastName) userData.lastName = options.lastName;
+  if (options?.uscfId) userData.uscfId = options.uscfId;
+  if (options?.franchiseId !== undefined) userData.franchiseId = options.franchiseId;
+
+  await setDoc(userRef, userData);
 }
 
 export async function getUserRole(uid: string): Promise<UserRole> {
@@ -58,9 +90,12 @@ export async function getUserRole(uid: string): Promise<UserRole> {
     return 'player';
   }
 
-  // Migration: Convert old 'user' role to 'player'
+  // Migration: Convert old roles to new roles
   const role = snapshot.data().role ?? 'player';
-  return (role === 'user' ? 'player' : role) as UserRole;
+  if (role === 'user') return 'player';
+  if (role === 'owner') return 'superAdmin';
+  if (role === 'admin') return 'standaloneAdmin';
+  return role as UserRole;
 }
 
 export async function getUserData(uid: string): Promise<UserData | null> {
@@ -74,168 +109,18 @@ export async function getUserData(uid: string): Promise<UserData | null> {
   return fromFirestoreUser(snapshot.data());
 }
 
-export async function updateUserRole(uid: string, role: UserRole) {
-  const userRef = doc(db, 'users', uid);
-  await updateDoc(userRef, {
-    role,
-    updatedAt: serverTimestamp(),
-  });
-}
-
 /**
- * Transfer God Owner status to another user (only God Owner can do this)
- * @param fromUid - Current God Owner's UID
- * @param toUid - New God Owner's UID
+ * Update user role - Only Super Admin can assign roles
+ * @param currentUserUid - Current user's UID (must be superAdmin)
+ * @param targetUid - Target user's UID
+ * @param newRole - New role to assign
  */
-export async function transferGodOwnership(fromUid: string, toUid: string): Promise<void> {
-  // Verify current user is God Owner
-  const currentUserRef = doc(db, 'users', fromUid);
-  const currentUserSnap = await getDoc(currentUserRef);
-  
-  if (!currentUserSnap.exists()) {
-    throw new Error('Current user not found');
-  }
-  
-  const currentUserData = currentUserSnap.data();
-  if (!currentUserData.isGodOwner) {
-    throw new Error('Only God Owner can transfer ownership');
-  }
-  
-  // Verify target user exists and is an owner
-  const targetUserRef = doc(db, 'users', toUid);
-  const targetUserSnap = await getDoc(targetUserRef);
-  
-  if (!targetUserSnap.exists()) {
-    throw new Error('Target user not found');
-  }
-  
-  const targetUserData = targetUserSnap.data();
-  if (targetUserData.role !== 'owner') {
-    throw new Error('Target user must be an owner to receive God Owner status');
-  }
-  
-  // Transfer God Owner status
-  await updateDoc(currentUserRef, {
-    isGodOwner: false,
-    updatedAt: serverTimestamp(),
-  });
-  
-  await updateDoc(targetUserRef, {
-    isGodOwner: true,
-    role: 'owner', // Ensure they're an owner
-    updatedAt: serverTimestamp(),
-  });
-}
-
-/**
- * Promote an admin to owner (only God Owner can do this)
- * @param godOwnerUid - God Owner's UID
- * @param adminUid - Admin's UID to promote
- */
-export async function promoteAdminToOwner(godOwnerUid: string, adminUid: string): Promise<void> {
-  // Verify current user is God Owner
-  const godOwnerRef = doc(db, 'users', godOwnerUid);
-  const godOwnerSnap = await getDoc(godOwnerRef);
-  
-  if (!godOwnerSnap.exists()) {
-    throw new Error('God Owner not found');
-  }
-  
-  const godOwnerData = godOwnerSnap.data();
-  if (!godOwnerData.isGodOwner) {
-    throw new Error('Only God Owner can promote admins to owners');
-  }
-  
-  // Verify target user exists and is an admin
-  const adminRef = doc(db, 'users', adminUid);
-  const adminSnap = await getDoc(adminRef);
-  
-  if (!adminSnap.exists()) {
-    throw new Error('Admin user not found');
-  }
-  
-  const adminData = adminSnap.data();
-  if (adminData.role !== 'admin') {
-    throw new Error('Target user must be an admin to be promoted to owner');
-  }
-  
-  // Promote to owner
-  await updateDoc(adminRef, {
-    role: 'owner',
-    updatedAt: serverTimestamp(),
-  });
-}
-
-/**
- * Check if a user is God Owner
- */
-export async function isGodOwner(uid: string): Promise<boolean> {
-  const userRef = doc(db, 'users', uid);
-  const userSnap = await getDoc(userRef);
-  
-  if (!userSnap.exists()) {
-    return false;
-  }
-  
-  return userSnap.data().isGodOwner === true;
-}
-
-/**
- * Demote an owner to admin (only God Owner can do this)
- * @param godOwnerUid - God Owner's UID
- * @param ownerUid - Owner's UID to demote
- */
-export async function demoteOwnerToAdmin(godOwnerUid: string, ownerUid: string): Promise<void> {
-  // Verify current user is God Owner
-  const godOwnerRef = doc(db, 'users', godOwnerUid);
-  const godOwnerSnap = await getDoc(godOwnerRef);
-  
-  if (!godOwnerSnap.exists()) {
-    throw new Error('God Owner not found');
-  }
-  
-  const godOwnerData = godOwnerSnap.data();
-  if (!godOwnerData.isGodOwner) {
-    throw new Error('Only God Owner can demote owners');
-  }
-  
-  // Cannot demote yourself
-  if (godOwnerUid === ownerUid) {
-    throw new Error('You cannot demote yourself');
-  }
-  
-  // Verify target user exists and is an owner
-  const ownerRef = doc(db, 'users', ownerUid);
-  const ownerSnap = await getDoc(ownerRef);
-  
-  if (!ownerSnap.exists()) {
-    throw new Error('Owner user not found');
-  }
-  
-  const ownerData = ownerSnap.data();
-  if (ownerData.role !== 'owner') {
-    throw new Error('Target user is not an owner');
-  }
-  
-  // Cannot demote if they are God Owner
-  if (ownerData.isGodOwner) {
-    throw new Error('Cannot demote God Owner. Transfer God Owner status first.');
-  }
-  
-  // Demote to admin
-  await updateDoc(ownerRef, {
-    role: 'admin',
-    updatedAt: serverTimestamp(),
-  });
-}
-
-/**
- * Remove admin role (demote to player) - God Owner or regular owner can do this
- * @param currentUserUid - Current user's UID (must be owner)
- * @param adminUid - Admin's UID to demote
- */
-export async function demoteAdminToPlayer(currentUserUid: string, adminUid: string): Promise<void> {
-  // Verify current user is owner
+export async function updateUserRole(
+  currentUserUid: string,
+  targetUid: string,
+  newRole: UserRole
+): Promise<void> {
+  // Verify current user is Super Admin
   const currentUserRef = doc(db, 'users', currentUserUid);
   const currentUserSnap = await getDoc(currentUserRef);
   
@@ -244,26 +129,39 @@ export async function demoteAdminToPlayer(currentUserUid: string, adminUid: stri
   }
   
   const currentUserData = currentUserSnap.data();
-  if (currentUserData.role !== 'owner') {
-    throw new Error('Only owners can demote admins');
+  const currentUserRole = currentUserData.role;
+  
+  // Migration: Handle old 'owner' role
+  const isSuperAdmin = currentUserRole === 'superAdmin' || currentUserRole === 'owner';
+  
+  if (!isSuperAdmin) {
+    throw new Error('Only Super Admin can assign roles');
   }
   
-  // Verify target user exists and is an admin
-  const adminRef = doc(db, 'users', adminUid);
-  const adminSnap = await getDoc(adminRef);
+  // Verify target user exists
+  const targetUserRef = doc(db, 'users', targetUid);
+  const targetUserSnap = await getDoc(targetUserRef);
   
-  if (!adminSnap.exists()) {
-    throw new Error('Admin user not found');
+  if (!targetUserSnap.exists()) {
+    throw new Error('Target user not found');
   }
   
-  const adminData = adminSnap.data();
-  if (adminData.role !== 'admin') {
-    throw new Error('Target user is not an admin');
-  }
-  
-  // Demote to player
-  await updateDoc(adminRef, {
-    role: 'player',
+  // Update role
+  await updateDoc(targetUserRef, {
+    role: newRole,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Helper function to update user role (for backward compatibility)
+ * Note: This function does NOT check permissions - use updateUserRole instead
+ * @deprecated Use updateUserRole(currentUserUid, targetUid, newRole) instead
+ */
+export async function updateUserRoleLegacy(uid: string, role: UserRole) {
+  const userRef = doc(db, 'users', uid);
+  await updateDoc(userRef, {
+    role,
     updatedAt: serverTimestamp(),
   });
 }
@@ -273,13 +171,63 @@ export async function getAllUsers(): Promise<UserData[]> {
   return usersSnap.docs.map((docSnap) => fromFirestoreUser(docSnap.data()));
 }
 
-export async function isOwner(uid: string) {
+/**
+ * Get all franchisee users
+ * This function can be called by standalone admins and franchisees (per Firestore rules)
+ */
+export async function getFranchisees(): Promise<UserData[]> {
+  try {
+    const { query, where } = await import('firebase/firestore');
+    const franchiseesQuery = query(
+      collection(db, 'users'),
+      where('role', '==', 'franchisee')
+    );
+    const franchiseesSnap = await getDocs(franchiseesQuery);
+    return franchiseesSnap.docs.map((docSnap) => fromFirestoreUser(docSnap.data()));
+  } catch (error: any) {
+    console.error('Error fetching franchisees:', error);
+    // If query fails (e.g., missing index or permission denied), return empty array
+    // The UI will show manual input option
+    return [];
+  }
+}
+
+// Helper functions for role checks
+export async function isSuperAdmin(uid: string): Promise<boolean> {
   const role = await getUserRole(uid);
-  return role === 'owner';
+  return role === 'superAdmin';
+}
+
+export async function isFranchisee(uid: string): Promise<boolean> {
+  const role = await getUserRole(uid);
+  return role === 'franchisee';
+}
+
+export async function isStandaloneAdmin(uid: string): Promise<boolean> {
+  const role = await getUserRole(uid);
+  return role === 'standaloneAdmin';
+}
+
+export async function isPlayer(uid: string): Promise<boolean> {
+  const role = await getUserRole(uid);
+  return role === 'player' || role === null;
+}
+
+export async function canAssignRoles(uid: string): Promise<boolean> {
+  return isSuperAdmin(uid);
+}
+
+export async function canCreateEvents(uid: string): Promise<boolean> {
+  const role = await getUserRole(uid);
+  return role === 'superAdmin' || role === 'franchisee' || role === 'standaloneAdmin';
+}
+
+// Legacy functions for backward compatibility (will be removed in future)
+export async function isOwner(uid: string) {
+  return isSuperAdmin(uid);
 }
 
 export async function isAdminOrOwner(uid: string) {
   const role = await getUserRole(uid);
-  return role === 'admin' || role === 'owner';
+  return role === 'standaloneAdmin' || role === 'franchisee' || role === 'superAdmin';
 }
-

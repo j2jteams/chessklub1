@@ -82,6 +82,10 @@ function fromFirestoreEvent(docId: string, data: any): EventData {
     }));
   }
   
+  // NEW: Franchise tracking
+  const franchiseId = data.franchiseId ?? null;
+  const isStandalone = franchiseId === null || franchiseId === undefined;
+  
   return {
     id: docId,
     title: data.title || data.name || '',
@@ -116,11 +120,60 @@ function fromFirestoreEvent(docId: string, data: any): EventData {
     addOns: addOns.length > 0 ? addOns : undefined,
     // Unified type field (maps from category or type)
     type: data.type || (data.category === 'tournament' ? 'tournament' : 'other'),
+    // NEW: Franchise tracking
+    franchiseId: franchiseId,
+    isStandalone: isStandalone,
   };
 }
 
-export async function createEvent(event: Omit<EventData, 'id' | 'createdAt' | 'updatedAt'>) {
+export async function createEvent(
+  event: Omit<EventData, 'id' | 'createdAt' | 'updatedAt'>,
+  creatorRole?: 'superAdmin' | 'franchisee' | 'standaloneAdmin',
+  franchiseId?: string | null
+) {
   try {
+    // Import getUserRole to determine creator role if not provided
+    const { getUserRole } = await import('./userRoles');
+    const role = creatorRole || await getUserRole(event.createdBy);
+    
+    // Determine franchiseId and status based on role
+    let finalFranchiseId: string | null | undefined = franchiseId;
+    let finalStatus: EventStatus = event.status;
+    
+    if (role === 'superAdmin') {
+      // Super Admin can create with or without franchise
+      // Status is always approved
+      finalStatus = 'approved';
+      // Use provided franchiseId (can be null for standalone)
+    } else if (role === 'franchisee') {
+      // Franchisee: if franchiseId is explicitly null (standalone event), needs approval
+      // Otherwise, default to their own UID (franchise event), auto-approve
+      if (finalFranchiseId === null || finalFranchiseId === undefined) {
+        // Explicitly set to null/undefined - standalone event - needs approval
+        finalStatus = 'pendingApproval';
+        finalFranchiseId = null;
+      } else {
+        // Franchise event - auto-approve
+        finalStatus = 'approved';
+        // Use provided franchiseId or default to creator's UID
+        finalFranchiseId = finalFranchiseId || event.createdBy;
+      }
+    } else if (role === 'standaloneAdmin') {
+      // Standalone Admin: if franchiseId is provided (franchise event), needs approval
+      // Otherwise, standalone event (null), auto-approve
+      if (finalFranchiseId !== null && finalFranchiseId !== undefined) {
+        // Standalone admin creating franchise event - needs approval
+        finalStatus = 'pendingApproval';
+        // Keep the provided franchiseId
+      } else {
+        // Standalone admin creating standalone event - auto-approve
+        finalFranchiseId = null;
+        finalStatus = 'approved';
+      }
+    } else {
+      throw new Error('Only Super Admin, Franchisee, or Standalone Admin can create events');
+    }
+    
     // Filter out undefined values (Firestore doesn't accept undefined)
     const eventData: any = {
       title: event.title,
@@ -130,12 +183,17 @@ export async function createEvent(event: Omit<EventData, 'id' | 'createdAt' | 'u
       category: event.category || 'event', // Default to 'event' if not specified
       createdBy: event.createdBy,
       createdByEmail: event.createdByEmail,
-      status: event.status,
+      status: finalStatus,
       registeredUsers: event.registeredUsers ?? [],
       savedByUsers: event.savedByUsers ?? [],
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
+    
+    // Add franchiseId if provided
+    if (finalFranchiseId !== undefined) {
+      eventData.franchiseId = finalFranchiseId;
+    }
     
     // Only include optional fields if they have values (not undefined or empty)
     if (event.time !== undefined && event.time !== null && typeof event.time === 'string' && event.time.trim() !== '') {
@@ -261,7 +319,41 @@ export async function createEvent(event: Omit<EventData, 'id' | 'createdAt' | 'u
   }
 }
 
-export async function updateEvent(eventId: string, updates: Partial<EventData>) {
+export async function updateEvent(
+  eventId: string,
+  updates: Partial<EventData>,
+  editorUid?: string
+) {
+  // Check permissions if editorUid is provided
+  if (editorUid) {
+    const { getUserRole } = await import('./userRoles');
+    const { getEvent } = await import('./events');
+    
+    const editorRole = await getUserRole(editorUid);
+    const event = await getEvent(eventId);
+    
+    if (!event) {
+      throw new Error('Event not found');
+    }
+    
+    // Permission checks
+    if (editorRole === 'superAdmin') {
+      // Super Admin can edit all events
+    } else if (editorRole === 'franchisee') {
+      // Franchisee can only edit events where franchiseId === their UID
+      if (event.franchiseId !== editorUid) {
+        throw new Error('You can only edit events for your franchise');
+      }
+    } else if (editorRole === 'standaloneAdmin') {
+      // Standalone Admin can only edit their own events
+      if (event.createdBy !== editorUid) {
+        throw new Error('You can only edit your own events');
+      }
+    } else {
+      throw new Error('You do not have permission to edit events');
+    }
+  }
+  
   // Filter out undefined values (Firestore doesn't accept undefined)
   const updateData: any = {
     updatedAt: serverTimestamp(),
@@ -373,6 +465,11 @@ export async function updateEvent(eventId: string, updates: Partial<EventData>) 
     updateData.type = updates.type;
   }
   
+  // NEW: Franchise tracking
+  if (updates.franchiseId !== undefined) {
+    updateData.franchiseId = updates.franchiseId;
+  }
+  
   // For optional fields, only include if they have values (not empty strings)
   // If empty, we'll just omit the field (don't set it to null or deleteField)
   if (updates.time !== undefined) {
@@ -461,6 +558,9 @@ export function eventDataToChessEvent(eventData: EventData): ChessEvent {
     contactEmail: eventData.contactEmail,
     contactPhone: eventData.contactPhone,
     category: eventData.category,
+    // NEW: Franchise tracking
+    franchiseId: eventData.franchiseId,
+    isStandalone: eventData.isStandalone ?? (eventData.franchiseId === null || eventData.franchiseId === undefined),
   };
 }
 
@@ -648,5 +748,101 @@ export async function rejectEvent(eventId: string) {
     approvedAt: null,
     updatedAt: serverTimestamp(),
   });
+}
+
+// NEW: Helper functions for franchise queries
+// Returns events linked to a franchise OR created by the franchisee (fallback for events without franchiseId set)
+export async function getEventsByFranchise(franchiseId: string): Promise<EventData[]> {
+  try {
+    // Query 1: Events where franchiseId matches
+    const franchiseQuery = query(
+      collection(db, EVENTS_COLLECTION),
+      where('franchiseId', '==', franchiseId),
+      orderBy('createdAt', 'desc')
+    );
+    
+    // Query 2: Events created by the franchisee (fallback for events without franchiseId)
+    const createdByQuery = query(
+      collection(db, EVENTS_COLLECTION),
+      where('createdBy', '==', franchiseId),
+      orderBy('createdAt', 'desc')
+    );
+    
+    const [franchiseSnap, createdBySnap] = await Promise.all([
+      getDocs(franchiseQuery).catch(() => ({ docs: [] })), // Catch index errors
+      getDocs(createdByQuery).catch(() => ({ docs: [] })), // Catch index errors
+    ]);
+    
+    // Combine results and remove duplicates
+    const allEvents = [
+      ...franchiseSnap.docs.map((docSnap) => fromFirestoreEvent(docSnap.id, docSnap.data())),
+      ...createdBySnap.docs.map((docSnap) => fromFirestoreEvent(docSnap.id, docSnap.data())),
+    ];
+    
+    // Remove duplicates by event ID
+    const uniqueEvents = Array.from(
+      new Map(allEvents.map(event => [event.id, event])).values()
+    );
+    
+    // A franchisee should see ALL events they created, regardless of franchiseId
+    // This includes:
+    // 1. Events linked to their franchise (franchiseId === franchiseId)
+    // 2. Standalone events they created (franchiseId === null and createdBy === franchiseId)
+    // 3. Any other events they created
+    return uniqueEvents.filter(event => 
+      event.createdBy === franchiseId || event.franchiseId === franchiseId
+    );
+  } catch (error: any) {
+    console.error('Error fetching franchise events:', error);
+    // Fallback: just get events created by the franchisee
+    try {
+      const fallbackSnap = await getDocs(
+        query(
+          collection(db, EVENTS_COLLECTION),
+          where('createdBy', '==', franchiseId),
+          orderBy('createdAt', 'desc')
+        )
+      );
+      return fallbackSnap.docs.map((docSnap) => fromFirestoreEvent(docSnap.id, docSnap.data()));
+    } catch (fallbackError) {
+      console.error('Fallback query also failed:', fallbackError);
+      return [];
+    }
+  }
+}
+
+export async function getStandaloneEvents(): Promise<EventData[]> {
+  const snapshot = await getDocs(
+    query(
+      collection(db, EVENTS_COLLECTION),
+      where('franchiseId', '==', null),
+      orderBy('createdAt', 'desc')
+    )
+  );
+  return snapshot.docs.map((docSnap) => fromFirestoreEvent(docSnap.id, docSnap.data()));
+}
+
+/**
+ * Check if a user can edit an event
+ */
+export async function canEditEvent(userUid: string, event: EventData): Promise<boolean> {
+  const { getUserRole } = await import('./userRoles');
+  const role = await getUserRole(userUid);
+  
+  if (role === 'superAdmin') {
+    return true; // Super Admin can edit all events
+  }
+  
+  if (role === 'franchisee') {
+    // Franchisee can edit events where franchiseId === their UID
+    return event.franchiseId === userUid;
+  }
+  
+  if (role === 'standaloneAdmin') {
+    // Standalone Admin can only edit their own events
+    return event.createdBy === userUid;
+  }
+  
+  return false;
 }
 

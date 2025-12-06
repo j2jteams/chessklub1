@@ -1,12 +1,16 @@
-// UPDATED: role-based routing and approval flows - Phase 0.5
+// UPDATED: Chess Tourneys - New role system with Super Admin, Franchisee, Standalone Admin, Player
 // UPDATED: Unified event model with add-ons support
-export type UserRole = 'player' | 'admin' | 'owner' | null;
+// Note: 'admin' and 'owner' are included for backward compatibility (migrated to 'standaloneAdmin' and 'superAdmin')
+export type UserRole = 'player' | 'standaloneAdmin' | 'franchisee' | 'superAdmin' | 'admin' | 'owner' | null;
 
 export interface UserData {
   uid: string;
   email: string;
   role: UserRole;
-  isGodOwner?: boolean; // UPDATED: God Owner system - only God Owner can transfer ownership
+  firstName?: string;
+  lastName?: string;
+  uscfId?: string; // Optional USCF ID for players
+  franchiseId?: string | null; // Optional franchise ID for admins/franchisees
   savedEvents: string[];
   registeredEvents: string[];
   createdAt: Date;
@@ -86,6 +90,9 @@ export interface EventData {
   pricingTiers?: PricingTier[];
   // UPDATED: Unified type field (maps to category for backward compatibility)
   type?: EventType;
+  // NEW: Franchise tracking for Chess Tourneys
+  franchiseId?: string | null;  // UID of the franchisee user, or null for standalone events
+  isStandalone?: boolean;        // Computed: true if franchiseId is null/undefined
 }
 
 // UPDATED: Unified ChessEvent interface - the new standard model
@@ -132,5 +139,8 @@ export interface ChessEvent {
   registeredUsers?: string[];
   savedByUsers?: string[];
   category?: EventCategory;   // maps to type
+  // NEW: Franchise tracking for Chess Tourneys
+  franchiseId?: string | null;  // UID of the franchisee user, or null for standalone events
+  isStandalone?: boolean;        // Computed: true if franchiseId is null/undefined
 }
 

@@ -6,8 +6,8 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  // Protect admin routes - allow both admin and owner
-  useRequireRole(['admin', 'owner']);
+  // UPDATED: Chess Tourneys - Allow Super Admin, Franchisee, Standalone Admin, and legacy roles
+  useRequireRole(['superAdmin', 'franchisee', 'standaloneAdmin', 'admin', 'owner']);
 
   return (
     <>
