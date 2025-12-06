@@ -66,7 +66,7 @@ export default function AdminDashboardPage() {
     setFetchLoading(true);
     try {
       // Migration: Handle old roles
-      const userRole: UserRole = role ?? 'player';
+      const userRole = (role ?? 'player') as UserRole;
       const isOldOwner = userRole === 'owner';
       const isOldAdmin = userRole === 'admin';
       
@@ -107,7 +107,7 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     if (!loading && user) {
-      const userRole: UserRole = role ?? 'player';
+      const userRole = (role ?? 'player') as UserRole;
       if (userRole === 'standaloneAdmin' || userRole === 'franchisee' || 
           userRole === 'superAdmin' || userRole === 'admin' || userRole === 'owner') {
       loadEvents();
@@ -169,7 +169,7 @@ export default function AdminDashboardPage() {
     );
   }
 
-  const userRole: UserRole = role ?? 'player';
+  const userRole = (role ?? 'player') as UserRole;
   const isSuperAdmin = userRole === 'superAdmin' || userRole === 'owner';
 
   return (
