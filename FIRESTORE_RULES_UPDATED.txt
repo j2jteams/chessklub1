@@ -8,10 +8,10 @@ service cloud.firestore {
     }
     
     // UPDATED: Chess Tourneys - New role system
-    // Check if user is Super Admin (with backward compatibility for 'owner')
+    // Check if user is Super Admin
     function isSuperAdmin() {
       let role = getUserRole();
-      return request.auth != null && (role == 'superAdmin' || role == 'owner');
+      return request.auth != null && role == 'superAdmin';
     }
     
     // Check if user is Franchisee
@@ -28,13 +28,13 @@ service cloud.firestore {
     // Check if user can create/edit events (Super Admin, Franchisee, or Standalone Admin)
     function canManageEvents() {
       let role = getUserRole();
-      return request.auth != null && role in ['superAdmin', 'franchisee', 'standaloneAdmin', 'owner', 'admin'];
+      return request.auth != null && role in ['superAdmin', 'franchisee', 'standaloneAdmin', 'admin'];
     }
     
     // Check if user can read all events (Super Admin, Franchisee, or Standalone Admin)
     function canReadAllEvents() {
       let role = getUserRole();
-      return request.auth != null && role in ['superAdmin', 'franchisee', 'standaloneAdmin', 'owner', 'admin'];
+      return request.auth != null && role in ['superAdmin', 'franchisee', 'standaloneAdmin', 'admin'];
     }
     
     // Check if user can update a specific event
@@ -45,7 +45,7 @@ service cloud.firestore {
       let role = getUserRole();
       return request.auth != null && (
         // Super Admin can update any event
-        (role == 'superAdmin' || role == 'owner') ||
+        role == 'superAdmin' ||
         // Franchisee can update events where franchiseId matches their UID
         (role == 'franchisee' && eventData.franchiseId == request.auth.uid) ||
         // Standalone Admin can update their own events
