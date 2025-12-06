@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRequireRole } from '@/hooks/useRequireRole';
-import { EventData, UserData } from '@/lib/types';
+import { EventData, UserData, UserRole } from '@/lib/types';
 import { getEventsCreatedBy, getEventsByFranchise, getAllEvents, approveEvent, rejectEvent, deleteEvent } from '@/lib/events';
 import { getAllUsers } from '@/lib/userRoles';
 
@@ -66,7 +66,7 @@ export default function AdminDashboardPage() {
     setFetchLoading(true);
     try {
       // Migration: Handle old roles
-      const userRole = role ?? 'player';
+      const userRole: UserRole = role ?? 'player';
       const isOldOwner = userRole === 'owner';
       const isOldAdmin = userRole === 'admin';
       
@@ -107,10 +107,10 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     if (!loading && user) {
-      const userRole = role ?? 'player';
+      const userRole: UserRole = role ?? 'player';
       if (userRole === 'standaloneAdmin' || userRole === 'franchisee' || 
           userRole === 'superAdmin' || userRole === 'admin' || userRole === 'owner') {
-        loadEvents();
+      loadEvents();
       }
     }
   }, [user, role, loading, loadEvents]);
@@ -169,7 +169,7 @@ export default function AdminDashboardPage() {
     );
   }
 
-  const userRole = role ?? 'player';
+  const userRole: UserRole = role ?? 'player';
   const isSuperAdmin = userRole === 'superAdmin' || userRole === 'owner';
 
   return (
@@ -299,7 +299,7 @@ export default function AdminDashboardPage() {
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
-                            <div>
+          <div>
                               <div className="text-sm font-semibold text-slate-900">{event.title}</div>
                               {event.description && (
                                 <div className="text-xs text-gray-500 mt-1 line-clamp-1">
@@ -350,7 +350,7 @@ export default function AdminDashboardPage() {
                           {isPending && (
                             <div className="text-xs text-yellow-600 mt-1 font-medium">
                               {creatorInfo.type === 'Franchise' ? 'Standalone event' : 'Franchise event'}
-                            </div>
+          </div>
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -378,7 +378,7 @@ export default function AdminDashboardPage() {
                               className="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-xs font-semibold hover:bg-blue-600 transition"
                             >
                               Edit
-                            </Link>
+          </Link>
                             <button
                               onClick={() => event.id && handleDelete(event.id)}
                               disabled={actionLoading === event.id}
@@ -408,9 +408,9 @@ export default function AdminDashboardPage() {
                 {userRole === 'franchisee' ? 'Edit events for your franchise' : 'Edit details or track approval status'}
               </p>
             </div>
-          </div>
+        </div>
 
-          {fetchLoading ? (
+        {fetchLoading ? (
             <div className="text-center py-12 text-gray-500">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-2"></div>
               Loading events...
@@ -420,25 +420,25 @@ export default function AdminDashboardPage() {
           ) : (
             <div className="divide-y divide-gray-200">
               {filteredEvents.map((event) => (
-                <div
-                  key={event.id}
+              <div
+                key={event.id}
                   className="p-6 hover:bg-gray-50 transition"
                 >
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="text-lg font-bold text-slate-900">{event.title}</h3>
-                        <span
+                  <span
                           className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                            event.status === 'approved'
+                      event.status === 'approved'
                               ? 'bg-green-100 text-green-800'
-                              : event.status === 'pendingApproval'
+                        : event.status === 'pendingApproval'
                               ? 'bg-yellow-100 text-yellow-800'
                               : 'bg-red-100 text-red-800'
-                          }`}
-                        >
-                          {event.status}
-                        </span>
+                    }`}
+                  >
+                    {event.status}
+                  </span>
                       </div>
                       {event.description && (
                         <p className="text-gray-600 mb-2">{event.description}</p>
@@ -462,31 +462,31 @@ export default function AdminDashboardPage() {
                       {((userRole === 'superAdmin' || userRole === 'owner') ||
                         (userRole === 'franchisee' && (event.franchiseId === user?.uid || event.createdBy === user?.uid)) ||
                         ((userRole === 'standaloneAdmin' || userRole === 'admin') && event.createdBy === user?.uid)) && (
-                        <Link
-                          href={`/admin/events/edit/${event.id}`}
+                    <Link
+                      href={`/admin/events/edit/${event.id}`}
                           className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-semibold transition"
-                        >
-                          Edit
-                        </Link>
-                      )}
+                    >
+                      Edit
+                    </Link>
+                  )}
                       {/* Check if user can delete this event */}
                       {((userRole === 'superAdmin' || userRole === 'owner') ||
                         (userRole === 'franchisee' && (event.franchiseId === user?.uid || event.createdBy === user?.uid)) ||
                         ((userRole === 'standaloneAdmin' || userRole === 'admin') && event.createdBy === user?.uid)) && (
-                        <button
+                    <button
                           onClick={() => event.id && handleDelete(event.id)}
                           disabled={actionLoading === event.id}
                           className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs font-semibold disabled:opacity-50 transition"
                         >
                           {actionLoading === event.id ? '...' : 'Delete'}
-                        </button>
-                      )}
+                    </button>
+                  )}
                     </div>
-                  </div>
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            ))}
+          </div>
+        )}
         </div>
       )}
     </div>
