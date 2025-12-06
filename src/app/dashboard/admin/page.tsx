@@ -1,4 +1,4 @@
-// UPDATED: role-based routing and approval flows - Phase 0.5
+// UPDATED: Chess Tourneys - Admin/Franchisee Dashboard
 'use client';
 
 import Link from 'next/link';
@@ -6,11 +6,11 @@ import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRequireRole } from '@/hooks/useRequireRole';
 import { EventData } from '@/lib/types';
-import { getEventsCreatedBy } from '@/lib/events';
+import { getEventsCreatedBy, getEventsByFranchise } from '@/lib/events';
 
 export default function AdminDashboardPage() {
-  // Protect route - allow both admin and owner
-  useRequireRole(['admin', 'owner']);
+  // Protect route - allow standaloneAdmin, franchisee, and superAdmin (for migration)
+  useRequireRole(['standaloneAdmin', 'franchisee', 'superAdmin', 'admin', 'owner']);
   
   const { user, role, loading } = useAuth();
   const [events, setEvents] = useState<EventData[]>([]);
@@ -20,14 +20,28 @@ export default function AdminDashboardPage() {
     if (!user) return;
     setFetchLoading(true);
     try {
-      // UPDATED: Owners can see ALL events, admins see only their own
-      if (role === 'owner') {
+      // Migration: Handle old roles
+      const userRole = role ?? 'player';
+      const isOldOwner = userRole === 'owner';
+      const isOldAdmin = userRole === 'admin';
+      
+      // Super Admin (or old owner) can see ALL events
+      if (userRole === 'superAdmin' || isOldOwner) {
         const { getAllEvents } = await import('@/lib/events');
         const data = await getAllEvents();
         setEvents(data);
-      } else {
+      } 
+      // Franchisee can see events for their franchise
+      else if (userRole === 'franchisee') {
+        const data = await getEventsByFranchise(user.uid);
+        setEvents(data);
+      } 
+      // Standalone Admin (or old admin) can see only their own events
+      else if (userRole === 'standaloneAdmin' || isOldAdmin) {
         const data = await getEventsCreatedBy(user.uid);
         setEvents(data);
+      } else {
+        setEvents([]);
       }
     } catch (error: any) {
       console.error('Error loading events:', error);
@@ -44,8 +58,13 @@ export default function AdminDashboardPage() {
   }, [user, role]);
 
   useEffect(() => {
-    if (!loading && user && (role === 'admin' || role === 'owner')) {
-      loadEvents();
+    if (!loading && user) {
+      const userRole = role ?? 'player';
+      // Allow new roles and old roles (for migration)
+      if (userRole === 'standaloneAdmin' || userRole === 'franchisee' || 
+          userRole === 'superAdmin' || userRole === 'admin' || userRole === 'owner') {
+        loadEvents();
+      }
     }
   }, [user, role, loading, loadEvents]);
 
@@ -64,7 +83,11 @@ export default function AdminDashboardPage() {
           <p className="text-sm text-gray-500">Admin Console</p>
           <h1 className="text-3xl font-bold text-slate-900">Manage Events</h1>
           <p className="text-gray-500 mt-2">
-            Create and manage events. Owner will review and approve submissions automatically if required.
+            {role === 'franchisee' 
+              ? 'Create and manage events for your franchise. Standalone events require Super Admin approval.'
+              : role === 'standaloneAdmin'
+              ? 'Create and manage standalone events.'
+              : 'Create and manage events.'}
           </p>
         </div>
         <Link
@@ -79,7 +102,10 @@ export default function AdminDashboardPage() {
         <div className="bg-white border border-gray-100 rounded-2xl p-5">
           <p className="text-xs text-gray-500 uppercase tracking-wide">Total Events</p>
           <p className="text-3xl font-bold text-slate-900 mt-2">{events.length}</p>
-          <p className="text-xs text-gray-400 mt-1">{role === 'owner' ? 'All events' : 'Created by you'}</p>
+          <p className="text-xs text-gray-400 mt-1">
+            {role === 'superAdmin' || role === 'owner' ? 'All events' : 
+             role === 'franchisee' ? 'Franchise events' : 'Your events'}
+          </p>
         </div>
         <div className="bg-white border border-gray-100 rounded-2xl p-5">
           <p className="text-xs text-gray-500 uppercase tracking-wide">Pending Approval</p>
@@ -100,8 +126,14 @@ export default function AdminDashboardPage() {
       <section className="bg-white border border-gray-100 rounded-2xl p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">{role === 'owner' ? 'All Events' : 'Your Events'}</h2>
-            <p className="text-sm text-gray-500">{role === 'owner' ? 'View, edit, or delete any event' : 'Edit details or track approval status'}</p>
+            <h2 className="text-lg font-semibold text-slate-900">
+              {role === 'superAdmin' || role === 'owner' ? 'All Events' : 
+               role === 'franchisee' ? 'Franchise Events' : 'Your Events'}
+            </h2>
+            <p className="text-sm text-gray-500">
+              {role === 'superAdmin' || role === 'owner' ? 'View, edit, or delete any event' : 
+               role === 'franchisee' ? 'Edit events for your franchise' : 'Edit details or track approval status'}
+            </p>
           </div>
           <Link href="/admin/events" className="text-sm text-orange-600 font-medium hover:text-orange-700">
             View all
@@ -135,7 +167,11 @@ export default function AdminDashboardPage() {
                   >
                     {event.status}
                   </span>
-                  {(role === 'owner' || event.createdBy === user?.uid) && (
+                  {/* Check if user can edit this event */}
+                  {((role === 'superAdmin' || role === 'owner') || 
+                    (role === 'franchisee' && event.franchiseId === user?.uid) ||
+                    (role === 'standaloneAdmin' && event.createdBy === user?.uid) ||
+                    (role === 'admin' && event.createdBy === user?.uid)) && (
                     <Link
                       href={`/admin/events/edit/${event.id}`}
                       className="px-3 py-1 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50"
@@ -143,7 +179,7 @@ export default function AdminDashboardPage() {
                       Edit
                     </Link>
                   )}
-                  {role === 'owner' && (
+                  {(role === 'superAdmin' || role === 'owner') && (
                     <button
                       onClick={async () => {
                         if (!confirm(`Are you sure you want to delete "${event.title}"?`)) return;

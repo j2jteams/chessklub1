@@ -7,11 +7,11 @@ import { useEffect } from 'react';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
-// UPDATED: role-based routing and approval flows - Phase 0.5
+// UPDATED: Chess Tourneys - New role system
 const navLinks = [
-  { href: '/dashboard', label: 'Overview', roles: ['player', 'admin', 'owner'] },
-  { href: '/dashboard/admin', label: 'Admin Console', roles: ['admin', 'owner'] },
-  { href: '/dashboard/owner', label: 'Owner Console', roles: ['owner'] },
+  { href: '/dashboard', label: 'Overview', roles: ['player', 'standaloneAdmin', 'franchisee', 'superAdmin'] },
+  { href: '/dashboard/admin', label: 'Admin Console', roles: ['standaloneAdmin', 'franchisee'] },
+  { href: '/dashboard/super-admin', label: 'Super Admin Console', roles: ['superAdmin'] },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -58,7 +58,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             
             {/* Dashboard Links */}
             {navLinks
-              .filter((link) => role && link.roles.includes(role))
+              .filter((link) => {
+                // Handle role migration: old 'owner' and 'admin' should still work
+                const userRole = role ?? 'player';
+                const normalizedRoles = link.roles.map(r => {
+                  // Migration: map old roles to new roles for navigation
+                  if (r === 'owner') return 'superAdmin';
+                  if (r === 'admin') return 'standaloneAdmin';
+                  return r;
+                });
+                return normalizedRoles.includes(userRole) || link.roles.includes(userRole);
+              })
               .map((link) => (
                 <Link
                   key={link.href}

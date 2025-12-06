@@ -450,10 +450,29 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
         }
       }
 
-      // Prepare event data for Firestore
-      const status: EventStatus = role === 'owner' ? 'approved' : 'pendingApproval';
+      // Determine franchiseId based on role
+      // For franchisee: franchiseId should be their UID (for franchise events)
+      // For standalone admin: franchiseId should be null
+      // For super admin: can choose (we'll add UI for this later, for now null)
+      let franchiseId: string | null | undefined = null;
+      const userRole = role ?? 'player';
       
-      // Convert to EventData format for backward compatibility
+      if (userRole === 'franchisee') {
+        // Franchisee: by default, events are tied to their franchise
+        // TODO: Add UI option to create standalone events (which need approval)
+        franchiseId = user.uid;
+      } else if (userRole === 'standaloneAdmin') {
+        // Standalone Admin: always null (standalone events)
+        franchiseId = null;
+      } else if (userRole === 'superAdmin' || userRole === 'owner') {
+        // Super Admin: can create with or without franchise
+        // For now, default to null (standalone)
+        // TODO: Add UI to select franchise
+        franchiseId = null;
+      }
+      
+      // Prepare event data for Firestore
+      // Note: Status will be set by createEvent based on role and franchiseId
       const eventData: any = {
         title: formData.name, // Use name as title for backward compatibility
         name: formData.name,  // Also include name for new format
@@ -467,7 +486,7 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
         type: formData.type, // New type field
         createdBy: user.uid,
         createdByEmail: user.email || '',
-        status,
+        status: 'pendingApproval', // Will be overridden by createEvent based on role
         registeredUsers: [],
         savedByUsers: [],
         // Legacy price field - use first pricing tier if available, or empty
@@ -538,14 +557,20 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
       }
 
       if (mode === 'create') {
-        const eventId = await createEvent(eventData);
+        // Pass role and franchiseId to createEvent
+        // createEvent will handle status and franchiseId logic
+        const creatorRole = (userRole === 'owner' ? 'superAdmin' : 
+                             userRole === 'admin' ? 'standaloneAdmin' : 
+                             userRole) as 'superAdmin' | 'franchisee' | 'standaloneAdmin' | undefined;
+        const eventId = await createEvent(eventData, creatorRole, franchiseId);
         if (onSaveSuccess) {
           onSaveSuccess(eventId);
         } else {
           router.push('/admin/events');
         }
       } else if (mode === 'edit' && initialData?.id) {
-        await updateEvent(initialData.id, eventData);
+        // Pass editorUid for permission check
+        await updateEvent(initialData.id, eventData, user.uid);
         if (onSaveSuccess) {
           onSaveSuccess(initialData.id);
         } else {
