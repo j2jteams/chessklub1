@@ -10,8 +10,8 @@ import { auth } from '@/lib/firebase';
 // UPDATED: Chess Tourneys - New role system
 const navLinks = [
   { href: '/dashboard', label: 'Overview', roles: ['player', 'standaloneAdmin', 'franchisee', 'superAdmin'] },
-  { href: '/dashboard/admin', label: 'Admin Console', roles: ['standaloneAdmin', 'franchisee', 'superAdmin'] },
-  { href: '/dashboard/super-admin', label: 'Super Admin Console', roles: ['superAdmin'] },
+  { href: '/dashboard/admin', label: 'Event Management', roles: ['standaloneAdmin', 'franchisee', 'superAdmin'] },
+  { href: '/dashboard/super-admin', label: 'Admin Management', roles: ['superAdmin'] },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

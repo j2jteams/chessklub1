@@ -465,7 +465,7 @@ export default function LoginPage() {
 
                   <div>
                     <label htmlFor="adminFranchiseId" className="block text-sm font-medium text-gray-700 mb-2">
-                      Franchise ID <span className="text-gray-500 text-xs">(Optional - leave blank for standalone admin)</span>
+                      Franchise Name <span className="text-gray-500 text-xs">(Optional - leave blank for standalone admin)</span>
                     </label>
                     <input
                       id="adminFranchiseId"
@@ -473,10 +473,10 @@ export default function LoginPage() {
                       value={adminFranchiseId}
                       onChange={(e) => setAdminFranchiseId(e.target.value)}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition"
-                      placeholder="Enter franchise ID (optional)"
+                      placeholder="Enter franchise name (optional)"
                     />
                     <p className="mt-1 text-xs text-gray-500">
-                      If you're associated with a franchise, enter the franchise ID. Otherwise, leave blank to become a standalone admin.
+                      If you're associated with a franchise, enter the franchise name. Otherwise, leave blank to become a standalone admin.
                     </p>
                   </div>
 

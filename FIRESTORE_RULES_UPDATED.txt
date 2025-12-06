@@ -57,8 +57,12 @@ service cloud.firestore {
     match /users/{userId} {
       
       // Users can read their own data, Super Admin can read all
+      // Standalone Admins and Franchisees can read franchisee users (for event linking)
       allow read: if request.auth != null && 
-        (request.auth.uid == userId || isSuperAdmin());
+        (request.auth.uid == userId || 
+         isSuperAdmin() ||
+         (isStandaloneAdmin() && resource.data.role == 'franchisee') ||
+         (isFranchisee() && resource.data.role == 'franchisee'));
       
       // Users can create their own document on signup
       allow create: if request.auth != null && 

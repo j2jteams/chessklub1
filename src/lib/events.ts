@@ -148,20 +148,28 @@ export async function createEvent(
     } else if (role === 'franchisee') {
       // Franchisee: if franchiseId is explicitly null (standalone event), needs approval
       // Otherwise, default to their own UID (franchise event), auto-approve
-      if (finalFranchiseId === null) {
-        // Explicitly set to null - standalone event - needs approval
+      if (finalFranchiseId === null || finalFranchiseId === undefined) {
+        // Explicitly set to null/undefined - standalone event - needs approval
         finalStatus = 'pendingApproval';
         finalFranchiseId = null;
       } else {
-        // Default to franchise event - auto-approve
+        // Franchise event - auto-approve
         finalStatus = 'approved';
         // Use provided franchiseId or default to creator's UID
         finalFranchiseId = finalFranchiseId || event.createdBy;
       }
     } else if (role === 'standaloneAdmin') {
-      // Standalone Admin can only create standalone events
-      finalFranchiseId = null;
-      finalStatus = 'approved';
+      // Standalone Admin: if franchiseId is provided (franchise event), needs approval
+      // Otherwise, standalone event (null), auto-approve
+      if (finalFranchiseId !== null && finalFranchiseId !== undefined) {
+        // Standalone admin creating franchise event - needs approval
+        finalStatus = 'pendingApproval';
+        // Keep the provided franchiseId
+      } else {
+        // Standalone admin creating standalone event - auto-approve
+        finalFranchiseId = null;
+        finalStatus = 'approved';
+      }
     } else {
       throw new Error('Only Super Admin, Franchisee, or Standalone Admin can create events');
     }
@@ -743,15 +751,64 @@ export async function rejectEvent(eventId: string) {
 }
 
 // NEW: Helper functions for franchise queries
+// Returns events linked to a franchise OR created by the franchisee (fallback for events without franchiseId set)
 export async function getEventsByFranchise(franchiseId: string): Promise<EventData[]> {
-  const snapshot = await getDocs(
-    query(
+  try {
+    // Query 1: Events where franchiseId matches
+    const franchiseQuery = query(
       collection(db, EVENTS_COLLECTION),
       where('franchiseId', '==', franchiseId),
       orderBy('createdAt', 'desc')
-    )
-  );
-  return snapshot.docs.map((docSnap) => fromFirestoreEvent(docSnap.id, docSnap.data()));
+    );
+    
+    // Query 2: Events created by the franchisee (fallback for events without franchiseId)
+    const createdByQuery = query(
+      collection(db, EVENTS_COLLECTION),
+      where('createdBy', '==', franchiseId),
+      orderBy('createdAt', 'desc')
+    );
+    
+    const [franchiseSnap, createdBySnap] = await Promise.all([
+      getDocs(franchiseQuery).catch(() => ({ docs: [] })), // Catch index errors
+      getDocs(createdByQuery).catch(() => ({ docs: [] })), // Catch index errors
+    ]);
+    
+    // Combine results and remove duplicates
+    const allEvents = [
+      ...franchiseSnap.docs.map((docSnap) => fromFirestoreEvent(docSnap.id, docSnap.data())),
+      ...createdBySnap.docs.map((docSnap) => fromFirestoreEvent(docSnap.id, docSnap.data())),
+    ];
+    
+    // Remove duplicates by event ID
+    const uniqueEvents = Array.from(
+      new Map(allEvents.map(event => [event.id, event])).values()
+    );
+    
+    // A franchisee should see ALL events they created, regardless of franchiseId
+    // This includes:
+    // 1. Events linked to their franchise (franchiseId === franchiseId)
+    // 2. Standalone events they created (franchiseId === null and createdBy === franchiseId)
+    // 3. Any other events they created
+    return uniqueEvents.filter(event => 
+      event.createdBy === franchiseId || event.franchiseId === franchiseId
+    );
+  } catch (error: any) {
+    console.error('Error fetching franchise events:', error);
+    // Fallback: just get events created by the franchisee
+    try {
+      const fallbackSnap = await getDocs(
+        query(
+          collection(db, EVENTS_COLLECTION),
+          where('createdBy', '==', franchiseId),
+          orderBy('createdAt', 'desc')
+        )
+      );
+      return fallbackSnap.docs.map((docSnap) => fromFirestoreEvent(docSnap.id, docSnap.data()));
+    } catch (fallbackError) {
+      console.error('Fallback query also failed:', fallbackError);
+      return [];
+    }
+  }
 }
 
 export async function getStandaloneEvents(): Promise<EventData[]> {

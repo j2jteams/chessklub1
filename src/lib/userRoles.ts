@@ -171,6 +171,27 @@ export async function getAllUsers(): Promise<UserData[]> {
   return usersSnap.docs.map((docSnap) => fromFirestoreUser(docSnap.data()));
 }
 
+/**
+ * Get all franchisee users
+ * This function can be called by standalone admins and franchisees (per Firestore rules)
+ */
+export async function getFranchisees(): Promise<UserData[]> {
+  try {
+    const { query, where } = await import('firebase/firestore');
+    const franchiseesQuery = query(
+      collection(db, 'users'),
+      where('role', '==', 'franchisee')
+    );
+    const franchiseesSnap = await getDocs(franchiseesQuery);
+    return franchiseesSnap.docs.map((docSnap) => fromFirestoreUser(docSnap.data()));
+  } catch (error: any) {
+    console.error('Error fetching franchisees:', error);
+    // If query fails (e.g., missing index or permission denied), return empty array
+    // The UI will show manual input option
+    return [];
+  }
+}
+
 // Helper functions for role checks
 export async function isSuperAdmin(uid: string): Promise<boolean> {
   const role = await getUserRole(uid);

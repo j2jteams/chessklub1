@@ -5,19 +5,15 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useRequireRole } from '@/hooks/useRequireRole';
-import { EventData, UserData, UserRole } from '@/lib/types';
-import { approveEvent, getEventsByStatus, rejectEvent, getAllEvents } from '@/lib/events';
+import { UserData, UserRole } from '@/lib/types';
 import { getAllUsers, updateUserRole } from '@/lib/userRoles';
 import { getPendingAdminRequests, approveAdminRequest, rejectAdminRequest, AdminRequest } from '@/lib/adminRequests';
-import Link from 'next/link';
 
 export default function SuperAdminDashboardPage() {
   useRequireRole(['superAdmin']);
   
   const { user, role, loading } = useAuth();
   const router = useRouter();
-  const [pendingEvents, setPendingEvents] = useState<EventData[]>([]);
-  const [allEvents, setAllEvents] = useState<EventData[]>([]);
   const [team, setTeam] = useState<UserData[]>([]);
   const [pendingAdminRequests, setPendingAdminRequests] = useState<AdminRequest[]>([]);
   const [fetchLoading, setFetchLoading] = useState(false);
@@ -25,6 +21,7 @@ export default function SuperAdminDashboardPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [selectedUserForRoleChange, setSelectedUserForRoleChange] = useState<{ uid: string; email: string } | null>(null);
   const [newRole, setNewRole] = useState<UserRole>('player');
+  const [selectedView, setSelectedView] = useState<'franchisees' | 'standaloneAdmins' | 'totalUsers' | null>(null);
 
   useEffect(() => {
     if (!loading && role !== 'superAdmin') {
@@ -39,18 +36,10 @@ export default function SuperAdminDashboardPage() {
       const loadData = async () => {
         setFetchLoading(true);
         try {
-          // Get pending events (franchisee standalone events)
-          const pending = await getEventsByStatus('pendingApproval');
-          // Filter to only show standalone events (franchiseId is null)
-          const standalonePending = pending.filter(e => !e.franchiseId || e.franchiseId === null);
-          
-          const [all, users, adminRequests] = await Promise.all([
-            getAllEvents(),
+          const [users, adminRequests] = await Promise.all([
             getAllUsers(),
             getPendingAdminRequests(),
           ]);
-          setPendingEvents(standalonePending);
-          setAllEvents(all);
           setTeam(users);
           setPendingAdminRequests(adminRequests);
         } finally {
@@ -62,34 +51,6 @@ export default function SuperAdminDashboardPage() {
     }
   }, [user, role, loading, router]);
 
-  const handleApprove = async (eventId: string) => {
-    if (!user) return;
-    setActionLoading(eventId);
-    try {
-      await approveEvent(eventId, user.uid);
-      setPendingEvents((prev) => prev.filter((event) => event.id !== eventId));
-      setSuccessMessage('Event approved successfully!');
-      setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (error: any) {
-      alert(`Failed to approve event: ${error.message}`);
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleReject = async (eventId: string) => {
-    setActionLoading(eventId);
-    try {
-      await rejectEvent(eventId);
-      setPendingEvents((prev) => prev.filter((event) => event.id !== eventId));
-      setSuccessMessage('Event rejected.');
-      setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (error: any) {
-      alert(`Failed to reject event: ${error.message}`);
-    } finally {
-      setActionLoading(null);
-    }
-  };
 
   const handleRoleChange = async () => {
     if (!user || !selectedUserForRoleChange) return;
@@ -180,94 +141,216 @@ export default function SuperAdminDashboardPage() {
         <p className="text-sm text-gray-500">Super Admin Console</p>
         <h1 className="text-3xl font-bold text-slate-900">Manage Chess Tourneys</h1>
         <p className="text-gray-500 mt-2">
-          Approve events, manage user roles, and oversee the platform.
+          Manage user roles, approve admin requests, and oversee the platform.
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white border border-gray-100 rounded-2xl p-5">
-          <p className="text-xs text-gray-500 uppercase tracking-wide">Pending Event Approvals</p>
-          <p className="text-3xl font-bold text-slate-900 mt-2">{pendingEvents.length}</p>
-        </div>
-        <div className="bg-white border border-gray-100 rounded-2xl p-5">
           <p className="text-xs text-gray-500 uppercase tracking-wide">Pending Admin Requests</p>
           <p className="text-3xl font-bold text-slate-900 mt-2">{pendingAdminRequests.length}</p>
         </div>
-        <div className="bg-white border border-gray-100 rounded-2xl p-5">
+        <button
+          onClick={() => setSelectedView(selectedView === 'franchisees' ? null : 'franchisees')}
+          className={`bg-white border rounded-2xl p-5 text-left transition-all hover:shadow-lg cursor-pointer ${
+            selectedView === 'franchisees' ? 'border-orange-500 shadow-md' : 'border-gray-100'
+          }`}
+        >
           <p className="text-xs text-gray-500 uppercase tracking-wide">Franchisees</p>
           <p className="text-3xl font-bold text-slate-900 mt-2">
             {team.filter((member) => member.role === 'franchisee').length}
           </p>
-        </div>
-        <div className="bg-white border border-gray-100 rounded-2xl p-5">
+        </button>
+        <button
+          onClick={() => setSelectedView(selectedView === 'standaloneAdmins' ? null : 'standaloneAdmins')}
+          className={`bg-white border rounded-2xl p-5 text-left transition-all hover:shadow-lg cursor-pointer ${
+            selectedView === 'standaloneAdmins' ? 'border-orange-500 shadow-md' : 'border-gray-100'
+          }`}
+        >
           <p className="text-xs text-gray-500 uppercase tracking-wide">Standalone Admins</p>
           <p className="text-3xl font-bold text-slate-900 mt-2">
             {team.filter((member) => member.role === 'standaloneAdmin').length}
           </p>
-        </div>
-        <div className="bg-white border border-gray-100 rounded-2xl p-5">
+        </button>
+        <button
+          onClick={() => setSelectedView(selectedView === 'totalUsers' ? null : 'totalUsers')}
+          className={`bg-white border rounded-2xl p-5 text-left transition-all hover:shadow-lg cursor-pointer ${
+            selectedView === 'totalUsers' ? 'border-orange-500 shadow-md' : 'border-gray-100'
+          }`}
+        >
           <p className="text-xs text-gray-500 uppercase tracking-wide">Total Users</p>
           <p className="text-3xl font-bold text-slate-900 mt-2">{team.length}</p>
-        </div>
+        </button>
       </div>
 
-      {/* Pending Event Approvals Section */}
-      <section className="bg-white border border-gray-100 rounded-2xl p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">Pending Event Approvals</h2>
-            <p className="text-sm text-gray-500">Review standalone events created by Franchisees.</p>
+      {/* Detailed Tables */}
+      {selectedView && (
+        <section className="bg-white border border-gray-100 rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">
+                {selectedView === 'franchisees' && 'Franchisees'}
+                {selectedView === 'standaloneAdmins' && 'Standalone Admins'}
+                {selectedView === 'totalUsers' && 'All Users'}
+              </h2>
+              <p className="text-sm text-gray-500">
+                {selectedView === 'franchisees' && 'All franchisee accounts in the system.'}
+                {selectedView === 'standaloneAdmins' && 'All standalone admin accounts in the system.'}
+                {selectedView === 'totalUsers' && 'Complete list of all users in the system.'}
+              </p>
+            </div>
+            <button
+              onClick={() => setSelectedView(null)}
+              className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-semibold hover:bg-gray-200"
+            >
+              Close
+            </button>
           </div>
-        </div>
-        {fetchLoading ? (
-          <div className="text-center py-10 text-gray-500">Loading pending events...</div>
-        ) : pendingEvents.length === 0 ? (
-          <div className="text-center py-10 text-gray-500">No pending events. You're all caught up!</div>
-        ) : (
-          <div className="space-y-3">
-            {pendingEvents.map((event) => (
-              <div
-                key={event.id}
-                className="flex flex-col md:flex-row md:items-center md:justify-between border border-gray-100 rounded-xl p-4"
-              >
-                <div>
-                  <p className="text-xs text-gray-400 uppercase tracking-wide">{event.date}</p>
-                  <h3 className="text-lg font-semibold text-slate-900">{event.title}</h3>
-                  <p className="text-sm text-gray-500">{event.location}</p>
-                  <p className="text-xs text-gray-400 mt-1">Created by {event.createdByEmail}</p>
-                  {event.isStandalone && (
-                    <span className="inline-block mt-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
-                      Standalone Event
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-3 mt-3 md:mt-0">
-                  <Link
-                    href={`/events/${event.id}`}
-                    className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-semibold hover:bg-gray-200"
-                  >
-                    View
-                  </Link>
-                  <button
-                    onClick={() => handleApprove(event.id!)}
-                    disabled={actionLoading === event.id}
-                    className="px-4 py-2 rounded-lg bg-green-500 text-white text-sm font-semibold hover:bg-green-600 disabled:opacity-50"
-                  >
-                    {actionLoading === event.id ? 'Processing...' : 'Approve'}
-                  </button>
-                  <button
-                    onClick={() => handleReject(event.id!)}
-                    disabled={actionLoading === event.id}
-                    className="px-4 py-2 rounded-lg bg-red-500 text-white text-sm font-semibold hover:bg-red-600 disabled:opacity-50"
-                  >
-                    Reject
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+
+          {selectedView === 'franchisees' && (
+            <div className="overflow-x-auto">
+              {fetchLoading ? (
+                <div className="text-center py-10 text-gray-500">Loading franchisees...</div>
+              ) : team.filter((member) => member.role === 'franchisee').length === 0 ? (
+                <div className="text-center py-10 text-gray-500">No franchisees found.</div>
+              ) : (
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Email</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Name</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Franchise Name</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Created</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Role</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {team
+                      .filter((member) => member.role === 'franchisee')
+                      .map((member) => (
+                        <tr key={member.uid} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="py-3 px-4 text-sm font-medium text-slate-900">{member.email}</td>
+                          <td className="py-3 px-4 text-sm text-gray-600">
+                            {member.firstName} {member.lastName}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600">
+                            {member.franchiseId || '-'}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600">
+                            {member.createdAt?.toLocaleDateString() || '-'}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className="inline-block px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded capitalize">
+                              {member.role}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+
+          {selectedView === 'standaloneAdmins' && (
+            <div className="overflow-x-auto">
+              {fetchLoading ? (
+                <div className="text-center py-10 text-gray-500">Loading standalone admins...</div>
+              ) : team.filter((member) => member.role === 'standaloneAdmin').length === 0 ? (
+                <div className="text-center py-10 text-gray-500">No standalone admins found.</div>
+              ) : (
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Email</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Name</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Created</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Role</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {team
+                      .filter((member) => member.role === 'standaloneAdmin')
+                      .map((member) => (
+                        <tr key={member.uid} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="py-3 px-4 text-sm font-medium text-slate-900">{member.email}</td>
+                          <td className="py-3 px-4 text-sm text-gray-600">
+                            {member.firstName} {member.lastName}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600">
+                            {member.createdAt?.toLocaleDateString() || '-'}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className="inline-block px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded capitalize">
+                              {member.role}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+
+          {selectedView === 'totalUsers' && (
+            <div className="overflow-x-auto">
+              {fetchLoading ? (
+                <div className="text-center py-10 text-gray-500">Loading users...</div>
+              ) : team.length === 0 ? (
+                <div className="text-center py-10 text-gray-500">No users found.</div>
+              ) : (
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Email</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Name</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Role</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Franchise Name</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">USCF ID</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Created</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {team.map((member) => (
+                      <tr key={member.uid} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="py-3 px-4 text-sm font-medium text-slate-900">
+                          {member.email}
+                          {member.uid === user?.uid && (
+                            <span className="ml-2 text-xs text-gray-400">(You)</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-600">
+                          {member.firstName} {member.lastName}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className={`inline-block px-2 py-1 text-xs rounded capitalize ${
+                            member.role === 'superAdmin' ? 'bg-red-100 text-red-800' :
+                            member.role === 'franchisee' ? 'bg-purple-100 text-purple-800' :
+                            member.role === 'standaloneAdmin' ? 'bg-blue-100 text-blue-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {member.role || 'player'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-600">
+                          {member.franchiseId || '-'}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-600">
+                          {member.uscfId || '-'}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-600">
+                          {member.createdAt?.toLocaleDateString() || '-'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Pending Admin Signup Requests Section */}
       <section className="bg-white border border-gray-100 rounded-2xl p-6">
@@ -298,7 +381,7 @@ export default function SuperAdminDashboardPage() {
                   <p className="text-sm text-gray-500">{request.email}</p>
                   {request.franchiseId ? (
                     <span className="inline-block mt-2 px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded">
-                      Franchise Admin (ID: {request.franchiseId})
+                      Franchise Admin (Name: {request.franchiseId})
                     </span>
                   ) : (
                     <span className="inline-block mt-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">

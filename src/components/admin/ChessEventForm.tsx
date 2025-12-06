@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { createEvent, updateEvent } from '@/lib/events';
 import { uploadImage } from '@/lib/storage';
-import { EventType, EventStatus, EventAddOn, TournamentSection, ChessEvent, PricingTier } from '@/lib/types';
+import { EventType, EventStatus, EventAddOn, TournamentSection, ChessEvent, PricingTier, UserData } from '@/lib/types';
+import { getAllUsers, getFranchisees } from '@/lib/userRoles';
 import { Timestamp } from 'firebase/firestore';
 
 interface ChessEventFormProps {
@@ -24,6 +25,13 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
   const [uploadingImage, setUploadingImage] = useState(false);
   const [error, setError] = useState('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [franchisees, setFranchisees] = useState<UserData[]>([]);
+  const [loadingFranchisees, setLoadingFranchisees] = useState(false);
+  
+  // Event linking state
+  const [eventLinkType, setEventLinkType] = useState<'franchise' | 'standalone'>('standalone');
+  const [selectedFranchiseId, setSelectedFranchiseId] = useState<string>('');
+  const [franchiseIdInput, setFranchiseIdInput] = useState<string>('');
   
   // Unified form state
   const [formData, setFormData] = useState({
@@ -43,6 +51,53 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
     contactEmail: '',
     contactPhone: '',
   });
+
+  // Load franchisees for dropdown (only in create mode)
+  useEffect(() => {
+    if (mode === 'create') {
+      const loadFranchisees = async () => {
+        setLoadingFranchisees(true);
+        try {
+          // Use getFranchisees() which works for standalone admins (queries with where clause)
+          // Fallback to getAllUsers() for super admins if needed
+          const userRole = role ?? 'player';
+          if (userRole === 'superAdmin' || userRole === 'owner') {
+            // Super Admin can use getAllUsers (has full access)
+            const allUsers = await getAllUsers();
+            const franchiseeUsers = allUsers.filter(u => u.role === 'franchisee');
+            setFranchisees(franchiseeUsers);
+          } else {
+            // Standalone Admin and Franchisee use getFranchisees (limited access)
+            const franchiseeUsers = await getFranchisees();
+            setFranchisees(franchiseeUsers);
+          }
+        } catch (error) {
+          console.error('Error loading franchisees:', error);
+          // If loading fails (e.g., permission denied or missing index), set empty array
+          // The dropdown will still show with manual input option
+          setFranchisees([]);
+        } finally {
+          setLoadingFranchisees(false);
+        }
+        
+        // Set default based on user role (do this after loading attempt)
+        const userRole = role ?? 'player';
+        if (userRole === 'franchisee') {
+          // Franchisee: default to "Linked to Franchise" with their own ID
+          setEventLinkType('franchise');
+          setSelectedFranchiseId(user?.uid || '');
+          setFranchiseIdInput(user?.uid || '');
+        } else if (userRole === 'standaloneAdmin') {
+          // Standalone Admin: default to "Standalone"
+          setEventLinkType('standalone');
+        } else if (userRole === 'superAdmin' || userRole === 'owner') {
+          // Super Admin: default to "Standalone" but can choose
+          setEventLinkType('standalone');
+        }
+      };
+      loadFranchisees();
+    }
+  }, [mode, role, user]);
 
   // Load initial data for edit mode
   useEffect(() => {
@@ -450,24 +505,28 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
         }
       }
 
-      // Determine franchiseId based on role
-      // For franchisee: franchiseId should be their UID (for franchise events)
-      // For standalone admin: franchiseId should be null
-      // For super admin: can choose (we'll add UI for this later, for now null)
+      // Determine franchiseId based on user selection
       let franchiseId: string | null | undefined = null;
       const userRole = role ?? 'player';
       
-      if (userRole === 'franchisee') {
-        // Franchisee: by default, events are tied to their franchise
-        // TODO: Add UI option to create standalone events (which need approval)
-        franchiseId = user.uid;
-      } else if (userRole === 'standaloneAdmin') {
-        // Standalone Admin: always null (standalone events)
-        franchiseId = null;
-      } else if (userRole === 'superAdmin' || userRole === 'owner') {
-        // Super Admin: can create with or without franchise
-        // For now, default to null (standalone)
-        // TODO: Add UI to select franchise
+      if (eventLinkType === 'franchise') {
+        // User selected "Linked to Franchise"
+        if (selectedFranchiseId) {
+          // Use selected franchise from dropdown
+          franchiseId = selectedFranchiseId;
+        } else if (franchiseIdInput.trim()) {
+          // Use manually entered franchise ID
+          franchiseId = franchiseIdInput.trim();
+        } else if (userRole === 'franchisee') {
+          // Franchisee defaulting to their own ID
+          franchiseId = user.uid;
+        } else {
+          setError('Please select or enter a franchise name when linking to a franchise.');
+          setLoading(false);
+          return;
+        }
+      } else {
+        // User selected "Standalone"
         franchiseId = null;
       }
       
@@ -566,7 +625,7 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
         if (onSaveSuccess) {
           onSaveSuccess(eventId);
         } else {
-          router.push('/admin/events');
+          router.push('/dashboard/admin');
         }
       } else if (mode === 'edit' && initialData?.id) {
         // Pass editorUid for permission check
@@ -574,7 +633,7 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
         if (onSaveSuccess) {
           onSaveSuccess(initialData.id);
         } else {
-          router.push('/admin/events');
+          router.push('/dashboard/admin');
         }
       }
     } catch (err: any) {
@@ -656,6 +715,141 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
           placeholder="e.g., ABC Center, City, State"
         />
       </div>
+
+      {/* Event Linking (Franchise/Standalone) - Only show in create mode */}
+      {mode === 'create' && (
+        <div className="border border-gray-200 rounded-lg p-4 bg-gradient-to-r from-slate-50 to-white">
+          <div className="mb-4">
+            <label className="block text-sm font-semibold text-gray-900 mb-2">
+              Event Linking *
+            </label>
+            <p className="text-xs text-gray-600 mb-3">
+              Choose whether this event is linked to a franchise or standalone. 
+              {role === 'franchisee' && ' Creating a standalone event requires Super Admin approval.'}
+              {role === 'standaloneAdmin' && ' Creating a franchise event requires Super Admin approval.'}
+            </p>
+            <select
+              value={eventLinkType}
+              onChange={(e) => {
+                const newType = e.target.value as 'franchise' | 'standalone';
+                setEventLinkType(newType);
+                // Reset franchise selection when switching
+                if (newType === 'standalone') {
+                  setSelectedFranchiseId('');
+                  setFranchiseIdInput('');
+                } else if (newType === 'franchise' && role === 'franchisee') {
+                  // Auto-select franchisee's own ID
+                  setSelectedFranchiseId(user?.uid || '');
+                  setFranchiseIdInput(user?.uid || '');
+                }
+              }}
+              required
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none bg-white font-medium"
+            >
+              <option value="standalone">Standalone Event</option>
+              <option value="franchise">Linked to Franchise</option>
+            </select>
+          </div>
+
+          {/* Franchise Selection - Only show if "Linked to Franchise" is selected */}
+          {eventLinkType === 'franchise' && (
+            <div className="space-y-3 bg-white rounded-lg p-4 border border-gray-200">
+              {/* For franchisee: Just show info that it's linked to their franchise */}
+              {role === 'franchisee' ? (
+                <div className="text-sm text-gray-600">
+                  <p>This event will be linked to your franchise automatically.</p>
+                </div>
+              ) : (
+                <>
+                  {/* For standalone admin and super admin: Show franchise selection */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Select Franchise
+                    </label>
+                    {loadingFranchisees ? (
+                      <div className="text-sm text-gray-500">Loading franchises...</div>
+                    ) : franchisees.length > 0 ? (
+                      <select
+                        value={selectedFranchiseId}
+                        onChange={(e) => {
+                          setSelectedFranchiseId(e.target.value);
+                          // Clear manual input when selecting from dropdown
+                          setFranchiseIdInput('');
+                        }}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+                      >
+                        <option value="">-- Select a franchise --</option>
+                        {franchisees.map((franchisee) => {
+                          const displayName = franchisee.firstName && franchisee.lastName
+                            ? `${franchisee.firstName} ${franchisee.lastName} (${franchisee.email})`
+                            : franchisee.email;
+                          return (
+                            <option key={franchisee.uid} value={franchisee.uid}>
+                              {displayName}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    ) : (
+                      <p className="text-sm text-gray-500">No franchises available. Enter franchise name manually below.</p>
+                    )}
+                  </div>
+                  
+                  {/* Only show "OR" divider and manual input if no franchise is selected from dropdown */}
+                  {!selectedFranchiseId && (
+                    <>
+                      <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                          <div className="w-full border-t border-gray-300"></div>
+                        </div>
+                        <div className="relative flex justify-center text-sm">
+                          <span className="px-2 bg-white text-gray-500">OR</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Enter Franchise Name
+                        </label>
+                        <input
+                          type="text"
+                          value={franchiseIdInput}
+                          onChange={(e) => {
+                            setFranchiseIdInput(e.target.value);
+                          }}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+                          placeholder="Enter franchise name or UID"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Enter the franchise name or UID to link this event to a franchise.
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Info message for approval requirements */}
+          {((role === 'franchisee' && eventLinkType === 'standalone') || 
+            (role === 'standaloneAdmin' && eventLinkType === 'franchise')) && (
+            <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-start">
+                <svg className="w-5 h-5 text-yellow-600 mt-0.5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                <div className="text-sm text-yellow-800">
+                  <p className="font-medium">Approval Required</p>
+                  <p className="mt-1">
+                    This event will be submitted for Super Admin approval before it becomes visible on the site.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Dates */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
