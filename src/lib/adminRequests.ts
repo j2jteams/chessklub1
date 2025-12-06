@@ -19,7 +19,10 @@ export interface AdminRequest {
   id?: string;
   userId: string;
   email: string;
-  displayName?: string;
+  firstName?: string;
+  lastName?: string;
+  franchiseId?: string | null; // If provided, this is a franchise admin; if null, standalone admin
+  displayName?: string; // Legacy field for backward compatibility
   reason?: string;
   status: 'pending' | 'approved' | 'rejected';
   createdAt: Date;
@@ -32,7 +35,10 @@ function fromFirestoreRequest(docId: string, data: any): AdminRequest {
     id: docId,
     userId: data.userId,
     email: data.email,
-    displayName: data.displayName,
+    firstName: data.firstName,
+    lastName: data.lastName,
+    franchiseId: data.franchiseId ?? null,
+    displayName: data.displayName, // Legacy field
     reason: data.reason,
     status: data.status,
     createdAt: data.createdAt?.toDate?.() ?? new Date(),
@@ -45,12 +51,18 @@ function fromFirestoreRequest(docId: string, data: any): AdminRequest {
  * Create a new admin request
  * @param userId - Firebase Auth UID
  * @param email - User email
- * @param displayName - Optional display name
+ * @param firstName - User's first name
+ * @param lastName - User's last name
+ * @param franchiseId - Optional franchise ID (if null, this is a standalone admin request)
+ * @param displayName - Optional display name (legacy field)
  * @param reason - Optional reason for requesting admin access
  */
 export async function createAdminRequest(
   userId: string,
   email: string,
+  firstName?: string,
+  lastName?: string,
+  franchiseId?: string | null,
   displayName?: string,
   reason?: string
 ): Promise<string> {
@@ -67,12 +79,11 @@ export async function createAdminRequest(
     createdAt: serverTimestamp(),
   };
 
-  if (displayName) {
-    requestData.displayName = displayName;
-  }
-  if (reason) {
-    requestData.reason = reason;
-  }
+  if (firstName) requestData.firstName = firstName;
+  if (lastName) requestData.lastName = lastName;
+  if (franchiseId !== undefined) requestData.franchiseId = franchiseId;
+  if (displayName) requestData.displayName = displayName;
+  if (reason) requestData.reason = reason;
 
   const docRef = await addDoc(collection(db, ADMIN_REQUESTS_COLLECTION), requestData);
   return docRef.id;
@@ -142,20 +153,35 @@ export async function approveAdminRequest(
   }
 
   try {
-    // Update the user's role to admin
+    // Update the user's role based on whether they have a franchiseId
     const userRef = doc(db, 'users', requestData.userId);
-    await updateDoc(userRef, {
-      role: 'admin',
+    const userUpdateData: any = {
       updatedAt: serverTimestamp(),
-    });
+    };
+
+    // Determine role: if franchiseId exists, they're a franchisee; otherwise standaloneAdmin
+    if (requestData.franchiseId) {
+      userUpdateData.role = 'franchisee';
+      userUpdateData.franchiseId = requestData.franchiseId;
+    } else {
+      userUpdateData.role = 'standaloneAdmin';
+      userUpdateData.franchiseId = null;
+    }
+
+    // Add firstName and lastName if available
+    if (requestData.firstName) userUpdateData.firstName = requestData.firstName;
+    if (requestData.lastName) userUpdateData.lastName = requestData.lastName;
+
+    await updateDoc(userRef, userUpdateData);
     
     // Verify the update worked
     const updatedUserSnap = await getDoc(userRef);
     if (updatedUserSnap.exists()) {
       const updatedRole = updatedUserSnap.data().role;
       console.log('User role updated to:', updatedRole);
-      if (updatedRole !== 'admin') {
-        throw new Error(`Role update verification failed. Expected 'admin', got '${updatedRole}'`);
+      const expectedRole = requestData.franchiseId ? 'franchisee' : 'standaloneAdmin';
+      if (updatedRole !== expectedRole) {
+        throw new Error(`Role update verification failed. Expected '${expectedRole}', got '${updatedRole}'`);
       }
     }
   } catch (error: any) {
@@ -197,5 +223,50 @@ export async function getAllAdminRequests(): Promise<AdminRequest[]> {
   );
 
   return snapshot.docs.map((docSnap) => fromFirestoreRequest(docSnap.id, docSnap.data()));
+}
+
+/**
+ * Check if an admin account is approved (for login validation)
+ * Returns true if user is not an admin, or if admin and approved
+ */
+export async function isAdminApproved(userId: string): Promise<boolean> {
+  const { getUserRole } = await import('./userRoles');
+  const role = await getUserRole(userId);
+  
+  // If not an admin role, they're approved (players can always sign in)
+  if (role !== 'standaloneAdmin' && role !== 'franchisee' && role !== 'admin') {
+    return true;
+  }
+
+  // Check if there's an approved admin request for this user
+  const snapshot = await getDocs(
+    query(
+      collection(db, ADMIN_REQUESTS_COLLECTION),
+      where('userId', '==', userId),
+      where('status', '==', 'approved')
+    )
+  );
+
+  // If they have an approved request, they can sign in
+  if (!snapshot.empty) {
+    return true;
+  }
+
+  // If they're an admin but no approved request exists, check if they were created before the approval system
+  // (for backward compatibility with existing admins)
+  const allRequests = await getDocs(
+    query(
+      collection(db, ADMIN_REQUESTS_COLLECTION),
+      where('userId', '==', userId)
+    )
+  );
+
+  // If no requests exist at all, assume they're a legacy admin (approved)
+  if (allRequests.empty) {
+    return true;
+  }
+
+  // Otherwise, they need approval
+  return false;
 }
 

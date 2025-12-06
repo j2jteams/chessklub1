@@ -8,6 +8,7 @@ import { useRequireRole } from '@/hooks/useRequireRole';
 import { EventData, UserData, UserRole } from '@/lib/types';
 import { approveEvent, getEventsByStatus, rejectEvent, getAllEvents } from '@/lib/events';
 import { getAllUsers, updateUserRole } from '@/lib/userRoles';
+import { getPendingAdminRequests, approveAdminRequest, rejectAdminRequest, AdminRequest } from '@/lib/adminRequests';
 import Link from 'next/link';
 
 export default function SuperAdminDashboardPage() {
@@ -18,6 +19,7 @@ export default function SuperAdminDashboardPage() {
   const [pendingEvents, setPendingEvents] = useState<EventData[]>([]);
   const [allEvents, setAllEvents] = useState<EventData[]>([]);
   const [team, setTeam] = useState<UserData[]>([]);
+  const [pendingAdminRequests, setPendingAdminRequests] = useState<AdminRequest[]>([]);
   const [fetchLoading, setFetchLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -42,13 +44,15 @@ export default function SuperAdminDashboardPage() {
           // Filter to only show standalone events (franchiseId is null)
           const standalonePending = pending.filter(e => !e.franchiseId || e.franchiseId === null);
           
-          const [all, users] = await Promise.all([
+          const [all, users, adminRequests] = await Promise.all([
             getAllEvents(),
             getAllUsers(),
+            getPendingAdminRequests(),
           ]);
           setPendingEvents(standalonePending);
           setAllEvents(all);
           setTeam(users);
+          setPendingAdminRequests(adminRequests);
         } finally {
           setFetchLoading(false);
         }
@@ -111,6 +115,44 @@ export default function SuperAdminDashboardPage() {
     }
   };
 
+  const handleApproveAdminRequest = async (requestId: string) => {
+    if (!user) return;
+    setActionLoading(requestId);
+    try {
+      await approveAdminRequest(requestId, user.uid);
+      setPendingAdminRequests((prev) => prev.filter((req) => req.id !== requestId));
+      setSuccessMessage('Admin request approved successfully!');
+      setTimeout(() => setSuccessMessage(null), 3000);
+      
+      // Reload data
+      const [users, adminRequests] = await Promise.all([
+        getAllUsers(),
+        getPendingAdminRequests(),
+      ]);
+      setTeam(users);
+      setPendingAdminRequests(adminRequests);
+    } catch (error: any) {
+      alert(`Failed to approve admin request: ${error.message}`);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRejectAdminRequest = async (requestId: string) => {
+    if (!user) return;
+    setActionLoading(requestId);
+    try {
+      await rejectAdminRequest(requestId, user.uid);
+      setPendingAdminRequests((prev) => prev.filter((req) => req.id !== requestId));
+      setSuccessMessage('Admin request rejected.');
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (error: any) {
+      alert(`Failed to reject admin request: ${error.message}`);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   if (!user || loading) {
     return (
       <div className="min-h-[50vh] flex items-center justify-center">
@@ -144,8 +186,12 @@ export default function SuperAdminDashboardPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white border border-gray-100 rounded-2xl p-5">
-          <p className="text-xs text-gray-500 uppercase tracking-wide">Pending Approvals</p>
+          <p className="text-xs text-gray-500 uppercase tracking-wide">Pending Event Approvals</p>
           <p className="text-3xl font-bold text-slate-900 mt-2">{pendingEvents.length}</p>
+        </div>
+        <div className="bg-white border border-gray-100 rounded-2xl p-5">
+          <p className="text-xs text-gray-500 uppercase tracking-wide">Pending Admin Requests</p>
+          <p className="text-3xl font-bold text-slate-900 mt-2">{pendingAdminRequests.length}</p>
         </div>
         <div className="bg-white border border-gray-100 rounded-2xl p-5">
           <p className="text-xs text-gray-500 uppercase tracking-wide">Franchisees</p>
@@ -212,6 +258,65 @@ export default function SuperAdminDashboardPage() {
                   <button
                     onClick={() => handleReject(event.id!)}
                     disabled={actionLoading === event.id}
+                    className="px-4 py-2 rounded-lg bg-red-500 text-white text-sm font-semibold hover:bg-red-600 disabled:opacity-50"
+                  >
+                    Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Pending Admin Signup Requests Section */}
+      <section className="bg-white border border-gray-100 rounded-2xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Pending Admin Signup Requests</h2>
+            <p className="text-sm text-gray-500">Review and approve admin account requests.</p>
+          </div>
+        </div>
+        {fetchLoading ? (
+          <div className="text-center py-10 text-gray-500">Loading admin requests...</div>
+        ) : pendingAdminRequests.length === 0 ? (
+          <div className="text-center py-10 text-gray-500">No pending admin requests. You're all caught up!</div>
+        ) : (
+          <div className="space-y-3">
+            {pendingAdminRequests.map((request) => (
+              <div
+                key={request.id}
+                className="flex flex-col md:flex-row md:items-center md:justify-between border border-gray-100 rounded-xl p-4"
+              >
+                <div>
+                  <p className="text-xs text-gray-400 uppercase tracking-wide">
+                    {request.createdAt.toLocaleDateString()}
+                  </p>
+                  <h3 className="text-lg font-semibold text-slate-900">
+                    {request.firstName} {request.lastName}
+                  </h3>
+                  <p className="text-sm text-gray-500">{request.email}</p>
+                  {request.franchiseId ? (
+                    <span className="inline-block mt-2 px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded">
+                      Franchise Admin (ID: {request.franchiseId})
+                    </span>
+                  ) : (
+                    <span className="inline-block mt-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
+                      Standalone Admin
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 mt-3 md:mt-0">
+                  <button
+                    onClick={() => request.id && handleApproveAdminRequest(request.id)}
+                    disabled={actionLoading === request.id}
+                    className="px-4 py-2 rounded-lg bg-green-500 text-white text-sm font-semibold hover:bg-green-600 disabled:opacity-50"
+                  >
+                    {actionLoading === request.id ? 'Processing...' : 'Approve'}
+                  </button>
+                  <button
+                    onClick={() => request.id && handleRejectAdminRequest(request.id)}
+                    disabled={actionLoading === request.id}
                     className="px-4 py-2 rounded-lg bg-red-500 text-white text-sm font-semibold hover:bg-red-600 disabled:opacity-50"
                   >
                     Reject

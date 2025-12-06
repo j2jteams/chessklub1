@@ -34,6 +34,10 @@ function fromFirestoreUser(data: any): UserData {
     uid: data.uid,
     email: data.email,
     role: userRole as UserRole,
+    firstName: data.firstName,
+    lastName: data.lastName,
+    uscfId: data.uscfId,
+    franchiseId: data.franchiseId ?? null,
     savedEvents: data.savedEvents ?? [],
     registeredEvents: data.registeredEvents ?? [],
     createdAt: data.createdAt?.toDate?.() ?? new Date(),
@@ -41,7 +45,17 @@ function fromFirestoreUser(data: any): UserData {
   };
 }
 
-export async function createUserDocument(uid: string, email: string, role: UserRole = 'player') {
+export async function createUserDocument(
+  uid: string,
+  email: string,
+  role: UserRole = 'player',
+  options?: {
+    firstName?: string;
+    lastName?: string;
+    uscfId?: string;
+    franchiseId?: string | null;
+  }
+) {
   const userRef = doc(db, 'users', uid);
   const snapshot = await getDoc(userRef);
 
@@ -49,7 +63,7 @@ export async function createUserDocument(uid: string, email: string, role: UserR
     return;
   }
 
-  await setDoc(userRef, {
+  const userData: any = {
     uid,
     email,
     role,
@@ -57,7 +71,15 @@ export async function createUserDocument(uid: string, email: string, role: UserR
     registeredEvents: [],
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-  });
+  };
+
+  // Add optional fields if provided
+  if (options?.firstName) userData.firstName = options.firstName;
+  if (options?.lastName) userData.lastName = options.lastName;
+  if (options?.uscfId) userData.uscfId = options.uscfId;
+  if (options?.franchiseId !== undefined) userData.franchiseId = options.franchiseId;
+
+  await setDoc(userRef, userData);
 }
 
 export async function getUserRole(uid: string): Promise<UserRole> {

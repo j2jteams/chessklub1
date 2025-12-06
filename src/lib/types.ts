@@ -7,6 +7,10 @@ export interface UserData {
   uid: string;
   email: string;
   role: UserRole;
+  firstName?: string;
+  lastName?: string;
+  uscfId?: string; // Optional USCF ID for players
+  franchiseId?: string | null; // Optional franchise ID for admins/franchisees
   savedEvents: string[];
   registeredEvents: string[];
   createdAt: Date;
