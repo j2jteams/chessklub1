@@ -19,18 +19,16 @@ function fromFirestoreUser(data: any): UserData {
   if (userRole === 'user') {
     userRole = 'player';
   }
-  // Migrate old 'owner' role to 'superAdmin'
-  if (userRole === 'owner') {
-    userRole = 'superAdmin';
-  }
   // Migrate old 'admin' role to 'standaloneAdmin' (default migration)
   // Note: This assumes existing admins should be standalone admins
   // If you need franchise admins, they should be manually assigned
   if (userRole === 'admin') {
     userRole = 'standaloneAdmin';
   }
+  // Note: 'owner' role migration removed - all owners have been manually migrated to 'superAdmin' in Firebase
   
-  return {
+  // Explicitly type the return to prevent TypeScript narrowing
+  const result: UserData = {
     uid: data.uid,
     email: data.email,
     role: userRole as UserRole,
@@ -43,6 +41,7 @@ function fromFirestoreUser(data: any): UserData {
     createdAt: data.createdAt?.toDate?.() ?? new Date(),
     updatedAt: data.updatedAt?.toDate?.() ?? new Date(),
   };
+  return result;
 }
 
 export async function createUserDocument(
@@ -93,8 +92,8 @@ export async function getUserRole(uid: string): Promise<UserRole> {
   // Migration: Convert old roles to new roles
   const role = snapshot.data().role ?? 'player';
   if (role === 'user') return 'player';
-  if (role === 'owner') return 'superAdmin';
   if (role === 'admin') return 'standaloneAdmin';
+  // Note: 'owner' role migration removed - all owners have been manually migrated to 'superAdmin' in Firebase
   return role as UserRole;
 }
 
@@ -131,8 +130,8 @@ export async function updateUserRole(
   const currentUserData = currentUserSnap.data();
   const currentUserRole = currentUserData.role;
   
-  // Migration: Handle old 'owner' role
-  const isSuperAdmin = currentUserRole === 'superAdmin' || currentUserRole === 'owner';
+  // Check if user is Super Admin
+  const isSuperAdmin = currentUserRole === 'superAdmin';
   
   if (!isSuperAdmin) {
     throw new Error('Only Super Admin can assign roles');

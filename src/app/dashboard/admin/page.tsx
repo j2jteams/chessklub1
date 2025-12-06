@@ -15,8 +15,8 @@ function ensureUserRole(role: UserRole | undefined | null): UserRole {
 }
 
 export default function AdminDashboardPage() {
-  // Protect route - allow standaloneAdmin, franchisee, and superAdmin (for migration)
-  useRequireRole(['standaloneAdmin', 'franchisee', 'superAdmin', 'admin', 'owner']);
+  // Protect route - allow standaloneAdmin, franchisee, and superAdmin
+  useRequireRole(['standaloneAdmin', 'franchisee', 'superAdmin', 'admin']);
   
   const { user, role: roleValue, loading } = useAuth();
   // Use type guard to prevent TypeScript narrowing
@@ -72,19 +72,17 @@ export default function AdminDashboardPage() {
     if (!user) return;
     setFetchLoading(true);
     try {
-      // Migration: Handle old roles
+      // Get user role
       const userRole = ensureUserRole(role);
-      const isOldOwner = userRole === 'owner';
-      const isOldAdmin = userRole === 'admin';
       
       // Load all users for creator info (only for super admin)
-      if (userRole === 'superAdmin' || isOldOwner) {
+      if (userRole === 'superAdmin') {
         const users = await getAllUsers();
         setAllUsers(users);
       }
       
-      // Super Admin (or old owner) can see ALL events
-      if (userRole === 'superAdmin' || isOldOwner) {
+      // Super Admin can see ALL events
+      if (userRole === 'superAdmin') {
         const { getAllEvents } = await import('@/lib/events');
         const data = await getAllEvents();
         setEvents(data);
@@ -116,7 +114,7 @@ export default function AdminDashboardPage() {
     if (!loading && user) {
       const userRole = ensureUserRole(role);
       if (userRole === 'standaloneAdmin' || userRole === 'franchisee' || 
-          userRole === 'superAdmin' || userRole === 'admin' || userRole === 'owner') {
+          userRole === 'superAdmin' || userRole === 'admin') {
       loadEvents();
       }
     }
@@ -178,7 +176,7 @@ export default function AdminDashboardPage() {
 
   // Use type guard to ensure full UserRole union type (prevents narrowing)
   const userRole = ensureUserRole(role);
-  const isSuperAdmin = userRole === 'superAdmin' || userRole === 'owner';
+  const isSuperAdmin = userRole === 'superAdmin';
 
   return (
     <div className="space-y-6">
@@ -467,7 +465,7 @@ export default function AdminDashboardPage() {
                     </div>
                     <div className="flex gap-2 ml-4">
                       {/* Check if user can edit this event */}
-                      {((userRole === 'superAdmin' || userRole === 'owner') ||
+                      {(userRole === 'superAdmin' ||
                         (userRole === 'franchisee' && (event.franchiseId === user?.uid || event.createdBy === user?.uid)) ||
                         ((userRole === 'standaloneAdmin' || userRole === 'admin') && event.createdBy === user?.uid)) && (
                     <Link
@@ -478,7 +476,7 @@ export default function AdminDashboardPage() {
                     </Link>
                   )}
                       {/* Check if user can delete this event */}
-                      {((userRole === 'superAdmin' || userRole === 'owner') ||
+                      {(userRole === 'superAdmin' ||
                         (userRole === 'franchisee' && (event.franchiseId === user?.uid || event.createdBy === user?.uid)) ||
                         ((userRole === 'standaloneAdmin' || userRole === 'admin') && event.createdBy === user?.uid)) && (
                     <button

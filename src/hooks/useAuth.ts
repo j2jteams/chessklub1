@@ -36,8 +36,8 @@ export function useAuth(): AuthState {
 
       try {
         const profile = await getUserData(firebaseUser.uid);
-        // Migration: Convert old 'user' role to 'player' (handled in getUserData)
-        const role = profile?.role ?? 'player';
+        // Ensure role is explicitly typed as UserRole to prevent TypeScript narrowing
+        const role: UserRole = (profile?.role ?? 'player') as UserRole;
         setState({
           user: firebaseUser,
           profile: profile ?? null,
