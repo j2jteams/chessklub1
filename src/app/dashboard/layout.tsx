@@ -11,7 +11,7 @@ import { auth } from '@/lib/firebase';
 const navLinks = [
   { href: '/dashboard', label: 'Overview', roles: ['player', 'standaloneAdmin', 'franchisee', 'superAdmin'] },
   { href: '/dashboard/admin', label: 'Event Management', roles: ['standaloneAdmin', 'franchisee', 'superAdmin'] },
-  { href: '/dashboard/super-admin', label: 'Admin Management', roles: ['superAdmin'] },
+  { href: '/dashboard/super-admin', label: 'User Management', roles: ['superAdmin'] },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
