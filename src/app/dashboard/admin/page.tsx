@@ -10,7 +10,9 @@ import { getEventsCreatedBy, getEventsByFranchise, getAllEvents, approveEvent, r
 import { getAllUsers } from '@/lib/userRoles';
 
 // Type guard to ensure full UserRole union type (prevents TypeScript narrowing)
+// Maps 'admin' to 'standaloneAdmin' to match Firestore migration logic
 function ensureUserRole(role: UserRole | undefined | null): UserRole {
+  if (role === 'admin') return 'standaloneAdmin';
   return (role ?? 'player') as UserRole;
 }
 
@@ -92,8 +94,8 @@ export default function AdminDashboardPage() {
         const data = await getEventsByFranchise(user.uid);
         setEvents(data);
       } 
-      // Standalone Admin (or old admin) can see only their own events
-      else if (userRole === 'standaloneAdmin' || isOldAdmin) {
+      // Standalone Admin can see only their own events (admin is converted to standaloneAdmin by ensureUserRole)
+      else if (userRole === 'standaloneAdmin') {
         const data = await getEventsCreatedBy(user.uid);
         setEvents(data);
       } else {
@@ -113,8 +115,9 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     if (!loading && user) {
       const userRole = ensureUserRole(role);
+      // After ensureUserRole, 'admin' is converted to 'standaloneAdmin', so only check for 'standaloneAdmin'
       if (userRole === 'standaloneAdmin' || userRole === 'franchisee' || 
-          userRole === 'superAdmin' || userRole === 'admin') {
+          userRole === 'superAdmin') {
       loadEvents();
       }
     }
@@ -467,7 +470,7 @@ export default function AdminDashboardPage() {
                       {/* Check if user can edit this event */}
                       {(userRole === 'superAdmin' ||
                         (userRole === 'franchisee' && (event.franchiseId === user?.uid || event.createdBy === user?.uid)) ||
-                        ((userRole === 'standaloneAdmin' || userRole === 'admin') && event.createdBy === user?.uid)) && (
+                        (userRole === 'standaloneAdmin' && event.createdBy === user?.uid)) && (
                     <Link
                       href={`/admin/events/edit/${event.id}`}
                           className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-semibold transition"
@@ -478,7 +481,7 @@ export default function AdminDashboardPage() {
                       {/* Check if user can delete this event */}
                       {(userRole === 'superAdmin' ||
                         (userRole === 'franchisee' && (event.franchiseId === user?.uid || event.createdBy === user?.uid)) ||
-                        ((userRole === 'standaloneAdmin' || userRole === 'admin') && event.createdBy === user?.uid)) && (
+                        (userRole === 'standaloneAdmin' && event.createdBy === user?.uid)) && (
                     <button
                           onClick={() => event.id && handleDelete(event.id)}
                           disabled={actionLoading === event.id}
