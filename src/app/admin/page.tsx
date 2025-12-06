@@ -36,8 +36,12 @@ export default function AdminPage() {
   };
 
   const handleRoleChange = async (userId: string, newRole: UserRole) => {
+    if (!user) {
+      setError('You must be logged in to change user roles');
+      return;
+    }
     try {
-      await updateUserRole(userId, newRole);
+      await updateUserRole(user.uid, userId, newRole);
       await loadUsers(); // Reload users
     } catch (err: any) {
       setError(err.message || 'Failed to update user role');
