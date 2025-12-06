@@ -88,10 +88,10 @@ export default function EditEventPage() {
         <div className="text-center">
           <p className="text-red-600 mb-4">{error}</p>
           <Link
-            href="/admin/events"
+            href="/dashboard/admin"
             className="text-orange-600 hover:text-orange-700 font-medium"
           >
-            ← Back to Events
+            ← Back to Event Management
           </Link>
         </div>
       </div>
@@ -104,10 +104,10 @@ export default function EditEventPage() {
         <div className="text-center">
           <p className="text-gray-600 mb-4">Event not found</p>
           <Link
-            href="/admin/events"
+            href="/dashboard/admin"
             className="text-orange-600 hover:text-orange-700 font-medium"
           >
-            ← Back to Events
+            ← Back to Event Management
           </Link>
         </div>
       </div>
@@ -118,12 +118,6 @@ export default function EditEventPage() {
     <div className="min-h-screen bg-gray-50 py-8 chess-themed-bg">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-6">
-          <Link
-            href="/admin/events"
-            className="text-orange-600 hover:text-orange-700 text-sm font-medium mb-4 inline-block"
-          >
-            ← Back to Events
-          </Link>
           <h1 className="text-3xl font-bold text-gray-900">Edit Event</h1>
           <p className="mt-2 text-gray-600">
             Update event details, sections, and add-ons.

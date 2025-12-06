@@ -26,12 +26,6 @@ export default function CreateEventPage() {
     <div className="min-h-screen bg-gray-50 py-8 chess-themed-bg">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-6">
-          <Link
-            href="/admin/events"
-            className="text-orange-600 hover:text-orange-700 text-sm font-medium mb-4 inline-block"
-          >
-            ← Back to Events
-          </Link>
           <h1 className="text-3xl font-bold text-gray-900">Create New Event</h1>
           <p className="mt-2 text-gray-600">
             Create a new tournament, camp, class, or other chess event.
