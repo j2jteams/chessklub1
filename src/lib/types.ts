@@ -1,6 +1,7 @@
 // UPDATED: Chess Tourneys - New role system with Super Admin, Franchisee, Standalone Admin, Player
 // UPDATED: Unified event model with add-ons support
-export type UserRole = 'player' | 'standaloneAdmin' | 'franchisee' | 'superAdmin' | null;
+// Note: 'admin' and 'owner' are included for backward compatibility (migrated to 'standaloneAdmin' and 'superAdmin')
+export type UserRole = 'player' | 'standaloneAdmin' | 'franchisee' | 'superAdmin' | 'admin' | 'owner' | null;
 
 export interface UserData {
   uid: string;
