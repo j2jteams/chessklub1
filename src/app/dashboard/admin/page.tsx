@@ -13,7 +13,9 @@ export default function AdminDashboardPage() {
   // Protect route - allow standaloneAdmin, franchisee, and superAdmin (for migration)
   useRequireRole(['standaloneAdmin', 'franchisee', 'superAdmin', 'admin', 'owner']);
   
-  const { user, role, loading } = useAuth();
+  const { user, role: roleValue, loading } = useAuth();
+  // Assert role type immediately to prevent TypeScript narrowing
+  const role = roleValue as UserRole;
   const [events, setEvents] = useState<EventData[]>([]);
   const [allUsers, setAllUsers] = useState<UserData[]>([]);
   const [fetchLoading, setFetchLoading] = useState(false);
@@ -169,7 +171,8 @@ export default function AdminDashboardPage() {
     );
   }
 
-  const userRole = (role ?? 'player') as UserRole;
+  // Type assertion ensures full UserRole union type (prevents narrowing)
+  const userRole: UserRole = (role ?? 'player') as UserRole;
   const isSuperAdmin = userRole === 'superAdmin' || userRole === 'owner';
 
   return (
