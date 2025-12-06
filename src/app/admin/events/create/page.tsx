@@ -8,7 +8,8 @@ import Link from 'next/link';
 
 export default function CreateEventPage() {
   const { loading: authLoading } = useAuth();
-  const { authorized } = useRequireRole(['admin', 'owner']);
+  // UPDATED: Chess Tourneys - Allow Super Admin, Franchisee, and Standalone Admin
+  const { authorized } = useRequireRole(['superAdmin', 'franchisee', 'standaloneAdmin', 'admin', 'owner']);
 
   if (authLoading || !authorized) {
     return (

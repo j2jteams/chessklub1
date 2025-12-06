@@ -83,7 +83,9 @@ export default function AdminDashboardPage() {
           <p className="text-sm text-gray-500">Admin Console</p>
           <h1 className="text-3xl font-bold text-slate-900">Manage Events</h1>
           <p className="text-gray-500 mt-2">
-            {role === 'franchisee' 
+            {role === 'superAdmin' || role === 'owner'
+              ? 'Create and manage all events. You can create franchise or standalone events.'
+              : role === 'franchisee' 
               ? 'Create and manage events for your franchise. Standalone events require Super Admin approval.'
               : role === 'standaloneAdmin'
               ? 'Create and manage standalone events.'

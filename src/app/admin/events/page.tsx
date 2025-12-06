@@ -9,8 +9,8 @@ import { EventData } from '@/lib/types';
 import Link from 'next/link';
 
 export default function EventsManagementPage() {
-  // Protect route - allow both admin and owner
-  useRequireRole(['admin', 'owner']);
+  // UPDATED: Chess Tourneys - Allow Super Admin, Franchisee, and Standalone Admin
+  useRequireRole(['superAdmin', 'franchisee', 'standaloneAdmin', 'admin', 'owner']);
   
   const { user, role, loading: authLoading } = useAuth();
   const [events, setEvents] = useState<EventData[]>([]);
@@ -20,8 +20,13 @@ export default function EventsManagementPage() {
   const [filter, setFilter] = useState<'all' | 'pendingApproval' | 'approved' | 'rejected'>('all');
 
   useEffect(() => {
-    if (!authLoading && user && (role === 'admin' || role === 'owner')) {
-      loadEvents();
+    if (!authLoading && user) {
+      const userRole = role ?? 'player';
+      // Allow all admin roles
+      if (userRole === 'superAdmin' || userRole === 'franchisee' || 
+          userRole === 'standaloneAdmin' || userRole === 'admin' || userRole === 'owner') {
+        loadEvents();
+      }
     }
   }, [user, role, authLoading, filter]);
 
@@ -38,7 +43,10 @@ export default function EventsManagementPage() {
   };
 
   const handleApprove = async (eventId: string) => {
-    if (!user || role !== 'owner') return;
+    if (!user) return;
+    const userRole = role ?? 'player';
+    // Only Super Admin can approve events
+    if (userRole !== 'superAdmin' && userRole !== 'owner') return;
     try {
       await approveEvent(eventId, user.uid);
       await loadEvents();
@@ -48,7 +56,10 @@ export default function EventsManagementPage() {
   };
 
   const handleReject = async (eventId: string) => {
-    if (!user || role !== 'owner') return;
+    if (!user) return;
+    const userRole = role ?? 'player';
+    // Only Super Admin can reject events
+    if (userRole !== 'superAdmin' && userRole !== 'owner') return;
     try {
       await rejectEvent(eventId);
       await loadEvents();
@@ -58,7 +69,11 @@ export default function EventsManagementPage() {
   };
 
   const handleDelete = async (eventId: string) => {
-    if (!user || (role !== 'owner' && role !== 'admin')) return;
+    if (!user) return;
+    const userRole = role ?? 'player';
+    // Super Admin can delete any event, others can only delete their own
+    if (userRole !== 'superAdmin' && userRole !== 'owner' && 
+        userRole !== 'franchisee' && userRole !== 'standaloneAdmin' && userRole !== 'admin') return;
     if (!confirm('Are you sure you want to delete this event?')) return;
     try {
       await deleteEvent(eventId);
@@ -84,7 +99,13 @@ export default function EventsManagementPage() {
     );
   }
 
-  if (!user || (role !== 'owner' && role !== 'admin')) {
+  if (!user) {
+    return null; // Will redirect
+  }
+  
+  const userRole = role ?? 'player';
+  if (userRole !== 'superAdmin' && userRole !== 'franchisee' && 
+      userRole !== 'standaloneAdmin' && userRole !== 'admin' && userRole !== 'owner') {
     return null; // Will redirect
   }
 
@@ -102,12 +123,12 @@ export default function EventsManagementPage() {
               >
                 Create Event
               </Link>
-              {role === 'owner' && (
+              {(role === 'superAdmin' || role === 'owner') && (
                 <Link
-                  href="/admin"
+                  href="/dashboard/super-admin"
                   className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-md font-semibold transition"
                 >
-                  Manage Admins
+                  Manage Users
                 </Link>
               )}
               <Link
@@ -189,7 +210,7 @@ export default function EventsManagementPage() {
                       </p>
                     </div>
                     <div className="flex gap-2 ml-4">
-                      {role === 'owner' && event.status === 'pendingApproval' && (
+                      {(role === 'superAdmin' || role === 'owner') && event.status === 'pendingApproval' && (
                         <>
                           <button
                             onClick={() => handleApprove(event.id!)}
@@ -205,7 +226,10 @@ export default function EventsManagementPage() {
                           </button>
                         </>
                       )}
-                      {(role === 'owner' || (role === 'admin' && event.createdBy === user.uid)) && (
+                      {/* Check if user can edit this event */}
+                      {((role === 'superAdmin' || role === 'owner') ||
+                        (role === 'franchisee' && event.franchiseId === user?.uid) ||
+                        ((role === 'standaloneAdmin' || role === 'admin') && event.createdBy === user?.uid)) && (
                         <Link
                           href={`/admin/events/edit/${event.id}`}
                           className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm font-semibold transition"
@@ -213,7 +237,10 @@ export default function EventsManagementPage() {
                           Edit
                         </Link>
                       )}
-                      {(role === 'owner' || (role === 'admin' && event.createdBy === user.uid)) && (
+                      {/* Check if user can delete this event */}
+                      {((role === 'superAdmin' || role === 'owner') ||
+                        (role === 'franchisee' && event.franchiseId === user?.uid) ||
+                        ((role === 'standaloneAdmin' || role === 'admin') && event.createdBy === user?.uid)) && (
                         <button
                           onClick={() => handleDelete(event.id!)}
                           className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm font-semibold transition"

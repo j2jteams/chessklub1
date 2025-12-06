@@ -16,7 +16,8 @@ export default function EditEventPage() {
   const params = useParams();
   const eventId = params.id as string;
   
-  const { authorized } = useRequireRole(['admin', 'owner']);
+  // UPDATED: Chess Tourneys - Allow Super Admin, Franchisee, and Standalone Admin
+  const { authorized } = useRequireRole(['superAdmin', 'franchisee', 'standaloneAdmin', 'admin', 'owner']);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [eventData, setEventData] = useState<ChessEvent | null>(null);
@@ -37,8 +38,14 @@ export default function EditEventPage() {
         return;
       }
 
-      // Check permissions
-      if (role !== 'owner' && event.createdBy !== user?.uid) {
+      // Check permissions based on new role system
+      const userRole = role ?? 'player';
+      const canEdit = 
+        userRole === 'superAdmin' || userRole === 'owner' || // Super Admin can edit all
+        (userRole === 'franchisee' && event.franchiseId === user?.uid) || // Franchisee can edit their franchise events
+        ((userRole === 'standaloneAdmin' || userRole === 'admin') && event.createdBy === user?.uid); // Standalone Admin can edit own events
+      
+      if (!canEdit) {
         setError('You do not have permission to edit this event');
         return;
       }
