@@ -150,6 +150,45 @@ export async function updateUserRole(
 }
 
 /**
+ * Update user profile information (firstName, lastName, uscfId)
+ * Users can only update their own profile
+ * @param uid - User's UID
+ * @param updates - Profile fields to update
+ */
+export async function updateUserProfile(
+  uid: string,
+  updates: {
+    firstName?: string;
+    lastName?: string;
+    uscfId?: string;
+  }
+): Promise<void> {
+  const userRef = doc(db, 'users', uid);
+  const snapshot = await getDoc(userRef);
+  
+  if (!snapshot.exists()) {
+    throw new Error('User not found');
+  }
+  
+  const updateData: any = {
+    updatedAt: serverTimestamp(),
+  };
+  
+  // Only update fields that are provided
+  if (updates.firstName !== undefined) {
+    updateData.firstName = updates.firstName || null;
+  }
+  if (updates.lastName !== undefined) {
+    updateData.lastName = updates.lastName || null;
+  }
+  if (updates.uscfId !== undefined) {
+    updateData.uscfId = updates.uscfId || null;
+  }
+  
+  await updateDoc(userRef, updateData);
+}
+
+/**
  * Helper function to update user role (for backward compatibility)
  * Note: This function does NOT check permissions - use updateUserRole instead
  * @deprecated Use updateUserRole(currentUserUid, targetUid, newRole) instead
@@ -217,4 +256,3 @@ export async function canCreateEvents(uid: string): Promise<boolean> {
   const role = await getUserRole(uid);
   return role === 'superAdmin' || role === 'franchisee' || role === 'standaloneAdmin';
 }
-

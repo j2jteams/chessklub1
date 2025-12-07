@@ -105,7 +105,24 @@ export default function UserDashboardPage() {
     <div className="space-y-6">
       <div>
         <p className="text-sm text-gray-500">Welcome back</p>
-        <h1 className="text-3xl font-bold text-slate-900">{user.email}</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-3xl font-bold text-slate-900">
+            {profile?.firstName && profile?.lastName
+              ? `${profile.firstName} ${profile.lastName}`
+              : user.email
+            }
+          </h1>
+          {profile?.uscfId && (
+            <a
+              href={`https://ratings.uschess.org/player/${profile.uscfId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-sm font-medium hover:bg-blue-100 hover:border-blue-300 transition cursor-pointer"
+            >
+              USCF: {profile.uscfId}
+            </a>
+          )}
+        </div>
         <p className="text-gray-500 mt-2">
           Track your registered events, saved competitions, and stay up-to-date with Chess Klub.
         </p>
@@ -125,7 +142,9 @@ export default function UserDashboardPage() {
       </div>
 
       {/* Request Admin Access - Only for players */}
-      {(role === 'player' || role === null) && (
+      {/* DISABLED: Removed button from player dashboard. Functionality preserved for future use. */}
+      {/* To re-enable, uncomment the section below */}
+      {/* {(role === 'player' || role === null) && (
         <div className="bg-gradient-to-r from-orange-50 to-orange-100 border border-orange-200 rounded-2xl p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -142,7 +161,7 @@ export default function UserDashboardPage() {
             </Link>
           </div>
         </div>
-      )}
+      )} */}
 
       <SectionWrapper title="Registered Events">
         {fetchLoading ? (

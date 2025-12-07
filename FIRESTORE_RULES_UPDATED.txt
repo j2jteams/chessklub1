@@ -68,15 +68,20 @@ service cloud.firestore {
       allow create: if request.auth != null && 
         (request.auth.uid == userId);
       
-      // Users can update their own documents (for registeredEvents and savedEvents)
+      // Users can update their own documents:
+      // - Profile fields: firstName, lastName, uscfId
+      // - Event arrays: savedEvents, registeredEvents
+      // - Cannot change their role, email, uid, or other critical fields
       // Only Super Admin can update user roles
       // UPDATED: Chess Tourneys - Removed isGodOwner checks
       allow update: if request.auth != null && 
         (isSuperAdmin() ||
          (request.auth.uid == userId && 
-          // Users can only update their own savedEvents and registeredEvents
-          // Cannot change their role or other critical fields
-          request.resource.data.role == resource.data.role));
+          // Users can update their own profile fields and event arrays
+          // Cannot change their role, email, uid, or other critical fields
+          request.resource.data.role == resource.data.role &&
+          request.resource.data.email == resource.data.email &&
+          request.resource.data.uid == resource.data.uid));
       
       // Only Super Admin can delete users
       allow delete: if request.auth != null && isSuperAdmin();
