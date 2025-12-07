@@ -105,12 +105,12 @@ export default function UserDashboardPage() {
       !profile.uscfRatings.lastSynced ||
       (Date.now() - new Date(profile.uscfRatings.lastSynced).getTime()) > 7 * 24 * 60 * 60 * 1000;
 
-    if (shouldSync && user) {
+    if (shouldSync && user && profile.uscfId) {
       const syncRatings = async () => {
         setUscfSyncing(true);
         setUscfError(null);
         try {
-          await syncUSCFRatings(user.uid, profile.uscfId);
+          await syncUSCFRatings(user.uid, profile.uscfId!);
           // Reload page to show updated data
           window.location.reload();
         } catch (error: any) {
@@ -188,7 +188,7 @@ export default function UserDashboardPage() {
                     setUscfSyncing(true);
                     setUscfError(null);
                     try {
-                      await syncUSCFRatings(user.uid, profile.uscfId);
+                      await syncUSCFRatings(user.uid, profile.uscfId!);
                       window.location.reload();
                     } catch (error: any) {
                       setUscfError(error.message || 'Failed to sync USCF ratings');
@@ -259,7 +259,7 @@ export default function UserDashboardPage() {
                     setUscfSyncing(true);
                     setUscfError(null);
                     try {
-                      await syncUSCFRatings(user.uid, profile.uscfId);
+                      await syncUSCFRatings(user.uid, profile.uscfId!);
                       window.location.reload();
                     } catch (error: any) {
                       setUscfError(error.message || 'Failed to sync USCF ratings');
