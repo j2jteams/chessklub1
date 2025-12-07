@@ -20,10 +20,10 @@ export default function Header() {
 
   const dashboardLink =
     role === 'superAdmin'
-      ? { href: '/dashboard/super-admin', label: 'Super Admin Console' }
+      ? { href: '/dashboard/super-admin', label: 'Dashboard' }
       : role === 'franchisee' || role === 'standaloneAdmin'
-        ? { href: '/dashboard/admin', label: 'Event Management' }
-        : { href: '/dashboard', label: 'My Dashboard' };
+        ? { href: '/dashboard/admin', label: 'Dashboard' }
+        : { href: '/dashboard', label: 'Dashboard' };
 
   // Fetch approved events for tournaments dropdown
   useEffect(() => {
@@ -385,22 +385,19 @@ export default function Header() {
                   {menuOpen && (
                     <div className="absolute right-0 top-12 w-56 bg-white rounded-lg shadow-xl border border-gray-100 py-2 z-[200] user-menu-dropdown" onClick={(e) => e.stopPropagation()}>
                       <div className="px-4 py-2 border-b border-gray-100">
-                        <p className="text-sm font-semibold text-slate-900">
-                          {dashboardLink.label.replace('Console', '')}
-                        </p>
                         <p className="text-xs text-gray-500 truncate">{user.email}</p>
                       </div>
-                  <Link
-                    href={dashboardLink.href}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setMenuOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition cursor-pointer block relative z-[2010]"
-                    style={{ position: 'relative', zIndex: 2010 }}
-                  >
-                    Go to {dashboardLink.label}
-                  </Link>
+                      <Link
+                        href={dashboardLink.href}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMenuOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition cursor-pointer block relative z-[2010]"
+                        style={{ position: 'relative', zIndex: 2010 }}
+                      >
+                        Dashboard
+                      </Link>
                       <button
                         onClick={() => {
                           setMenuOpen(false);
@@ -654,7 +651,7 @@ export default function Header() {
                   onClick={() => setMobileMenuOpen(false)}
                   style={{ color: 'var(--color-accent)' }}
                 >
-                  {dashboardLink.label}
+                  Dashboard
                 </Link>
                 <button
                   onClick={() => {

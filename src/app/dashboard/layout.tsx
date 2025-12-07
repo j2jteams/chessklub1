@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import Header from '@/components/Header';
 
 // UPDATED: Chess Tourneys - New role system
 const navLinks = [
@@ -38,6 +39,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen bg-slate-50 chess-themed-bg">
+      <Header />
       <div className="flex flex-col md:flex-row max-w-7xl mx-auto">
         <aside className="md:w-64 bg-white border-r border-gray-200">
           <div className="p-6 border-b border-gray-100">
