@@ -147,7 +147,7 @@ export default function RankingPage() {
         <div className="bg-orange-500 text-white py-16">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <h2 className="text-3xl font-bold mb-4">Want to See Your Name Here?</h2>
-            <p className="text-xl mb-8">Join CHESS KLUB and start your journey to the top!</p>
+            <p className="text-xl mb-8">Join Chess Tourneys and start your journey to the top!</p>
             <a
               href="/login"
               className="inline-block bg-white text-orange-500 font-semibold px-8 py-3 rounded-md hover:bg-gray-100 transition"

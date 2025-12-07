@@ -16,11 +16,12 @@ import {
   where,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { EventData, EventStatus, EventCategory, TournamentSection, EventAddOn, ChessEvent } from './types';
+import { EventData, EventStatus, EventCategory, TournamentSection, EventAddOn, ChessEvent, TournamentRegistration } from './types';
 import { Timestamp } from 'firebase/firestore';
 
 const EVENTS_COLLECTION = 'events';
 const USERS_COLLECTION = 'users';
+const REGISTRATIONS_COLLECTION = 'tournamentRegistrations';
 
 // UPDATED: role-based routing and approval flows - Phase 0.5
 // UPDATED: Tournament data standardization
@@ -844,5 +845,134 @@ export async function canEditEvent(userUid: string, event: EventData): Promise<b
   }
   
   return false;
+}
+
+// Tournament Registration Functions
+function fromFirestoreRegistration(docId: string, data: any): TournamentRegistration {
+  return {
+    id: docId,
+    tournamentId: data.tournamentId || '',
+    userId: data.userId || '',
+    userEmail: data.userEmail || '',
+    displayName: data.displayName || '',
+    phoneNumber: data.phoneNumber || undefined,
+    sectionId: data.sectionId || undefined,
+    fideId: data.fideId || undefined,
+    fideRating: data.fideRating || undefined,
+    nationalFederationId: data.nationalFederationId || undefined,
+    nationalRating: data.nationalRating || undefined,
+    registrationDate: data.registrationDate?.toDate?.() || data.registrationDate || new Date(),
+    status: data.status || 'pending',
+    paymentStatus: data.paymentStatus || undefined,
+    selectedAddOns: data.selectedAddOns || [],
+    notes: data.notes || undefined,
+  };
+}
+
+export async function createTournamentRegistration(
+  registration: Omit<TournamentRegistration, 'id' | 'registrationDate'>
+): Promise<string> {
+  try {
+    const registrationData: any = {
+      tournamentId: registration.tournamentId,
+      userId: registration.userId,
+      userEmail: registration.userEmail,
+      displayName: registration.displayName,
+      status: registration.status || 'pending',
+      registrationDate: serverTimestamp(),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    if (registration.sectionId) registrationData.sectionId = registration.sectionId;
+    if (registration.phoneNumber) registrationData.phoneNumber = registration.phoneNumber;
+    if (registration.fideId) registrationData.fideId = registration.fideId;
+    if (registration.fideRating !== undefined) registrationData.fideRating = registration.fideRating;
+    if (registration.nationalFederationId) registrationData.nationalFederationId = registration.nationalFederationId;
+    if (registration.nationalRating !== undefined) registrationData.nationalRating = registration.nationalRating;
+    if (registration.paymentStatus) registrationData.paymentStatus = registration.paymentStatus;
+    if (registration.selectedAddOns && registration.selectedAddOns.length > 0) {
+      registrationData.selectedAddOns = registration.selectedAddOns;
+    }
+    if (registration.notes) registrationData.notes = registration.notes;
+
+    const docRef = await addDoc(collection(db, REGISTRATIONS_COLLECTION), registrationData);
+
+    // Also update the event's registeredUsers array for backward compatibility
+    await updateDoc(doc(db, EVENTS_COLLECTION, registration.tournamentId), {
+      registeredUsers: arrayUnion(registration.userId),
+      updatedAt: serverTimestamp(),
+    });
+
+    // Update user's registeredEvents array
+    await updateDoc(doc(db, USERS_COLLECTION, registration.userId), {
+      registeredEvents: arrayUnion(registration.tournamentId),
+      updatedAt: serverTimestamp(),
+    });
+
+    return docRef.id;
+  } catch (error: any) {
+    console.error('Error creating tournament registration:', error);
+    throw new Error(`Failed to create registration: ${error.message || 'Unknown error'}`);
+  }
+}
+
+export async function getTournamentRegistrations(tournamentId: string): Promise<TournamentRegistration[]> {
+  try {
+    const snapshot = await getDocs(
+      query(
+        collection(db, REGISTRATIONS_COLLECTION),
+        where('tournamentId', '==', tournamentId),
+        orderBy('registrationDate', 'desc')
+      )
+    );
+    return snapshot.docs.map((docSnap) => fromFirestoreRegistration(docSnap.id, docSnap.data()));
+  } catch (error: any) {
+    console.error('Error fetching tournament registrations:', error);
+    throw new Error(`Failed to fetch registrations: ${error.message || 'Unknown error'}`);
+  }
+}
+
+export async function getUserRegistration(tournamentId: string, userId: string): Promise<TournamentRegistration | null> {
+  try {
+    const snapshot = await getDocs(
+      query(
+        collection(db, REGISTRATIONS_COLLECTION),
+        where('tournamentId', '==', tournamentId),
+        where('userId', '==', userId)
+      )
+    );
+    if (snapshot.empty) {
+      return null;
+    }
+    return fromFirestoreRegistration(snapshot.docs[0].id, snapshot.docs[0].data());
+  } catch (error: any) {
+    console.error('Error fetching user registration:', error);
+    throw new Error(`Failed to fetch registration: ${error.message || 'Unknown error'}`);
+  }
+}
+
+export async function cancelTournamentRegistration(registrationId: string, tournamentId: string, userId: string): Promise<void> {
+  try {
+    await updateDoc(doc(db, REGISTRATIONS_COLLECTION, registrationId), {
+      status: 'cancelled',
+      updatedAt: serverTimestamp(),
+    });
+
+    // Also update the event's registeredUsers array for backward compatibility
+    await updateDoc(doc(db, EVENTS_COLLECTION, tournamentId), {
+      registeredUsers: arrayRemove(userId),
+      updatedAt: serverTimestamp(),
+    });
+
+    // Update user's registeredEvents array
+    await updateDoc(doc(db, USERS_COLLECTION, userId), {
+      registeredEvents: arrayRemove(tournamentId),
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error: any) {
+    console.error('Error cancelling tournament registration:', error);
+    throw new Error(`Failed to cancel registration: ${error.message || 'Unknown error'}`);
+  }
 }
 

@@ -2,12 +2,22 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getEvent } from '@/lib/events';
-import { EventData } from '@/lib/types';
+import { getEvent, getTournamentRegistrations, getUserRegistration } from '@/lib/events';
+import { EventData, TournamentRegistration } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import { registerUserForEvent, unregisterUserFromEvent, saveEvent, unsaveEvent } from '@/lib/events';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import RegistrationForm from '@/components/tournaments/RegistrationForm';
+import TournamentOverviewCard from '@/components/tournament/TournamentOverviewCard';
+import AboutTournamentCard from '@/components/tournament/AboutTournamentCard';
+import EventDetailsCard from '@/components/tournament/EventDetailsCard';
+import PriceSection from '@/components/tournament/PriceSection';
+import RegisteredPlayersSection from '@/components/tournament/RegisteredPlayersSection';
+import RulesAccordion from '@/components/tournament/RulesAccordion';
+import ContactOrganizerCard from '@/components/tournament/ContactOrganizerCard';
+import QuickInfoCard from '@/components/tournament/QuickInfoCard';
+import RegisterPanel from '@/components/tournament/RegisterPanel';
 import Link from 'next/link';
 
 function EventDetailContent() {
@@ -20,12 +30,22 @@ function EventDetailContent() {
   const [registering, setRegistering] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [showRegistrationForm, setShowRegistrationForm] = useState(false);
+  const [registrations, setRegistrations] = useState<TournamentRegistration[]>([]);
+  const [loadingRegistrations, setLoadingRegistrations] = useState(false);
+  const [userRegistration, setUserRegistration] = useState<TournamentRegistration | null>(null);
 
   useEffect(() => {
     if (eventId) {
       loadEvent();
     }
   }, [eventId]);
+
+  useEffect(() => {
+    if (user && eventId && event?.category === 'tournament') {
+      loadRegistrations();
+    }
+  }, [user, eventId]);
 
   const loadEvent = async () => {
     try {
@@ -36,11 +56,35 @@ function EventDetailContent() {
         return;
       }
       setEvent(eventData);
+      
+      // Load registrations if it's a tournament
+      if (eventData.category === 'tournament') {
+        await loadRegistrations();
+      }
     } catch (err: any) {
       console.error('Error loading event:', err);
       setError(err.message || 'Failed to load event');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadRegistrations = async () => {
+    if (!eventId) return;
+    try {
+      setLoadingRegistrations(true);
+      const regs = await getTournamentRegistrations(eventId);
+      setRegistrations(regs);
+      
+      // Check if current user has a registration
+      if (user) {
+        const userReg = await getUserRegistration(eventId, user.uid);
+        setUserRegistration(userReg);
+      }
+    } catch (err: any) {
+      console.error('Error loading registrations:', err);
+    } finally {
+      setLoadingRegistrations(false);
     }
   };
 
@@ -52,6 +96,17 @@ function EventDetailContent() {
 
     if (!event) return;
 
+    // For tournaments, show the registration form (only for logged-in users)
+    if (event.category === 'tournament') {
+      if (!user) {
+        router.push('/login?redirect=' + encodeURIComponent(`/events/${eventId}`));
+        return;
+      }
+      setShowRegistrationForm(true);
+      return;
+    }
+
+    // For regular events, use the simple registration
     setRegistering(true);
     setError('');
 
@@ -69,6 +124,12 @@ function EventDetailContent() {
     } finally {
       setRegistering(false);
     }
+  };
+
+  const handleRegistrationComplete = async () => {
+    setShowRegistrationForm(false);
+    await loadRegistrations();
+    await loadEvent();
   };
 
   const handleSave = async () => {
@@ -98,7 +159,7 @@ function EventDetailContent() {
     }
   };
 
-  const isRegistered = user && event?.registeredUsers?.includes(user.uid);
+  const isRegistered = user && (event?.registeredUsers?.includes(user.uid) || userRegistration !== null);
   const isSaved = user && event?.savedByUsers?.includes(user.uid);
 
   if (loading || authLoading) {
@@ -316,293 +377,103 @@ function EventDetailContent() {
         )}
       </div>
 
+      {/* Registration Form Modal - Only show if user is logged in */}
+      {showRegistrationForm && event && user && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="relative w-full max-w-3xl">
+            <button
+              onClick={() => setShowRegistrationForm(false)}
+              className="absolute -top-12 right-0 text-white hover:text-gray-300 transition"
+            >
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <RegistrationForm
+              event={event}
+              onRegistrationComplete={handleRegistrationComplete}
+              onCancel={() => setShowRegistrationForm(false)}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Main Content Area */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
-          {/* Left Column - Main Content (2/3 width) */}
-          <div className="lg:col-span-2 space-y-8">
-            {/* About Section */}
-            {event.description && (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-                <h2 className="text-3xl font-bold text-gray-900 mb-6">About This {event.category === 'tournament' ? 'Tournament' : 'Event'}</h2>
-                <div className="prose prose-lg max-w-none text-gray-700 whitespace-pre-line leading-relaxed">
-                  {event.description}
-                </div>
-              </div>
+      <div className="max-w-7xl mx-auto px-4 lg:px-8 py-12">
+        <div className="grid grid-cols-1 lg:grid-cols-[65%_35%] gap-8 lg:gap-12">
+          {/* Left Column - Main Content (65% width) */}
+          <div className="space-y-10">
+            {/* 1. Tournament Overview Card */}
+            {event.category === 'tournament' && (
+              <TournamentOverviewCard event={event} />
             )}
 
-            {/* Event Details Card */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Event Details</h2>
-              <div className="space-y-6">
-                <div className="flex items-start">
-                  <div className="flex-shrink-0 w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mr-4">
-                    <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900 mb-1">Date & Time</h3>
-                    <p className="text-gray-700">
-                      {event.category === 'tournament' && event.startDate && event.endDate ? (
-                        (() => {
-                          const startDate = event.startDate instanceof Date ? event.startDate : new Date(event.startDate);
-                          const endDate = event.endDate instanceof Date ? event.endDate : new Date(event.endDate);
-                          const startStr = startDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-                          const endStr = endDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-                          return startStr === endStr ? startStr : `${startStr} - ${endStr}`;
-                        })()
-                      ) : formatDate(event.date)}
-                    </p>
-                    {event.time && <p className="text-gray-600 text-sm mt-1">{event.time}</p>}
-                    {event.category === 'tournament' && event.timeControl && (
-                      <p className="text-gray-600 text-sm mt-1">Time Control: {event.timeControl}</p>
-                    )}
-                  </div>
-                </div>
+            {/* 2. About This Tournament Card */}
+            {event.description && (
+              <AboutTournamentCard 
+                description={event.description}
+                eventName={event.title}
+              />
+            )}
 
-                <div className="flex items-start">
-                  <div className="flex-shrink-0 w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mr-4">
-                    <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900 mb-1">Location</h3>
-                    <p className="text-gray-700">
-                      {event.category === 'tournament' && event.venue ? event.venue : event.location}
-                    </p>
-                  </div>
-                </div>
-                
-                {/* Tournament Sections */}
-                {event.category === 'tournament' && event.sections && event.sections.length > 0 && (
-                  <div className="flex items-start">
-                    <div className="flex-shrink-0 w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mr-4">
-                      <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                      </svg>
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900 mb-2">Tournament Sections</h3>
-                      <div className="space-y-2">
-                        {event.sections.map((section, index) => (
-                          <div key={section.id || index} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                            <div className="flex items-center justify-between">
-                              <span className="font-medium text-gray-900">{section.name}</span>
-                              {section.entryFee !== null && section.entryFee !== undefined && (
-                                <span className="text-orange-600 font-semibold">
-                                  ${section.entryFee.toFixed(2)}
-                                </span>
-                              )}
-                            </div>
-                            {(section.minRating !== null || section.maxRating !== null) && (
-                              <p className="text-sm text-gray-600 mt-1">
-                                Rating: {section.minRating !== null ? `U${section.minRating}` : 'Open'}
-                                {section.minRating !== null && section.maxRating !== null && ' - '}
-                                {section.maxRating !== null && section.minRating === null && 'U'}
-                                {section.maxRating !== null && `U${section.maxRating}`}
-                              </p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
+            {/* 3. Event Details Card */}
+            <EventDetailsCard event={event} />
+
+            {/* 4. Price Section */}
+            <PriceSection event={event} />
+
+            {/* 5. Registered Players Section */}
+            {event.category === 'tournament' && (
+              <>
+                {loadingRegistrations ? (
+                  <div className="bg-white rounded-xl shadow-sm p-6">
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FF7A00]"></div>
+                      <p className="ml-3 text-gray-600">Loading players...</p>
                     </div>
                   </div>
+                ) : (
+                  <RegisteredPlayersSection
+                    registrations={registrations}
+                    sections={event.sections}
+                  />
                 )}
+              </>
+            )}
 
-                {/* Add-Ons (for all event types) */}
-                {event.addOns && event.addOns.length > 0 && (
-                  <div className="flex items-start">
-                    <div className="flex-shrink-0 w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mr-4">
-                      <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                      </svg>
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900 mb-2">Add-Ons</h3>
-                      <div className="space-y-2">
-                        {event.addOns.map((addOn, index) => (
-                          <div key={addOn.id || index} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                            <div className="flex items-center justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-medium text-gray-900">{addOn.name}</span>
-                                  {addOn.isRequired && (
-                                    <span className="px-2 py-0.5 text-xs font-medium bg-orange-100 text-orange-800 rounded">
-                                      Required
-                                    </span>
-                                  )}
-                                </div>
-                                {addOn.description && (
-                                  <p className="text-sm text-gray-600 mt-1">{addOn.description}</p>
-                                )}
-                                {addOn.appliesToSections && addOn.appliesToSections.length > 0 && event.sections && (
-                                  <p className="text-xs text-gray-500 mt-1">
-                                    Applies to: {addOn.appliesToSections.map(sectionId => {
-                                      const section = event.sections?.find(s => s.id === sectionId);
-                                      return section?.name || sectionId;
-                                    }).join(', ')}
-                                  </p>
-                                )}
-                              </div>
-                              {addOn.price !== null && addOn.price !== undefined && (
-                                <span className="text-orange-600 font-semibold ml-4">
-                                  ${addOn.price.toFixed(2)}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex items-start">
-                  <div className="flex-shrink-0 w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mr-4">
-                    <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900 mb-1">Price</h3>
-                    <p className="text-2xl font-bold text-orange-600">{getDisplayPrice()}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Contact Information */}
-            {(event.contactEmail || event.contactPhone) && (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">Contact Information</h2>
-                <div className="space-y-4">
-                  {event.contactEmail && (
-                    <div className="flex items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
-                      <div className="flex-shrink-0 w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mr-4">
-                        <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500 mb-1">Email</p>
-                        <a 
-                          href={`mailto:${event.contactEmail}`}
-                          className="text-orange-600 hover:text-orange-700 font-semibold text-lg"
-                        >
-                          {event.contactEmail}
-                        </a>
-                      </div>
-                    </div>
-                  )}
-                  {event.contactPhone && (
-                    <div className="flex items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
-                      <div className="flex-shrink-0 w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mr-4">
-                        <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500 mb-1">Phone</p>
-                        <a 
-                          href={`tel:${event.contactPhone.replace(/\D/g, '')}`}
-                          className="text-orange-600 hover:text-orange-700 font-semibold text-lg"
-                        >
-                          {event.contactPhone}
-                        </a>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
+            {/* 6. Rules & Regulations Section */}
+            {event.category === 'tournament' && (
+              <RulesAccordion event={event} />
             )}
           </div>
 
-          {/* Right Column - Sticky Sidebar (1/3 width) */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-24">
-              {/* Registration Card */}
-              <div className="bg-white rounded-xl shadow-xl border-2 border-gray-200 p-6 mb-6">
-                <div className="text-center mb-6">
-                  <div className="text-4xl font-bold text-orange-600 mb-2">{getDisplayPrice()}</div>
-                  <p className="text-gray-600 text-sm">
-                    {event.category === 'tournament' && event.sections && event.sections.length > 0
-                      ? 'per section'
-                      : `per ${event.category === 'tournament' ? 'tournament' : 'event'}`}
-                  </p>
-                </div>
-
-                {/* Registration Count */}
-                {event.registeredUsers && event.registeredUsers.length > 0 && (
-                  <div className="mb-6 p-3 bg-orange-50 rounded-lg text-center">
-                    <p className="text-sm text-gray-700">
-                      <span className="font-bold text-orange-600">{event.registeredUsers.length}</span> {event.registeredUsers.length === 1 ? 'person' : 'people'} registered
-                    </p>
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="space-y-3">
-                  <button
-                    onClick={handleRegister}
-                    disabled={registering || event.status !== 'approved'}
-                    className={`w-full px-6 py-4 rounded-lg font-bold text-lg transition shadow-lg ${
-                      isRegistered
-                        ? 'bg-gray-500 hover:bg-gray-600 text-white'
-                        : 'bg-orange-500 hover:bg-orange-600 text-white'
-                    } disabled:opacity-50 disabled:cursor-not-allowed`}
-                  >
-                    {registering ? 'Processing...' : isRegistered ? '✓ Registered' : 'Register Now'}
-                  </button>
-                  <button
-                    onClick={handleSave}
-                    disabled={saving}
-                    className={`w-full px-6 py-3 rounded-lg font-semibold transition border-2 ${
-                      isSaved
-                        ? 'bg-orange-50 border-orange-500 text-orange-700'
-                        : 'bg-white border-gray-300 text-gray-700 hover:border-orange-500 hover:bg-gray-50'
-                    } disabled:opacity-50 disabled:cursor-not-allowed`}
-                  >
-                    {saving ? 'Saving...' : isSaved ? '✓ Saved' : 'Save for Later'}
-                  </button>
-                </div>
-
-                {!user && (
-                  <p className="text-xs text-gray-500 text-center mt-4">
-                    <Link href={`/login?redirect=${encodeURIComponent(`/events/${eventId}`)}`} className="text-orange-600 hover:underline">
-                      Sign in
-                    </Link> to register
-                  </p>
-                )}
-              </div>
+          {/* Right Column - Sticky Sidebar (35% width) */}
+          <div>
+            <div className="sticky top-24 space-y-10">
+              {/* Register Panel */}
+              <RegisterPanel
+                event={event}
+                isRegistered={isRegistered}
+                isSaved={isSaved}
+                registering={registering}
+                saving={saving}
+                onRegister={handleRegister}
+                onSave={handleSave}
+                user={user}
+                router={router}
+                eventId={eventId}
+              />
 
               {/* Quick Info Card */}
-              <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-                <h3 className="font-semibold text-gray-900 mb-4">Quick Info</h3>
-                <div className="space-y-3 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Category:</span>
-                    <span className="font-semibold text-gray-900 capitalize">{event.category}</span>
-                  </div>
-                  {/* Only show status to standalone admins and super admins */}
-                  {(role === 'standaloneAdmin' || role === 'superAdmin') && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Status:</span>
-                      <span className={`font-semibold ${event.status === 'approved' ? 'text-green-600' : 'text-yellow-600'}`}>
-                        {event.status}
-                      </span>
-                    </div>
-                  )}
-                  {event.registeredUsers && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Registrations:</span>
-                      <span className="font-semibold text-gray-900">{event.registeredUsers.length}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <QuickInfoCard
+                event={event}
+                registrationsCount={registrations.length || event.registeredUsers?.length || 0}
+              />
+
+              {/* Contact Organizer Card */}
+              {(event.contactEmail || event.contactPhone) && (
+                <ContactOrganizerCard event={event} />
+              )}
             </div>
           </div>
         </div>

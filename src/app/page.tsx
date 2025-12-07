@@ -7,6 +7,7 @@ import EventsSection from "@/components/EventsSection";
 import { getApprovedEvents } from "@/lib/events";
 import { EventData } from "@/lib/types";
 import Link from "next/link";
+import UnifiedSearchBar from "@/components/search/UnifiedSearchBar";
 
 export default function Page() {
   const [allTournaments, setAllTournaments] = useState<EventData[]>([]);
@@ -49,6 +50,7 @@ export default function Page() {
 
     fetchTournaments();
   }, []);
+
   return (
     <main className="min-h-screen chess-themed-bg" style={{ backgroundColor: 'var(--color-light)' }}>
       <Header />
@@ -63,11 +65,19 @@ export default function Page() {
         }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Unified Search Bar - Eventbrite Style, matching banner width */}
+          <div className="mb-6 w-full">
+            <UnifiedSearchBar
+              redirectOnSearch={true}
+              currentPath="/"
+            />
+          </div>
+
           {/* Banner Logo */}
           <div className="mb-4 flex justify-center w-full">
             <img 
               src="/CK banner logo Enhanced.png" 
-              alt="Chess Klub Banner" 
+              alt="Chess Tourneys Banner" 
               className="w-full max-w-3xl h-auto object-contain"
             />
           </div>
@@ -91,6 +101,7 @@ export default function Page() {
           >
             Compete in tournaments, learn from expert tutors, and connect with chess enthusiasts
           </p>
+
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
               href="/tournaments"

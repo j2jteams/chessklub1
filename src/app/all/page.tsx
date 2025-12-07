@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { getApprovedEvents, getAllEvents, deleteEvent } from '@/lib/events';
 import { EventData } from '@/lib/types';
@@ -8,13 +8,32 @@ import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useAuth } from '@/hooks/useAuth';
+import TournamentSearchBar from '@/components/tournaments/TournamentSearchBar';
+import TournamentFilters from '@/components/tournaments/TournamentFilters';
+import { TournamentFilters as FilterType } from '@/components/tournaments/FilterPanel';
+import { filterTournaments, getUniqueCountries, getUniqueCities } from '@/lib/tournamentSearch';
 
 function AllContent() {
   const searchParams = useSearchParams();
   const filter = searchParams.get('filter') || 'all';
+  const searchQuery = searchParams.get('search') || '';
   const { user, role } = useAuth();
   const [events, setEvents] = useState<EventData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQueryState, setSearchQueryState] = useState(searchQuery);
+  const [filters, setFilters] = useState<FilterType>({
+    countries: [],
+    cities: [],
+    dateRange: { start: '', end: '' },
+    minRating: null,
+    maxRating: null,
+    timeControls: [],
+    tournamentLevels: [],
+    priceRange: { min: null, max: null },
+    fideRatedOnly: false,
+    hasPrizeFund: false,
+    registrationOpen: false,
+  });
   const isSuperAdmin = role === 'superAdmin';
 
   useEffect(() => {
@@ -37,25 +56,45 @@ function AllContent() {
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-  const filteredItems = events.filter((item) => {
-    // Show both tournaments and events (exclude workshops, simuls, other unless specified)
-    const isRelevant = item.category === 'tournament' || item.category === 'event' || !item.category;
-    
-    if (!isRelevant) return false;
-    
-    if (filter === 'new') {
-      const createdDate = item.createdAt ? new Date(item.createdAt) : null;
-      return createdDate && createdDate >= sevenDaysAgo;
-    } else if (filter === 'upcoming') {
-      try {
-        const eventDate = new Date(item.date);
-        return !isNaN(eventDate.getTime()) && eventDate >= now;
-      } catch {
-        return true; // Include if date parsing fails
+  // Get all relevant items (tournaments and events)
+  const allItems = useMemo(() => {
+    return events.filter((item) => {
+      // Show both tournaments and events (exclude workshops, simuls, other unless specified)
+      const isRelevant = item.category === 'tournament' || item.category === 'event' || !item.category;
+      return isRelevant;
+    });
+  }, [events]);
+
+  // Get unique countries and cities for filter panel
+  const availableCountries = useMemo(() => getUniqueCountries(allItems), [allItems]);
+  const availableCities = useMemo(() => getUniqueCities(allItems), [allItems]);
+
+  // Apply basic filter tabs (new, upcoming, all)
+  const basicFiltered = useMemo(() => {
+    return allItems.filter((item) => {
+      if (filter === 'new') {
+        const createdDate = item.createdAt ? new Date(item.createdAt) : null;
+        return createdDate && createdDate >= sevenDaysAgo;
+      } else if (filter === 'upcoming') {
+        try {
+          const eventDate = item.startDate 
+            ? new Date(item.startDate)
+            : item.date 
+            ? new Date(item.date)
+            : null;
+          return eventDate && !isNaN(eventDate.getTime()) && eventDate >= now;
+        } catch {
+          return false;
+        }
       }
-    }
-    return true; // 'all'
-  });
+      return true; // 'all'
+    });
+  }, [allItems, filter, now, sevenDaysAgo]);
+
+  // Apply search and advanced filters
+  const filteredItems = useMemo(() => {
+    return filterTournaments(basicFiltered, searchQueryState, filters);
+  }, [basicFiltered, searchQueryState, filters]);
 
   // Separate tournaments and events for display
   const tournaments = filteredItems.filter(item => item.category === 'tournament' || (!item.category && item.title.toLowerCase().includes('tournament')));
@@ -97,9 +136,30 @@ function AllContent() {
           </div>
         </div>
 
-        {/* Filter Tabs */}
+        {/* Search and Filters Section */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex space-x-4 mb-8 border-b border-gray-200">
+          {/* Tournament Search Bar */}
+          <div className="mb-6">
+            <TournamentSearchBar
+              redirectOnSearch={false}
+              currentPath="/all"
+              initialQuery={searchQuery}
+              onSearch={setSearchQueryState}
+            />
+          </div>
+
+          {/* Dropdown Filters Bar */}
+          <div className="mb-6">
+            <TournamentFilters
+              filters={filters}
+              onFiltersChange={setFilters}
+              availableCountries={availableCountries}
+              availableCities={availableCities}
+            />
+          </div>
+
+          {/* Filter Tabs */}
+          <div className="flex space-x-4 mb-6 border-b border-gray-200">
             <Link
               href="/all?filter=all"
               className={`pb-4 px-4 font-medium transition ${
@@ -130,6 +190,20 @@ function AllContent() {
             >
               Upcoming
             </Link>
+          </div>
+
+          {/* Results Count */}
+          <div className="mb-6 flex items-center justify-between">
+            <p className="text-gray-600">
+              {loading ? (
+                'Loading...'
+              ) : (
+                <>
+                  <span className="font-semibold text-gray-900">{filteredItems.length}</span>{' '}
+                  {filteredItems.length === 1 ? 'item' : 'items'} found
+                </>
+              )}
+            </p>
           </div>
 
           {/* Content */}

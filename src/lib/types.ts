@@ -55,6 +55,26 @@ export interface TournamentSection {
 // Alias for consistency in unified model
 export type EventSection = TournamentSection;
 
+// Tournament Registration interface for detailed player registration
+export interface TournamentRegistration {
+  id: string;                    // Registration ID
+  tournamentId: string;          // Event ID
+  userId: string;                // Player UID
+  userEmail: string;             // Player email
+  displayName: string;           // Player name
+  phoneNumber?: string;           // Player phone number
+  sectionId?: string;            // Selected section (if applicable)
+  fideId?: string;              // Player's FIDE ID
+  fideRating?: number;          // Current FIDE rating
+  nationalFederationId?: string; // USCF, ELO, etc.
+  nationalRating?: number;      // National rating
+  registrationDate: Date | string;        // When they registered
+  status: 'pending' | 'confirmed' | 'cancelled';
+  paymentStatus?: 'pending' | 'paid' | 'refunded';
+  selectedAddOns?: string[];     // Array of add-on IDs
+  notes?: string;               // Additional notes from player
+}
+
 // Pricing tier for multi-tier pricing support
 export interface PricingTier {
   id: string;
@@ -102,6 +122,22 @@ export interface EventData {
   // NEW: Franchise tracking for Chess Tourneys
   franchiseId?: string | null;  // UID of the franchisee user, or null for standalone events
   isStandalone?: boolean;        // Computed: true if franchiseId is null/undefined
+  // NEW: Global tournament search fields
+  country?: string;              // e.g., "USA", "India", "Germany"
+  city?: string;                 // e.g., "New York", "Mumbai", "Berlin"
+  region?: string;               // e.g., "North America", "Europe", "Asia"
+  coordinates?: {                // For map integration
+    lat: number;
+    lng: number;
+  };
+  tournamentLevel?: string;       // "Local", "Regional", "National", "International"
+  fideRated?: boolean;           // Is this FIDE-rated?
+  maxPlayers?: number;           // Tournament capacity
+  registrationDeadline?: Date | string; // Registration deadline
+  minRating?: number;            // Minimum rating requirement (tournament-wide)
+  maxRating?: number;            // Maximum rating requirement (tournament-wide)
+  prizeFund?: number;            // Prize money
+  prizeCurrency?: string;        // "USD", "EUR", "INR", etc.
 }
 
 // UPDATED: Unified ChessEvent interface - the new standard model
@@ -151,5 +187,21 @@ export interface ChessEvent {
   // NEW: Franchise tracking for Chess Tourneys
   franchiseId?: string | null;  // UID of the franchisee user, or null for standalone events
   isStandalone?: boolean;        // Computed: true if franchiseId is null/undefined
+  // NEW: Global tournament search fields
+  country?: string;              // e.g., "USA", "India", "Germany"
+  city?: string;                 // e.g., "New York", "Mumbai", "Berlin"
+  region?: string;               // e.g., "North America", "Europe", "Asia"
+  coordinates?: {                // For map integration
+    lat: number;
+    lng: number;
+  };
+  tournamentLevel?: string;       // "Local", "Regional", "National", "International"
+  fideRated?: boolean;           // Is this FIDE-rated?
+  maxPlayers?: number;           // Tournament capacity
+  registrationDeadline?: Date | string; // Registration deadline
+  minRating?: number;            // Minimum rating requirement (tournament-wide)
+  maxRating?: number;            // Maximum rating requirement (tournament-wide)
+  prizeFund?: number;            // Prize money
+  prizeCurrency?: string;        // "USD", "EUR", "INR", etc.
 }
 

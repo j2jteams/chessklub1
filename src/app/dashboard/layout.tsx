@@ -43,7 +43,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="flex flex-col md:flex-row max-w-7xl mx-auto">
         <aside className="md:w-64 bg-white border-r border-gray-200">
           <div className="p-6 border-b border-gray-100">
-            <h2 className="text-xl font-bold text-slate-900">Chess Klub</h2>
+            <h2 className="text-xl font-bold text-slate-900">Chess Tourneys</h2>
             <p className="text-sm text-gray-500 mt-1">Dashboard</p>
           </div>
           <nav className="p-4 space-y-1">

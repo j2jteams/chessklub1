@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { EventData } from '@/lib/types';
 import { getEventsByIds } from '@/lib/events';
 import { syncUSCFRatings } from '@/lib/uscfSync';
+import MyCalendar from '@/components/dashboard/MyCalendar';
 
 function SectionWrapper({
   title,
@@ -154,7 +155,7 @@ export default function UserDashboardPage() {
           )}
         </div>
         <p className="text-gray-500 mt-2">
-          Track your registered events, saved competitions, and stay up-to-date with Chess Klub.
+          Track your registered events, saved competitions, and stay up-to-date with Chess Tourneys.
         </p>
       </div>
 
@@ -170,6 +171,9 @@ export default function UserDashboardPage() {
           <p className="text-xs text-gray-400 mt-1">Events bookmarked to revisit later</p>
         </div>
       </div>
+
+      {/* My Calendar Section */}
+      <MyCalendar events={registeredEvents} />
 
       {/* USCF Ratings Section */}
       {profile?.uscfId && (

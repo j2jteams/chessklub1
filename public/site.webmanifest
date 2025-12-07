@@ -1,7 +1,7 @@
 {
-    "name": "Chess Klub",
-    "short_name": "Chess Klub",
-    "description": "Master Chess. Join the Klub.",
+    "name": "Chess Tourneys",
+    "short_name": "Chess Tourneys",
+    "description": "Find Chess Tournaments Around the World",
     "icons": [
        {
           "src": "/android-chrome-192x192.png",

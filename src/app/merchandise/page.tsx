@@ -7,10 +7,10 @@ export default function MerchandisePage() {
   const products = [
     {
       id: 1,
-      name: 'CHESS KLUB T-Shirt',
+      name: 'Chess Tourneys T-Shirt',
       price: '$24.99',
       image: '👕',
-      description: 'Comfortable cotton t-shirt with CHESS KLUB logo',
+      description: 'Comfortable cotton t-shirt with Chess Tourneys logo',
     },
     {
       id: 2,
@@ -21,7 +21,7 @@ export default function MerchandisePage() {
     },
     {
       id: 3,
-      name: 'CHESS KLUB Hoodie',
+      name: 'Chess Tourneys Hoodie',
       price: '$39.99',
       image: '🧥',
       description: 'Warm and cozy hoodie perfect for chess sessions',
@@ -35,10 +35,10 @@ export default function MerchandisePage() {
     },
     {
       id: 5,
-      name: 'CHESS KLUB Cap',
+      name: 'Chess Tourneys Cap',
       price: '$19.99',
       image: '🧢',
-      description: 'Stylish cap with embroidered CHESS KLUB logo',
+      description: 'Stylish cap with embroidered Chess Tourneys logo',
     },
     {
       id: 6,
@@ -56,10 +56,10 @@ export default function MerchandisePage() {
     },
     {
       id: 8,
-      name: 'CHESS KLUB Water Bottle',
+      name: 'Chess Tourneys Water Bottle',
       price: '$14.99',
       image: '💧',
-      description: 'Insulated water bottle with CHESS KLUB branding',
+      description: 'Insulated water bottle with Chess Tourneys branding',
     },
   ];
 
@@ -85,7 +85,7 @@ export default function MerchandisePage() {
                 fontFamily: 'var(--font-heading)'
               }}
             >
-              CHESS KLUB Store
+              Chess Tourneys Store
             </h1>
             <p 
               className="text-lg"

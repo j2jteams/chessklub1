@@ -46,7 +46,7 @@ export default function OnlineTutoringPage() {
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-slate-900 mb-4">Features</h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              CHESS KLUB offers an integrated Chess ecosystem with several distinct features, enabling our students to tailor and maximize their learning journey.
+              Chess Tourneys offers an integrated Chess ecosystem with several distinct features, enabling our students to tailor and maximize their learning journey.
             </p>
           </div>
 
@@ -86,13 +86,13 @@ export default function OnlineTutoringPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
               <div>
-                <h3 className="text-2xl font-bold text-slate-900 mb-4">The CHESS KLUB Program</h3>
+                <h3 className="text-2xl font-bold text-slate-900 mb-4">The Chess Tourneys Program</h3>
                 <ul className="space-y-3 text-gray-700">
                   <li className="flex items-start">
                     <svg className="w-6 h-6 text-orange-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    <span>At CHESS KLUB, our mentors follow a thoughtfully designed curriculum to suit online learning.</span>
+                    <span>At Chess Tourneys, our mentors follow a thoughtfully designed curriculum to suit online learning.</span>
                   </li>
                   <li className="flex items-start">
                     <svg className="w-6 h-6 text-orange-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -152,7 +152,7 @@ export default function OnlineTutoringPage() {
         <div className="bg-orange-500 text-white py-16">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <h2 className="text-3xl font-bold mb-4">Join the Winning Team!</h2>
-            <p className="text-xl mb-8">Start your chess journey with CHESS KLUB today</p>
+            <p className="text-xl mb-8">Start your chess journey with Chess Tourneys today</p>
             <Link
               href="/login"
               className="inline-block bg-white text-orange-500 font-semibold px-8 py-3 rounded-md hover:bg-gray-100 transition"

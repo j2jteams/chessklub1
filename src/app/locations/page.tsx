@@ -60,7 +60,7 @@ export default function LocationsPage() {
                 fontFamily: 'var(--font-body)'
               }}
             >
-              Find a CHESS KLUB location near you
+              Find a Chess Tourneys location near you
             </p>
           </div>
         </div>

@@ -25,8 +25,8 @@ const roboto = Roboto({
 });
 
 export const metadata: Metadata = {
-  title: "Chess Klub - Master Chess. Join the Klub.",
-  description: "Compete in tournaments, learn from expert tutors, and connect with chess enthusiasts. Join Chess Klub today!",
+  title: "Chess Tourneys - Find Chess Tournaments Around the World",
+  description: "Discover and register for chess tournaments worldwide. Join Chess Tourneys to compete, learn, and connect with chess enthusiasts globally.",
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },

@@ -83,7 +83,7 @@ export default function Footer() {
                   123 Chess Avenue<br />Charlotte, NC 28202
                 </div>
               </li>
-              <li className="text-sm" style={{ color: 'rgba(255, 255, 255, 0.8)' }}>Email: hello@chessklub.com</li>
+              <li className="text-sm" style={{ color: 'rgba(255, 255, 255, 0.8)' }}>Email: hello@chesstourneys.com</li>
               <li className="text-sm" style={{ color: 'rgba(255, 255, 255, 0.8)' }}>Phone: (704) 248-6999</li>
               <li className="mt-4">
                 <div className="flex items-center space-x-3">
@@ -129,7 +129,7 @@ export default function Footer() {
             color: 'rgba(255, 255, 255, 0.8)'
           }}
         >
-          <p>&copy; 2024 Chess Klub. All rights reserved.</p>
+          <p>&copy; 2024 Chess Tourneys. All rights reserved.</p>
         </div>
       </div>
     </footer>

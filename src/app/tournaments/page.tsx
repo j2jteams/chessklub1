@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { getApprovedEvents, getAllEvents, deleteEvent } from '@/lib/events';
 import { EventData } from '@/lib/types';
@@ -8,13 +8,38 @@ import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useAuth } from '@/hooks/useAuth';
+import TournamentSearchBar from '@/components/tournaments/TournamentSearchBar';
+import TournamentFilters from '@/components/tournaments/TournamentFilters';
+import { TournamentFilters as FilterType } from '@/components/tournaments/FilterPanel';
+import { filterTournaments, getUniqueCountries, getUniqueCities } from '@/lib/tournamentSearch';
 
 function TournamentsContent() {
   const searchParams = useSearchParams();
   const filter = searchParams.get('filter') || 'all';
+  const searchQuery = searchParams.get('search') || '';
+  const locationParam = searchParams.get('location') || '';
+  const dateStartParam = searchParams.get('dateStart') || '';
+  const dateEndParam = searchParams.get('dateEnd') || '';
   const { user, role } = useAuth();
   const [events, setEvents] = useState<EventData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQueryState, setSearchQueryState] = useState(searchQuery);
+  const [filters, setFilters] = useState<FilterType>({
+    countries: [],
+    cities: locationParam ? [locationParam] : [],
+    dateRange: { 
+      start: dateStartParam || '', 
+      end: dateEndParam || '' 
+    },
+    minRating: null,
+    maxRating: null,
+    timeControls: [],
+    tournamentLevels: [],
+    priceRange: { min: null, max: null },
+    fideRatedOnly: false,
+    hasPrizeFund: false,
+    registrationOpen: false,
+  });
   const isSuperAdmin = role === 'superAdmin';
 
   useEffect(() => {
@@ -50,6 +75,10 @@ function TournamentsContent() {
       savedByUsers: [],
       createdAt: new Date('2024-03-01'),
       updatedAt: new Date('2024-03-01'),
+      tournamentLevel: 'National', // State championship = National level
+      country: 'USA',
+      city: 'Columbia',
+      region: 'North America',
     },
     {
       id: 'demo-2',
@@ -66,6 +95,10 @@ function TournamentsContent() {
       savedByUsers: [],
       createdAt: new Date('2024-03-10'),
       updatedAt: new Date('2024-03-10'),
+      tournamentLevel: 'National', // State championship = National level
+      country: 'USA',
+      city: 'Raleigh',
+      region: 'North America',
     },
     {
       id: 'demo-3',
@@ -82,6 +115,10 @@ function TournamentsContent() {
       savedByUsers: [],
       createdAt: new Date('2024-04-15'),
       updatedAt: new Date('2024-04-15'),
+      tournamentLevel: 'Local', // Local open tournament
+      country: 'USA',
+      city: 'Charlotte',
+      region: 'North America',
     },
     {
       id: 'demo-4',
@@ -98,6 +135,10 @@ function TournamentsContent() {
       savedByUsers: [],
       createdAt: new Date('2024-05-01'),
       updatedAt: new Date('2024-05-01'),
+      tournamentLevel: 'Regional', // Regional championship
+      country: 'USA',
+      city: 'Fort Mill',
+      region: 'North America',
     },
     {
       id: 'demo-5',
@@ -114,35 +155,57 @@ function TournamentsContent() {
       savedByUsers: [],
       createdAt: new Date('2024-06-01'),
       updatedAt: new Date('2024-06-01'),
+      tournamentLevel: 'National', // National qualifier
+      country: 'USA',
+      city: 'Charlotte',
+      region: 'North America',
     },
   ];
 
   // Combine real events with demo tournaments
   const allTournaments = [...events, ...demoTournaments];
 
-  // Filter tournaments
+  // Filter to only tournaments
+  const tournamentsOnly = useMemo(() => {
+    return allTournaments.filter((tournament) => {
+      return tournament.category === 'tournament' || 
+             (!tournament.category && tournament.title.toLowerCase().includes('tournament'));
+    });
+  }, [allTournaments]);
+
+  // Get unique countries and cities for filter panel
+  const availableCountries = useMemo(() => getUniqueCountries(tournamentsOnly), [tournamentsOnly]);
+  const availableCities = useMemo(() => getUniqueCities(tournamentsOnly), [tournamentsOnly]);
+
+  // Apply basic filter tabs (new, upcoming, all)
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-
-  const filteredTournaments = allTournaments.filter((tournament) => {
-    // Tournaments page shows ONLY tournaments (not events)
-    const isTournament = tournament.category === 'tournament' || (!tournament.category && tournament.title.toLowerCase().includes('tournament'));
-    
-    if (!isTournament) return false; // Only show tournaments on tournaments page
-    
-    if (filter === 'new') {
-      const createdDate = tournament.createdAt ? new Date(tournament.createdAt) : null;
-      return createdDate && createdDate >= sevenDaysAgo;
-    } else if (filter === 'upcoming') {
-      try {
-        const eventDate = new Date(tournament.date);
-        return !isNaN(eventDate.getTime()) && eventDate >= now;
-      } catch {
-        return true; // Include if date parsing fails
+  
+  const basicFiltered = useMemo(() => {
+    return tournamentsOnly.filter((tournament) => {
+      if (filter === 'new') {
+        const createdDate = tournament.createdAt ? new Date(tournament.createdAt) : null;
+        return createdDate && createdDate >= sevenDaysAgo;
+      } else if (filter === 'upcoming') {
+        try {
+          const eventDate = tournament.startDate 
+            ? new Date(tournament.startDate)
+            : tournament.date 
+            ? new Date(tournament.date)
+            : null;
+          return eventDate && !isNaN(eventDate.getTime()) && eventDate >= now;
+        } catch {
+          return false;
+        }
       }
-    }
-    return true; // 'all'
-  });
+      return true; // 'all'
+    });
+  }, [tournamentsOnly, filter, now, sevenDaysAgo]);
+
+  // Apply search and advanced filters
+  const filteredTournaments = useMemo(() => {
+    return filterTournaments(basicFiltered, searchQueryState, filters);
+  }, [basicFiltered, searchQueryState, filters]);
 
   return (
     <>
@@ -180,9 +243,30 @@ function TournamentsContent() {
           </div>
         </div>
 
-        {/* Filter Tabs */}
+        {/* Search and Filters Section */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex space-x-4 mb-8 border-b border-gray-200">
+          {/* Tournament Search Bar */}
+          <div className="mb-6">
+            <TournamentSearchBar
+              redirectOnSearch={false}
+              currentPath="/tournaments"
+              initialQuery={searchQuery}
+              onSearch={setSearchQueryState}
+            />
+          </div>
+
+          {/* Dropdown Filters Bar */}
+          <div className="mb-6">
+            <TournamentFilters
+              filters={filters}
+              onFiltersChange={setFilters}
+              availableCountries={availableCountries}
+              availableCities={availableCities}
+            />
+          </div>
+
+          {/* Filter Tabs */}
+          <div className="flex space-x-4 mb-6 border-b border-gray-200">
             <Link
               href="/tournaments?filter=all"
               className={`pb-4 px-4 font-medium transition ${
@@ -213,6 +297,21 @@ function TournamentsContent() {
             >
               Upcoming Events
             </Link>
+          </div>
+
+          {/* Results Count */}
+          <div className="mb-6 flex items-center justify-between">
+            <p className="text-gray-600">
+              {loading ? (
+                'Loading tournaments...'
+              ) : (
+                <>
+                  <span className="font-semibold text-gray-900">{filteredTournaments.length}</span>{' '}
+                  tournament{filteredTournaments.length !== 1 ? 's' : ''} found
+                </>
+              )}
+            </p>
+            {/* Sort Options - Can be added later */}
           </div>
 
           {/* Tournaments Grid */}

@@ -89,9 +89,9 @@ export default function Header() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-0">
             <div className="flex items-center">
-              <a href="mailto:hello@chessklub.com" className="hover:opacity-80 transition">
-                <span className="hidden sm:inline">hello@chessklub.com</span>
-                <span className="sm:hidden">hello@chessklub.com</span>
+              <a href="mailto:hello@chesstourneys.com" className="hover:opacity-80 transition">
+                <span className="hidden sm:inline">hello@chesstourneys.com</span>
+                <span className="sm:hidden">hello@chesstourneys.com</span>
               </a>
             </div>
             <div className="flex items-center gap-3 sm:space-x-6">
@@ -130,7 +130,7 @@ export default function Header() {
               <Link href="/" className="flex items-center hover:opacity-80 transition">
                 <img 
                   src="/Ck Logo Enchanced.png" 
-                  alt="Chess Klub Logo" 
+                  alt="Chess Tourneys Logo" 
                   className="h-10 sm:h-14 md:h-16 w-auto cursor-pointer object-contain"
                   onError={(e) => {
                     // Fallback if logo fails to load
