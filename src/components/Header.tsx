@@ -19,9 +19,9 @@ export default function Header() {
   const [loadingEvents, setLoadingEvents] = useState(false);
 
   const dashboardLink =
-    role === 'superAdmin' || role === 'owner'
+    role === 'superAdmin'
       ? { href: '/dashboard/super-admin', label: 'Super Admin Console' }
-      : role === 'franchisee' || role === 'standaloneAdmin' || role === 'admin'
+      : role === 'franchisee' || role === 'standaloneAdmin'
         ? { href: '/dashboard/admin', label: 'Event Management' }
         : { href: '/dashboard', label: 'My Dashboard' };
 

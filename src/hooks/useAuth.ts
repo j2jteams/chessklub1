@@ -18,7 +18,7 @@ export function useAuth(): AuthState {
   const [state, setState] = useState<AuthState>({
     user: null,
     profile: null,
-    role: 'player',
+    role: 'player' as UserRole,  // Explicit assertion in initial state
     loading: true,
   });
 
@@ -28,7 +28,7 @@ export function useAuth(): AuthState {
         setState({
           user: null,
           profile: null,
-          role: 'player',
+          role: 'player' as UserRole,  // Explicit assertion
           loading: false,
         });
         return;
@@ -41,7 +41,7 @@ export function useAuth(): AuthState {
         setState({
           user: firebaseUser,
           profile: profile ?? null,
-          role,
+          role,  // Already typed as UserRole, so this is safe
           loading: false,
         });
       } catch (error) {
@@ -49,7 +49,7 @@ export function useAuth(): AuthState {
         setState({
           user: firebaseUser,
           profile: null,
-          role: 'player',
+          role: 'player' as UserRole,  // Explicit assertion
           loading: false,
         });
       }

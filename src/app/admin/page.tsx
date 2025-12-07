@@ -9,8 +9,8 @@ import { UserData, UserRole } from '@/lib/types';
 import Link from 'next/link';
 
 export default function AdminPage() {
-  // Protect route - only owners can access
-  useRequireRole(['owner']);
+  // Protect route - only super admins can access
+  useRequireRole(['superAdmin']);
   
   const { user, role, loading: authLoading } = useAuth();
   const [users, setUsers] = useState<UserData[]>([]);
@@ -18,7 +18,7 @@ export default function AdminPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!authLoading && user && role === 'owner') {
+    if (!authLoading && user && role === 'superAdmin') {
       loadUsers();
     }
   }, [user, role, authLoading]);
@@ -120,9 +120,9 @@ export default function AdminPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                        userData.role === 'owner'
+                        userData.role === 'superAdmin'
                           ? 'bg-purple-100 text-purple-800'
-                          : userData.role === 'admin'
+                          : userData.role === 'standaloneAdmin'
                           ? 'bg-blue-100 text-blue-800'
                           : 'bg-gray-100 text-gray-800'
                       }`}>
@@ -132,10 +132,10 @@ export default function AdminPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       {userData.uid !== user?.uid && (
                         <div className="flex gap-2">
-                          {userData.role !== 'owner' && (
+                          {userData.role !== 'superAdmin' && (
                             <button
-                              onClick={() => handleRoleChange(userData.uid, 'admin')}
-                              disabled={userData.role === 'admin'}
+                              onClick={() => handleRoleChange(userData.uid, 'standaloneAdmin')}
+                              disabled={userData.role === 'standaloneAdmin'}
                               className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-3 py-1 rounded text-xs font-semibold transition"
                             >
                               Make Admin

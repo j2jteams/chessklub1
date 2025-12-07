@@ -15,14 +15,14 @@ function EventsContent() {
   const { user, role } = useAuth();
   const [events, setEvents] = useState<EventData[]>([]);
   const [loading, setLoading] = useState(true);
-  const isOwner = role === 'owner';
+  const isSuperAdmin = role === 'superAdmin';
 
   useEffect(() => {
     const fetchEvents = async () => {
       setLoading(true);
       try {
-        // Owners can see all events (including pending), others see only approved
-        const fetchedEvents = isOwner ? await getAllEvents() : await getApprovedEvents();
+        // Super admins can see all events (including pending), others see only approved
+        const fetchedEvents = isSuperAdmin ? await getAllEvents() : await getApprovedEvents();
         setEvents(fetchedEvents);
       } catch (error) {
         console.error('Error fetching events:', error);
@@ -31,7 +31,7 @@ function EventsContent() {
       }
     };
     fetchEvents();
-  }, [isOwner]);
+  }, [isSuperAdmin]);
 
   // Filter events - show ONLY events (category === 'event')
   const now = new Date();
@@ -198,7 +198,7 @@ function EventsContent() {
                       >
                         Learn More →
                       </Link>
-                      {isOwner && event.id && (
+                      {isSuperAdmin && event.id && (
                         <div className="flex gap-2 pt-2 border-t border-gray-200">
                           <Link
                             href={`/admin/events/edit/${event.id}`}

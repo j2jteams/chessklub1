@@ -12,18 +12,20 @@ import { UserData, UserRole } from './types';
 
 // UPDATED: Chess Tourneys - New role system with migration support
 function fromFirestoreUser(data: any): UserData {
-  // Migration: Convert old roles to new roles for backward compatibility
-  let userRole = data.role ?? 'player';
-  
-  // Migrate old 'user' role to 'player'
-  if (userRole === 'user') {
-    userRole = 'player';
+  // Check for old 'user' role before type assertion (since 'user' is not in UserRole union)
+  let rawRole = data.role ?? 'player';
+  if (rawRole === 'user') {
+    rawRole = 'player';
   }
+  
+  // Use explicit type annotation to prevent narrowing
+  let r: UserRole = rawRole as UserRole;
+  
   // Migrate old 'admin' role to 'standaloneAdmin' (default migration)
   // Note: This assumes existing admins should be standalone admins
   // If you need franchise admins, they should be manually assigned
-  if (userRole === 'admin') {
-    userRole = 'standaloneAdmin';
+  if (r === 'admin') {
+    r = 'standaloneAdmin';
   }
   // Note: 'owner' role migration removed - all owners have been manually migrated to 'superAdmin' in Firebase
   
@@ -31,7 +33,7 @@ function fromFirestoreUser(data: any): UserData {
   const result: UserData = {
     uid: data.uid,
     email: data.email,
-    role: userRole as UserRole,
+    role: r as UserRole,  // Explicit assertion ensures full union
     firstName: data.firstName,
     lastName: data.lastName,
     uscfId: data.uscfId,
@@ -85,16 +87,25 @@ export async function getUserRole(uid: string): Promise<UserRole> {
   const userRef = doc(db, 'users', uid);
   const snapshot = await getDoc(userRef);
 
-  if (!snapshot.exists()) {
-    return 'player';
+  // Check for old 'user' role before type assertion (since 'user' is not in UserRole union)
+  let rawRole: string | null | undefined = snapshot.exists() 
+    ? (snapshot.data().role ?? 'player')
+    : 'player';
+  if (rawRole === 'user') {
+    rawRole = 'player';
   }
 
+  // Use temp variable with explicit type to prevent narrowing
+  let r: UserRole = rawRole as UserRole;
+
   // Migration: Convert old roles to new roles
-  const role = snapshot.data().role ?? 'player';
-  if (role === 'user') return 'player';
-  if (role === 'admin') return 'standaloneAdmin';
+  if (r === 'admin') {
+    r = 'standaloneAdmin';
+  }
   // Note: 'owner' role migration removed - all owners have been manually migrated to 'superAdmin' in Firebase
-  return role as UserRole;
+  
+  // Single return with explicit assertion ensures full union type
+  return r as UserRole;
 }
 
 export async function getUserData(uid: string): Promise<UserData | null> {

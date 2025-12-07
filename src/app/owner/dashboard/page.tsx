@@ -10,8 +10,8 @@ import { getAllUsers, updateUserRole } from '@/lib/userRoles';
 import { getPendingAdminRequests, approveAdminRequest, rejectAdminRequest, AdminRequest } from '@/lib/adminRequests';
 
 export default function OwnerDashboardPage() {
-  // Protect route - only owners can access
-  useRequireRole(['owner']);
+  // Protect route - only super admins can access
+  useRequireRole(['superAdmin']);
   
   const { user, role, loading } = useAuth();
   const [pendingEvents, setPendingEvents] = useState<EventData[]>([]);
@@ -21,7 +21,7 @@ export default function OwnerDashboardPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!loading && user && role === 'owner') {
+    if (!loading && user && role === 'superAdmin') {
       const loadData = async () => {
         setFetchLoading(true);
         try {
@@ -64,7 +64,7 @@ export default function OwnerDashboardPage() {
     }
   };
 
-  const handleRoleChange = async (uid: string, newRole: 'player' | 'admin') => {
+  const handleRoleChange = async (uid: string, newRole: 'player' | 'standaloneAdmin') => {
     if (!user) return;
     setActionLoading(uid);
     try {
@@ -134,7 +134,7 @@ export default function OwnerDashboardPage() {
         <div className="bg-white border border-gray-100 rounded-2xl p-5">
           <p className="text-xs text-gray-500 uppercase tracking-wide">Admins</p>
           <p className="text-3xl font-bold text-slate-900 mt-2">
-            {team.filter((member) => member.role === 'admin').length}
+            {team.filter((member) => member.role === 'standaloneAdmin').length}
           </p>
         </div>
         <div className="bg-white border border-gray-100 rounded-2xl p-5">
@@ -267,7 +267,7 @@ export default function OwnerDashboardPage() {
                     <td className="px-4 py-3 text-sm">
                       {member.uid === user.uid ? (
                         <span className="text-gray-400 text-xs">You</span>
-                      ) : member.role === 'admin' ? (
+                      ) : member.role === 'standaloneAdmin' ? (
                         <button
                           onClick={() => handleRoleChange(member.uid, 'player')}
                           disabled={actionLoading === member.uid}
@@ -277,7 +277,7 @@ export default function OwnerDashboardPage() {
                         </button>
                       ) : (
                         <button
-                          onClick={() => handleRoleChange(member.uid, 'admin')}
+                          onClick={() => handleRoleChange(member.uid, 'standaloneAdmin')}
                           disabled={actionLoading === member.uid}
                           className="px-3 py-1 rounded-lg bg-orange-500 text-white text-xs font-semibold hover:bg-orange-600 disabled:opacity-50"
                         >

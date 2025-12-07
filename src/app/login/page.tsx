@@ -8,7 +8,7 @@ import { createAdminRequest, isAdminApproved } from '@/lib/adminRequests';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-type AccountType = 'player' | 'admin' | null;
+type AccountType = 'player' | 'standaloneAdmin' | null;
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -289,7 +289,7 @@ export default function LoginPage() {
                   </button>
                   
                   <button
-                    onClick={() => setAccountType('admin')}
+                    onClick={() => setAccountType('standaloneAdmin')}
                     className="w-full bg-slate-700 hover:bg-slate-800 text-white font-semibold py-4 rounded-lg transition shadow-lg"
                   >
                     Admin Login

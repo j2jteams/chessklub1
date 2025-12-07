@@ -61,7 +61,7 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
           // Use getFranchisees() which works for standalone admins (queries with where clause)
           // Fallback to getAllUsers() for super admins if needed
           const userRole = role ?? 'player';
-          if (userRole === 'superAdmin' || userRole === 'owner') {
+          if (userRole === 'superAdmin') {
             // Super Admin can use getAllUsers (has full access)
             const allUsers = await getAllUsers();
             const franchiseeUsers = allUsers.filter(u => u.role === 'franchisee');
@@ -90,7 +90,7 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
         } else if (userRole === 'standaloneAdmin') {
           // Standalone Admin: default to "Standalone"
           setEventLinkType('standalone');
-        } else if (userRole === 'superAdmin' || userRole === 'owner') {
+        } else if (userRole === 'superAdmin') {
           // Super Admin: default to "Standalone" but can choose
           setEventLinkType('standalone');
         }
@@ -618,9 +618,7 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
       if (mode === 'create') {
         // Pass role and franchiseId to createEvent
         // createEvent will handle status and franchiseId logic
-        const creatorRole = (userRole === 'owner' ? 'superAdmin' : 
-                             userRole === 'admin' ? 'standaloneAdmin' : 
-                             userRole) as 'superAdmin' | 'franchisee' | 'standaloneAdmin' | undefined;
+        const creatorRole = userRole as 'superAdmin' | 'franchisee' | 'standaloneAdmin' | undefined;
         const eventId = await createEvent(eventData, creatorRole, franchiseId);
         if (onSaveSuccess) {
           onSaveSuccess(eventId);

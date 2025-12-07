@@ -124,8 +124,8 @@ export async function getPendingAdminRequests(): Promise<AdminRequest[]> {
 }
 
 /**
- * Approve an admin request (owner only)
- * This will also update the user's role to 'admin'
+ * Approve an admin request (super admin only)
+ * This will also update the user's role to 'standaloneAdmin' or 'franchisee'
  */
 export async function approveAdminRequest(
   requestId: string,
@@ -234,7 +234,7 @@ export async function isAdminApproved(userId: string): Promise<boolean> {
   const role = await getUserRole(userId);
   
   // If not an admin role, they're approved (players can always sign in)
-  if (role !== 'standaloneAdmin' && role !== 'franchisee' && role !== 'admin') {
+  if (role !== 'standaloneAdmin' && role !== 'franchisee') {
     return true;
   }
 

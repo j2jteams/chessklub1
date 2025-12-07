@@ -25,14 +25,11 @@ export default function SuperAdminDashboardPage() {
 
   useEffect(() => {
     if (!loading && role !== 'superAdmin') {
-      // Also check for old 'owner' role for migration
-      if (role !== 'owner') {
-        router.push('/dashboard');
-        return;
-      }
+      router.push('/dashboard');
+      return;
     }
 
-    if (user && (role === 'superAdmin' || role === 'owner')) {
+    if (user && role === 'superAdmin') {
       const loadData = async () => {
         setFetchLoading(true);
         try {

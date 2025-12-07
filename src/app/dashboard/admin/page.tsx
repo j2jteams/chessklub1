@@ -12,13 +12,21 @@ import { getAllUsers } from '@/lib/userRoles';
 // Type guard to ensure full UserRole union type (prevents TypeScript narrowing)
 // Maps 'admin' to 'standaloneAdmin' to match Firestore migration logic
 function ensureUserRole(role: UserRole | undefined | null): UserRole {
-  if (role === 'admin') return 'standaloneAdmin';
-  return (role ?? 'player') as UserRole;
+  let r: UserRole = (role ?? 'player') as UserRole;
+  if (r === 'admin') r = 'standaloneAdmin';
+  return r as UserRole;
 }
+
+// Role check helpers to prevent TypeScript narrowing
+const RoleCheck = {
+  isSuperAdmin: (r: UserRole): boolean => r === 'superAdmin',
+  isFranchisee: (r: UserRole): boolean => r === 'franchisee',
+  isStandaloneAdmin: (r: UserRole): boolean => r === 'standaloneAdmin',
+};
 
 export default function AdminDashboardPage() {
   // Protect route - allow standaloneAdmin, franchisee, and superAdmin
-  useRequireRole(['standaloneAdmin', 'franchisee', 'superAdmin', 'admin']);
+  useRequireRole(['standaloneAdmin', 'franchisee', 'superAdmin']);
   
   const { user, role: roleValue, loading } = useAuth();
   // Use type guard to prevent TypeScript narrowing
@@ -75,27 +83,27 @@ export default function AdminDashboardPage() {
     setFetchLoading(true);
     try {
       // Get user role
-      const userRole = ensureUserRole(role);
+      const userRole: UserRole = ensureUserRole(role);
       
       // Load all users for creator info (only for super admin)
-      if (userRole === 'superAdmin') {
+      if (RoleCheck.isSuperAdmin(userRole)) {
         const users = await getAllUsers();
         setAllUsers(users);
       }
       
       // Super Admin can see ALL events
-      if (userRole === 'superAdmin') {
+      if (RoleCheck.isSuperAdmin(userRole)) {
         const { getAllEvents } = await import('@/lib/events');
         const data = await getAllEvents();
         setEvents(data);
       } 
       // Franchisee can see events for their franchise
-      else if (userRole === 'franchisee') {
+      else if (RoleCheck.isFranchisee(userRole)) {
         const data = await getEventsByFranchise(user.uid);
         setEvents(data);
       } 
       // Standalone Admin can see only their own events (admin is converted to standaloneAdmin by ensureUserRole)
-      else if (userRole === 'standaloneAdmin') {
+      else if (RoleCheck.isStandaloneAdmin(userRole)) {
         const data = await getEventsCreatedBy(user.uid);
         setEvents(data);
       } else {
@@ -114,10 +122,10 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     if (!loading && user) {
-      const userRole = ensureUserRole(role);
+      const userRole: UserRole = ensureUserRole(role);
       // After ensureUserRole, 'admin' is converted to 'standaloneAdmin', so only check for 'standaloneAdmin'
-      if (userRole === 'standaloneAdmin' || userRole === 'franchisee' || 
-          userRole === 'superAdmin') {
+      if (RoleCheck.isStandaloneAdmin(userRole) || RoleCheck.isFranchisee(userRole) || 
+          RoleCheck.isSuperAdmin(userRole)) {
       loadEvents();
       }
     }
@@ -178,8 +186,9 @@ export default function AdminDashboardPage() {
   }
 
   // Use type guard to ensure full UserRole union type (prevents narrowing)
-  const userRole = ensureUserRole(role);
-  const isSuperAdmin = userRole === 'superAdmin';
+  // Explicit annotation prevents TypeScript from inferring a narrower type
+  const userRole: UserRole = ensureUserRole(role);
+  const isSuperAdmin = RoleCheck.isSuperAdmin(userRole);
 
   return (
     <div className="space-y-6">
@@ -190,9 +199,9 @@ export default function AdminDashboardPage() {
           <p className="text-gray-500 mt-2">
             {isSuperAdmin
               ? 'Create and manage all events. You can create franchise or standalone events.'
-              : userRole === 'franchisee' 
+              : RoleCheck.isFranchisee(userRole)
               ? 'Create and manage events for your franchise. Standalone events require Super Admin approval.'
-              : userRole === 'standaloneAdmin'
+              : RoleCheck.isStandaloneAdmin(userRole)
               ? 'Create and manage standalone events.'
               : 'Create and manage events.'}
           </p>
@@ -212,7 +221,7 @@ export default function AdminDashboardPage() {
           <p className="text-3xl font-bold text-slate-900 mt-2">{events.length}</p>
           <p className="text-xs text-gray-400 mt-1">
             {isSuperAdmin ? 'All events' : 
-             userRole === 'franchisee' ? 'Franchise events' : 'Your events'}
+             RoleCheck.isFranchisee(userRole) ? 'Franchise events' : 'Your events'}
           </p>
         </div>
         <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
@@ -411,10 +420,10 @@ export default function AdminDashboardPage() {
           <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-slate-50 to-white">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">
-                {userRole === 'franchisee' ? 'Franchise Events' : 'Your Events'}
+                {RoleCheck.isFranchisee(userRole) ? 'Franchise Events' : 'Your Events'}
               </h2>
               <p className="text-sm text-gray-500">
-                {userRole === 'franchisee' ? 'Edit events for your franchise' : 'Edit details or track approval status'}
+                {RoleCheck.isFranchisee(userRole) ? 'Edit events for your franchise' : 'Edit details or track approval status'}
               </p>
             </div>
         </div>
@@ -468,28 +477,31 @@ export default function AdminDashboardPage() {
                     </div>
                     <div className="flex gap-2 ml-4">
                       {/* Check if user can edit this event */}
-                      {(userRole === 'superAdmin' ||
-                        (userRole === 'franchisee' && (event.franchiseId === user?.uid || event.createdBy === user?.uid)) ||
-                        (userRole === 'standaloneAdmin' && event.createdBy === user?.uid)) && (
-                    <Link
-                      href={`/admin/events/edit/${event.id}`}
-                          className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-semibold transition"
-                    >
-                      Edit
-                    </Link>
-                  )}
-                      {/* Check if user can delete this event */}
-                      {(userRole === 'superAdmin' ||
-                        (userRole === 'franchisee' && (event.franchiseId === user?.uid || event.createdBy === user?.uid)) ||
-                        (userRole === 'standaloneAdmin' && event.createdBy === user?.uid)) && (
-                    <button
-                          onClick={() => event.id && handleDelete(event.id)}
-                          disabled={actionLoading === event.id}
-                          className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs font-semibold disabled:opacity-50 transition"
-                        >
-                          {actionLoading === event.id ? '...' : 'Delete'}
-                    </button>
-                  )}
+                      {(() => {
+                        const canEditEvent =
+                          RoleCheck.isSuperAdmin(userRole) ||
+                          (RoleCheck.isFranchisee(userRole) &&
+                            (event.franchiseId === user?.uid || event.createdBy === user?.uid)) ||
+                          (RoleCheck.isStandaloneAdmin(userRole) &&
+                            event.createdBy === user?.uid);
+                        return canEditEvent && (
+                          <>
+                            <Link
+                              href={`/admin/events/edit/${event.id}`}
+                              className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-semibold transition"
+                            >
+                              Edit
+                            </Link>
+                            <button
+                              onClick={() => event.id && handleDelete(event.id)}
+                              disabled={actionLoading === event.id}
+                              className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs font-semibold disabled:opacity-50 transition"
+                            >
+                              {actionLoading === event.id ? '...' : 'Delete'}
+                            </button>
+                          </>
+                        );
+                      })()}
                     </div>
                 </div>
               </div>

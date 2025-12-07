@@ -586,8 +586,8 @@ function EventDetailContent() {
                     <span className="text-gray-600">Category:</span>
                     <span className="font-semibold text-gray-900 capitalize">{event.category}</span>
                   </div>
-                  {/* Only show status to admins and owners */}
-                  {(role === 'admin' || role === 'owner') && (
+                  {/* Only show status to standalone admins and super admins */}
+                  {(role === 'standaloneAdmin' || role === 'superAdmin') && (
                     <div className="flex justify-between">
                       <span className="text-gray-600">Status:</span>
                       <span className={`font-semibold ${event.status === 'approved' ? 'text-green-600' : 'text-yellow-600'}`}>

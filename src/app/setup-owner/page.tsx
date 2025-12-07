@@ -14,8 +14,8 @@ export default function SetupOwnerPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
-    // If already owner/superAdmin, redirect to dashboard
-    if (!loading && (role === 'owner' || role === 'superAdmin')) {
+    // If already superAdmin, redirect to dashboard
+    if (!loading && role === 'superAdmin') {
       router.push('/dashboard/super-admin');
     }
   }, [role, loading, router]);
@@ -39,9 +39,9 @@ export default function SetupOwnerPage() {
         return;
       }
 
-      // Set role to owner and mark as God Owner (first owner)
+      // Set role to superAdmin and mark as God Owner (first super admin)
       // Note: This will fail permission check, but user can set manually in Firebase Console
-      await updateUserRole(user.uid, user.uid, 'owner');
+      await updateUserRole(user.uid, user.uid, 'superAdmin');
       // Set isGodOwner to true for the first owner
       const userRef = doc(db, 'users', user.uid);
       await updateDoc(userRef, {
@@ -90,7 +90,7 @@ export default function SetupOwnerPage() {
     );
   }
 
-  if (role === 'owner' || role === 'superAdmin') {
+  if (role === 'superAdmin') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">

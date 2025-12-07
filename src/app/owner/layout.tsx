@@ -6,8 +6,8 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 
 export default function OwnerLayout({ children }: { children: React.ReactNode }) {
-  // Protect owner routes - only owners can access
-  useRequireRole(['owner']);
+  // Protect super admin routes - only super admins can access
+  useRequireRole(['superAdmin']);
 
   return (
     <>
