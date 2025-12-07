@@ -10,10 +10,8 @@ import { getEventsCreatedBy, getEventsByFranchise, getAllEvents, approveEvent, r
 import { getAllUsers } from '@/lib/userRoles';
 
 // Type guard to ensure full UserRole union type (prevents TypeScript narrowing)
-// Maps 'admin' to 'standaloneAdmin' to match Firestore migration logic
 function ensureUserRole(role: UserRole | undefined | null): UserRole {
   let r: UserRole = (role ?? 'player') as UserRole;
-  if (r === 'admin') r = 'standaloneAdmin';
   return r as UserRole;
 }
 
@@ -102,7 +100,7 @@ export default function AdminDashboardPage() {
         const data = await getEventsByFranchise(user.uid);
         setEvents(data);
       } 
-      // Standalone Admin can see only their own events (admin is converted to standaloneAdmin by ensureUserRole)
+      // Standalone Admin can see only their own events
       else if (RoleCheck.isStandaloneAdmin(userRole)) {
         const data = await getEventsCreatedBy(user.uid);
         setEvents(data);
@@ -123,7 +121,6 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     if (!loading && user) {
       const userRole: UserRole = ensureUserRole(role);
-      // After ensureUserRole, 'admin' is converted to 'standaloneAdmin', so only check for 'standaloneAdmin'
       if (RoleCheck.isStandaloneAdmin(userRole) || RoleCheck.isFranchisee(userRole) || 
           RoleCheck.isSuperAdmin(userRole)) {
       loadEvents();

@@ -10,7 +10,7 @@ import {
 import { db } from './firebase';
 import { UserData, UserRole } from './types';
 
-// UPDATED: Chess Tourneys - New role system with migration support
+// UPDATED: Chess Tourneys - New role system
 function fromFirestoreUser(data: any): UserData {
   // Check for old 'user' role before type assertion (since 'user' is not in UserRole union)
   let rawRole = data.role ?? 'player';
@@ -20,14 +20,6 @@ function fromFirestoreUser(data: any): UserData {
   
   // Use explicit type annotation to prevent narrowing
   let r: UserRole = rawRole as UserRole;
-  
-  // Migrate old 'admin' role to 'standaloneAdmin' (default migration)
-  // Note: This assumes existing admins should be standalone admins
-  // If you need franchise admins, they should be manually assigned
-  if (r === 'admin') {
-    r = 'standaloneAdmin';
-  }
-  // Note: 'owner' role migration removed - all owners have been manually migrated to 'superAdmin' in Firebase
   
   // Explicitly type the return to prevent TypeScript narrowing
   const result: UserData = {
@@ -97,12 +89,6 @@ export async function getUserRole(uid: string): Promise<UserRole> {
 
   // Use temp variable with explicit type to prevent narrowing
   let r: UserRole = rawRole as UserRole;
-
-  // Migration: Convert old roles to new roles
-  if (r === 'admin') {
-    r = 'standaloneAdmin';
-  }
-  // Note: 'owner' role migration removed - all owners have been manually migrated to 'superAdmin' in Firebase
   
   // Single return with explicit assertion ensures full union type
   return r as UserRole;
@@ -232,12 +218,3 @@ export async function canCreateEvents(uid: string): Promise<boolean> {
   return role === 'superAdmin' || role === 'franchisee' || role === 'standaloneAdmin';
 }
 
-// Legacy functions for backward compatibility (will be removed in future)
-export async function isOwner(uid: string) {
-  return isSuperAdmin(uid);
-}
-
-export async function isAdminOrOwner(uid: string) {
-  const role = await getUserRole(uid);
-  return role === 'standaloneAdmin' || role === 'franchisee' || role === 'superAdmin';
-}

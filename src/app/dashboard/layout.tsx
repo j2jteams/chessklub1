@@ -59,15 +59,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {/* Dashboard Links */}
             {navLinks
               .filter((link) => {
-                // Handle role migration: old 'owner' and 'admin' should still work
                 const userRole = role ?? 'player';
-                const normalizedRoles = link.roles.map(r => {
-                  // Migration: map old roles to new roles for navigation
-                  if (r === 'owner') return 'superAdmin';
-                  if (r === 'admin') return 'standaloneAdmin';
-                  return r;
-                });
-                return normalizedRoles.includes(userRole) || link.roles.includes(userRole);
+                return link.roles.includes(userRole);
               })
               .map((link) => (
                 <Link

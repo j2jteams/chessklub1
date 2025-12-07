@@ -162,12 +162,12 @@ export default function SetupOwnerPage() {
             <li>Navigate to <strong>Firestore Database</strong> in the left sidebar</li>
             <li>Click on the <strong>users</strong> collection</li>
             <li>Find or create a document with ID: <code className="bg-gray-100 px-1 rounded">{user.uid}</code></li>
-            <li>If document exists: Click on it → Click <strong>Edit document</strong> → Set <code className="bg-gray-100 px-1 rounded">role</code> field to <code className="bg-gray-100 px-1 rounded">"owner"</code></li>
+            <li>If document exists: Click on it → Click <strong>Edit document</strong> → Set <code className="bg-gray-100 px-1 rounded">role</code> field to <code className="bg-gray-100 px-1 rounded">"superAdmin"</code></li>
             <li>If document doesn't exist: Click <strong>Add document</strong> → Use UID as document ID → Add fields:
               <ul className="ml-4 mt-1 list-disc">
                 <li><code className="bg-gray-100 px-1 rounded">uid</code>: {user.uid}</li>
                 <li><code className="bg-gray-100 px-1 rounded">email</code>: {user.email}</li>
-                <li><code className="bg-gray-100 px-1 rounded">role</code>: "owner"</li>
+                <li><code className="bg-gray-100 px-1 rounded">role</code>: "superAdmin"</li>
                 <li><code className="bg-gray-100 px-1 rounded">createdAt</code>: (current timestamp)</li>
                 <li><code className="bg-gray-100 px-1 rounded">updatedAt</code>: (current timestamp)</li>
               </ul>
