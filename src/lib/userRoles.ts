@@ -8,7 +8,7 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { UserData, UserRole } from './types';
+import { UserData, UserRole, USCFRatings } from './types';
 
 // UPDATED: Chess Tourneys - New role system
 function fromFirestoreUser(data: any): UserData {
@@ -29,6 +29,10 @@ function fromFirestoreUser(data: any): UserData {
     firstName: data.firstName,
     lastName: data.lastName,
     uscfId: data.uscfId,
+    uscfRatings: data.uscfRatings ? {
+      ...data.uscfRatings,
+      lastSynced: data.uscfRatings.lastSynced?.toDate?.() ?? undefined,
+    } : undefined,
     franchiseId: data.franchiseId ?? null,
     savedEvents: data.savedEvents ?? [],
     registeredEvents: data.registeredEvents ?? [],

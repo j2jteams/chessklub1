@@ -2,6 +2,15 @@
 // UPDATED: Unified event model with add-ons support
 export type UserRole = 'player' | 'standaloneAdmin' | 'franchisee' | 'superAdmin' | null;
 
+export interface USCFRatings {
+  regular?: string;
+  quick?: string;
+  blitz?: string;
+  status?: string;
+  expires?: string;
+  lastSynced?: Date;
+}
+
 export interface UserData {
   uid: string;
   email: string;
@@ -9,6 +18,7 @@ export interface UserData {
   firstName?: string;
   lastName?: string;
   uscfId?: string; // Optional USCF ID for players
+  uscfRatings?: USCFRatings; // USCF ratings and profile data
   franchiseId?: string | null; // Optional franchise ID for admins/franchisees
   savedEvents: string[];
   registeredEvents: string[];
