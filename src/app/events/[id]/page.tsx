@@ -159,8 +159,8 @@ function EventDetailContent() {
     }
   };
 
-  const isRegistered = user && (event?.registeredUsers?.includes(user.uid) || userRegistration !== null);
-  const isSaved = user && event?.savedByUsers?.includes(user.uid);
+  const isRegistered = !!(user && (event?.registeredUsers?.includes(user.uid) || userRegistration !== null));
+  const isSaved = !!(user && event?.savedByUsers?.includes(user.uid));
 
   if (loading || authLoading) {
     return (

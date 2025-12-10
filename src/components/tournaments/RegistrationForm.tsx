@@ -116,6 +116,13 @@ export default function RegistrationForm({ event, onRegistrationComplete, onCanc
         return;
       }
 
+      // Validate event ID exists
+      if (!event.id) {
+        setError('Invalid event. Please refresh the page and try again.');
+        setLoading(false);
+        return;
+      }
+
       const registrationData = {
         tournamentId: event.id,
         userId: user.uid,
@@ -339,7 +346,7 @@ export default function RegistrationForm({ event, onRegistrationComplete, onCanc
                     {addOn.description && (
                       <p className="text-xs text-gray-600 mt-0.5">{addOn.description}</p>
                     )}
-                    {addOn.price !== undefined && addOn.price > 0 && (
+                    {addOn.price !== undefined && addOn.price !== null && addOn.price > 0 && (
                       <p className="text-sm font-semibold text-orange-600 mt-1">${addOn.price.toFixed(2)}</p>
                     )}
                   </div>
