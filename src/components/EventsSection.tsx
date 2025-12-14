@@ -157,32 +157,9 @@ export default function EventsSection({ tournaments = [], loading = false }: Eve
   return (
     <section 
       id="events" 
-      className="bg-white"
-      style={{
-        paddingTop: 'var(--space-lg)',
-        paddingBottom: 'var(--space-lg)'
-      }}
+      className="bg-transparent"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-6 sm:mb-8">
-          <h2 
-            className="font-bold text-xl sm:text-2xl"
-            style={{ 
-              fontSize: 'clamp(1.25rem, 4vw, 2rem)',
-              color: 'var(--color-dark)',
-              fontFamily: 'var(--font-heading)'
-            }}
-          >
-            Upcoming Events and Tournaments
-          </h2>
-          <Link
-            href="/all"
-            className="text-sm font-semibold hover:opacity-80 transition whitespace-nowrap"
-            style={{ color: 'var(--color-accent)' }}
-          >
-            View All →
-          </Link>
-        </div>
         
         {loading ? (
           <div className="text-center py-12">

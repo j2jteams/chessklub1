@@ -65,6 +65,11 @@ export default function AdminDashboardPage() {
     const creator = allUsers.find(u => u.uid === event.createdBy);
     if (!creator) return false;
 
+    // Super Admin events should never need approval - auto-approve them
+    if (creator.role === 'superAdmin') {
+      return false; // Super Admin events are always approved
+    }
+
     // Pending if: franchisee created standalone event OR standalone admin created franchise event
     if (creator.role === 'franchisee' && (!event.franchiseId || event.franchiseId === null)) {
       return true; // Franchisee created standalone event
@@ -188,9 +193,9 @@ export default function AdminDashboardPage() {
   const isSuperAdmin = RoleCheck.isSuperAdmin(userRole);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
+    <div className="space-y-6 w-full">
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 w-full">
+        <div className="flex-1 min-w-0 pr-4">
           <p className="text-sm text-gray-500">Event Management</p>
           <h1 className="text-3xl font-bold text-slate-900">Manage Events</h1>
           <p className="text-gray-500 mt-2">
@@ -203,12 +208,14 @@ export default function AdminDashboardPage() {
               : 'Create and manage events.'}
           </p>
         </div>
-        <Link
-          href="/admin/events/create"
-          className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-orange-500 text-white font-semibold hover:bg-orange-600 transition shadow-lg"
-        >
-          + Create Event
-        </Link>
+        <div className="flex-shrink-0 md:mt-0 mt-4">
+          <Link
+            href="/admin/events/create"
+            className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-orange-500 text-white font-semibold hover:bg-orange-600 transition shadow-lg whitespace-nowrap"
+          >
+            + Create Event
+          </Link>
+        </div>
       </div>
 
       {/* Statistics Cards */}
@@ -260,7 +267,7 @@ export default function AdminDashboardPage() {
 
       {/* Super Admin Table View */}
       {isSuperAdmin ? (
-        <div className="bg-white border border-gray-100 rounded-2xl shadow-lg overflow-hidden">
+        <div className="bg-white border border-gray-100 rounded-2xl shadow-lg overflow-hidden w-full">
           <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-slate-50 to-white">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">All Events</h2>
@@ -276,8 +283,8 @@ export default function AdminDashboardPage() {
           ) : filteredEvents.length === 0 ? (
             <div className="text-center py-12 text-gray-500">No events found.</div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="overflow-x-auto" style={{ width: '100%', maxWidth: '100%' }}>
+              <table style={{ minWidth: '800px', width: '100%' }}>
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
@@ -312,20 +319,20 @@ export default function AdminDashboardPage() {
                           isPending ? 'bg-yellow-50 border-l-4 border-l-yellow-400' : ''
                         }`}
                       >
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-6 py-4">
                           <div className="flex items-center">
-          <div>
-                              <div className="text-sm font-semibold text-slate-900">{event.title}</div>
+                            <div className="min-w-0">
+                              <div className="text-sm font-semibold text-slate-900 truncate max-w-[200px]">{event.title}</div>
                               {event.description && (
-                                <div className="text-xs text-gray-500 mt-1 line-clamp-1">
+                                <div className="text-xs text-gray-500 mt-1 truncate max-w-[200px]">
                                   {event.description}
                                 </div>
                               )}
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-slate-900 font-medium">{creatorInfo.name}</div>
+                        <td className="px-6 py-4">
+                          <div className="text-sm text-slate-900 font-medium truncate max-w-[180px]">{creatorInfo.name}</div>
                           <div className="text-xs text-gray-500">
                             <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
                               creatorInfo.type === 'Franchise'
@@ -337,18 +344,18 @@ export default function AdminDashboardPage() {
                               {creatorInfo.type}
                             </span>
                           </div>
-                          <div className="text-xs text-gray-400 mt-1">{creatorInfo.email}</div>
+                          <div className="text-xs text-gray-400 mt-1 truncate max-w-[180px]">{creatorInfo.email}</div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-slate-900">{event.location}</div>
+                        <td className="px-6 py-4">
+                          <div className="text-sm text-slate-900 truncate max-w-[200px]">{event.location}</div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-6 py-4">
                           <div className="text-sm text-slate-900">{event.date}</div>
                           {event.time && (
                             <div className="text-xs text-gray-500">{event.time}</div>
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-6 py-4">
                           <span
                             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                               event.status === 'approved'
@@ -368,8 +375,8 @@ export default function AdminDashboardPage() {
           </div>
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex items-center gap-2">
+                        <td className="px-6 py-4 text-sm font-medium">
+                          <div className="flex items-center gap-2 flex-wrap">
                             {isPending && (
                               <>
                                 <button

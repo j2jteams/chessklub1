@@ -164,11 +164,40 @@ function EventDetailContent() {
 
   if (loading || authLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading event...</p>
+      <div className="min-h-screen bg-white chess-themed-bg">
+        <Header />
+        {/* Hero Skeleton */}
+        <div className="w-full h-[450px] sm:h-[550px] lg:h-[650px] bg-gradient-to-br from-gray-200 to-gray-300 animate-pulse rounded-b-3xl"></div>
+        
+        {/* Content Skeleton */}
+        <div className="max-w-7xl mx-auto px-4 lg:px-8 py-12">
+          <div className="grid grid-cols-1 lg:grid-cols-[65%_35%] gap-8 lg:gap-12">
+            {/* Left Column Skeleton */}
+            <div className="space-y-10">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="bg-white rounded-xl shadow-sm p-6 animate-pulse">
+                  <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
+                  <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+                </div>
+              ))}
+            </div>
+            
+            {/* Right Column Skeleton */}
+            <div>
+              <div className="sticky top-24">
+                <div className="bg-white rounded-xl shadow-sm p-6 animate-pulse">
+                  <div className="h-12 bg-gray-200 rounded-full w-32 mx-auto mb-6"></div>
+                  <div className="h-20 bg-gray-200 rounded-lg mb-6"></div>
+                  <div className="h-12 bg-gray-200 rounded-lg mb-3"></div>
+                  <div className="h-12 bg-gray-200 rounded-lg mb-3"></div>
+                  <div className="h-12 bg-gray-200 rounded-lg"></div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
+        <Footer />
       </div>
     );
   }
@@ -243,6 +272,103 @@ function EventDetailContent() {
     }
   };
 
+  const formatTime = (timeStr: string) => {
+    // Try to parse and format time string
+    if (!timeStr) return '';
+    // If it's already formatted (e.g., "9:56 PM"), return as is
+    if (timeStr.includes('AM') || timeStr.includes('PM')) return timeStr;
+    // Otherwise try to format it
+    try {
+      const [hours, minutes] = timeStr.split(':');
+      const hour = parseInt(hours);
+      const ampm = hour >= 12 ? 'PM' : 'AM';
+      const displayHour = hour % 12 || 12;
+      return `${displayHour}:${minutes || '00'} ${ampm}`;
+    } catch {
+      return timeStr;
+    }
+  };
+
+  const getHeroSummary = () => {
+    const parts: string[] = [];
+    
+    // Date
+    if (event.category === 'tournament' && event.startDate) {
+      const startDate = event.startDate instanceof Date ? event.startDate : new Date(event.startDate);
+      parts.push(formatDate(startDate.toISOString()));
+    } else if (event.date) {
+      parts.push(formatDate(event.date));
+    }
+    
+    // Time range
+    if (event.startTime && event.endTime) {
+      parts.push(`${formatTime(event.startTime)} – ${formatTime(event.endTime)}`);
+    } else if (event.time) {
+      parts.push(event.time);
+    }
+    
+    // Format/Time Control
+    const tc = event.timeControl;
+    if (tc) {
+      let timeControlLabel: string | null = null;
+      if (typeof tc === 'object' && 'category' in tc) {
+        // New format: TimeControl object
+        const timeControl = tc as any;
+        timeControlLabel = timeControl.customLabel?.trim() || 
+                          timeControl.format?.trim() || 
+                          timeControl.category || 
+                          null;
+      } else if (typeof tc === 'string') {
+        // Legacy format: string
+        timeControlLabel = tc;
+      }
+      if (timeControlLabel) {
+        parts.push(timeControlLabel);
+      }
+    }
+    
+    // Mode of play - Default to In-person if coordinates or venue exists, otherwise Online
+    const hasLocation = event.coordinates || event.venue || (event.location && !event.location.toLowerCase().includes('online'));
+    const venueType = event.venueType || (hasLocation ? 'In-person' : 'Online');
+    parts.push(venueType);
+    
+    return parts.join(' • ');
+  };
+
+  const getHeroBadges = () => {
+    const badges: Array<{ label: string; color: string }> = [];
+    
+    // Check if created within last 7 days
+    if (event.createdAt) {
+      const createdDate = event.createdAt instanceof Date ? event.createdAt : new Date(event.createdAt);
+      const daysSinceCreation = (Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24);
+      if (daysSinceCreation <= 7) {
+        badges.push({ label: 'New', color: 'bg-green-500' });
+      }
+    }
+    
+    // FIDE Rated
+    if (event.fideRated) {
+      badges.push({ label: 'Rated', color: 'bg-blue-500' });
+    }
+    
+    // Mode of play - Default to In-person if coordinates or venue exists, otherwise Online
+    const hasLocation = event.coordinates || event.venue || (event.location && !event.location.toLowerCase().includes('online'));
+    const venueType = event.venueType || (hasLocation ? 'In-person' : 'Online');
+    badges.push({ 
+      label: venueType, 
+      color: venueType === 'Online' ? 'bg-indigo-500' : 'bg-gray-600' 
+    });
+    
+    // Free
+    const price = getDisplayPrice();
+    if (price === 'Free' || price === '$0.00') {
+      badges.push({ label: 'Free', color: 'bg-orange-500' });
+    }
+    
+    return badges;
+  };
+
   return (
     <div className="min-h-screen bg-white chess-themed-bg">
       <Header />
@@ -256,16 +382,17 @@ function EventDetailContent() {
       )}
 
       {/* Hero Section with Large Image */}
-      <div className="relative w-full">
-        {event.image ? (
-          <div className="w-full h-[450px] sm:h-[550px] lg:h-[650px] overflow-hidden relative">
+      <div className="relative w-full rounded-b-3xl shadow-md overflow-hidden">
+        {event.image || event.heroImageUrl ? (
+          <div className="w-full h-[450px] sm:h-[550px] lg:h-[650px] overflow-hidden relative bg-gradient-to-br from-slate-800 via-slate-700 to-slate-900">
             <img 
-              src={event.image} 
-              alt={event.title}
-              className="w-full h-full object-cover"
+              src={event.heroImageUrl || event.image} 
+              alt={event.title || event.name}
+              className="w-full h-full object-cover object-center"
+              style={{ objectPosition: 'center center' }}
             />
-            {/* Gradient Overlay for better text readability */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
+            {/* Gradient Overlay for better text readability - Darker for better contrast */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/60 to-black/20"></div>
             
             {/* Back Button - Top Left */}
             <Link
@@ -278,101 +405,66 @@ function EventDetailContent() {
               Back
             </Link>
             
-            {/* Category Badge - Top Right */}
-            <div className="absolute top-6 right-6 z-10">
-              <span className="px-4 py-2 bg-orange-500 text-white rounded-full text-sm font-bold capitalize shadow-xl">
-                {event.category}
-              </span>
+            {/* Badges - Top Right */}
+            <div className="absolute top-6 right-6 z-10 flex flex-wrap gap-2 justify-end">
+              {getHeroBadges().map((badge, idx) => (
+                <span
+                  key={idx}
+                  className={`${badge.color} text-white px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg`}
+                >
+                  {badge.label}
+                </span>
+              ))}
             </div>
             
             {/* Title and Info Overlay - Bottom */}
-            <div className="absolute bottom-0 left-0 right-0 p-8 sm:p-12 lg:p-16">
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-4 drop-shadow-2xl leading-tight">
-                {event.title}
+            <div className="absolute bottom-0 left-0 right-0 py-10 sm:py-12 lg:py-16 px-8 sm:px-12 lg:px-16">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-4 drop-shadow-2xl leading-tight" style={{ color: '#ffffff', textShadow: '2px 2px 8px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.5)' }}>
+                {event.title || event.name}
               </h1>
-              <div className="flex flex-wrap items-center gap-6 text-white/95">
-                <div className="flex items-center bg-white/20 backdrop-blur-sm px-4 py-2 rounded-lg">
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <span className="font-semibold">
-                    {event.category === 'tournament' && event.startDate && event.endDate ? (
-                      (() => {
-                        const startDate = event.startDate instanceof Date ? event.startDate : new Date(event.startDate);
-                        const endDate = event.endDate instanceof Date ? event.endDate : new Date(event.endDate);
-                        const startStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                        const endStr = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                        return startStr === endStr ? startStr : `${startStr} - ${endStr}`;
-                      })()
-                    ) : formatDate(event.date)}
-                  </span>
-                </div>
-                {event.category === 'tournament' && event.timeControl && (
-                  <div className="flex items-center bg-white/20 backdrop-blur-sm px-4 py-2 rounded-lg">
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span className="font-medium">{event.timeControl}</span>
-                  </div>
-                )}
-                {event.time && (
-                  <div className="flex items-center bg-white/20 backdrop-blur-sm px-4 py-2 rounded-lg">
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span className="font-medium">{event.time}</span>
-                  </div>
-                )}
-                <div className="flex items-center bg-white/20 backdrop-blur-sm px-4 py-2 rounded-lg">
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  <span className="font-medium">
-                    {event.category === 'tournament' && event.venue ? event.venue : event.location}
-                  </span>
-                </div>
-                <div className="flex items-center bg-orange-500/90 backdrop-blur-sm px-4 py-2 rounded-lg">
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span className="font-bold text-lg">{getDisplayPrice()}</span>
-                </div>
-              </div>
+              
+              {/* Summary Line */}
+              <p className="text-lg sm:text-xl mb-4 drop-shadow-lg" style={{ color: '#ffffff', textShadow: '1px 1px 4px rgba(0,0,0,0.8), 0 0 10px rgba(0,0,0,0.5)' }}>
+                {getHeroSummary()}
+              </p>
             </div>
           </div>
         ) : (
           <div className="w-full h-[400px] sm:h-[500px] bg-gradient-to-br from-slate-800 via-slate-700 to-slate-900 relative">
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center text-white px-4">
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6">{event.title}</h1>
-                <div className="flex flex-wrap justify-center gap-4 text-white/90">
-                  <span className="font-semibold">
-                    {event.category === 'tournament' && event.startDate && event.endDate ? (
-                      (() => {
-                        const startDate = event.startDate instanceof Date ? event.startDate : new Date(event.startDate);
-                        const endDate = event.endDate instanceof Date ? event.endDate : new Date(event.endDate);
-                        const startStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                        const endStr = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                        return startStr === endStr ? startStr : `${startStr} - ${endStr}`;
-                      })()
-                    ) : formatDate(event.date)}
-                  </span>
-                  {event.time && <span>• {event.time}</span>}
-                  <span>• {event.category === 'tournament' && event.venue ? event.venue : event.location}</span>
-                  {event.category === 'tournament' && event.timeControl && <span>• {event.timeControl}</span>}
-                </div>
-              </div>
-            </div>
+            {/* Back Button - Top Left */}
             <Link
               href={event.category === 'tournament' ? '/tournaments' : '/events'}
-              className="absolute top-6 left-6 inline-flex items-center px-4 py-2.5 bg-white/95 hover:bg-white text-gray-800 rounded-lg transition shadow-xl font-medium"
+              className="absolute top-6 left-6 inline-flex items-center px-4 py-2.5 bg-white/95 hover:bg-white text-gray-800 rounded-lg transition shadow-xl font-medium z-10"
             >
               <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
               Back
             </Link>
+            
+            {/* Badges - Top Right */}
+            <div className="absolute top-6 right-6 z-10 flex flex-wrap gap-2 justify-end">
+              {getHeroBadges().map((badge, idx) => (
+                <span
+                  key={idx}
+                  className={`${badge.color} text-white px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg`}
+                >
+                  {badge.label}
+                </span>
+              ))}
+            </div>
+            
+            {/* Content - Centered */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-center px-4">
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-4 drop-shadow-2xl" style={{ color: '#ffffff', textShadow: '2px 2px 8px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.5)' }}>
+                  {event.title || event.name}
+                </h1>
+                <p className="text-lg sm:text-xl drop-shadow-lg" style={{ color: '#ffffff', textShadow: '1px 1px 4px rgba(0,0,0,0.8), 0 0 10px rgba(0,0,0,0.5)' }}>
+                  {getHeroSummary()}
+                </p>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -409,12 +501,10 @@ function EventDetailContent() {
             )}
 
             {/* 2. About This Tournament Card */}
-            {event.description && (
-              <AboutTournamentCard 
-                description={event.description}
-                eventName={event.title}
-              />
-            )}
+            <AboutTournamentCard 
+              description={event.description || ''}
+              eventName={event.title || event.name || ''}
+            />
 
             {/* 3. Event Details Card */}
             <EventDetailsCard event={event} />
@@ -462,6 +552,7 @@ function EventDetailContent() {
                 user={user}
                 router={router}
                 eventId={eventId}
+                registrationsCount={registrations.length}
               />
 
               {/* Quick Info Card */}

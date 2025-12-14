@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { createEvent, updateEvent } from '@/lib/events';
 import { uploadImage } from '@/lib/storage';
-import { EventType, EventStatus, EventAddOn, TournamentSection, ChessEvent, PricingTier, UserData } from '@/lib/types';
+import { EventType, EventStatus, EventAddOn, TournamentSection, ChessEvent, PricingTier, UserData, TimeControl } from '@/lib/types';
 import { getAllUsers, getFranchisees } from '@/lib/userRoles';
 import { Timestamp } from 'firebase/firestore';
 
@@ -39,18 +39,27 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
     name: '',
     description: '',
     venue: '',
+    venueType: 'In-person' as 'Online' | 'In-person',
     startDate: '',
     endDate: '',
     startTime: '',
     endTime: '',
-    timeControl: '',
+    checkInTime: '',
+    timeControlCategory: '' as '' | 'Classical' | 'Rapid' | 'Blitz' | 'Other',
+    timeControlFormat: '',
+    timeControlCustomLabel: '',
+    ratingType: '' as '' | 'FIDE' | 'USCF' | 'Club',
     pricingTiers: [] as PricingTier[],
     sections: [] as TournamentSection[],
     addOns: [] as EventAddOn[],
-    image: '',
+    image: '', // This will be mapped to both image and heroImageUrl
     contactEmail: '',
     contactPhone: '',
+    ageLimit: '',
+    equipmentProvided: '',
+    coordinates: { lat: '', lng: '' },
   });
+  
 
   // Load franchisees for dropdown (only in create mode)
   useEffect(() => {
@@ -155,22 +164,61 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
         }
       }
 
+      // Determine mode of play from initialData (use type assertion for optional fields)
+      const data = initialData as any; // Type assertion to access optional fields
+      const venueType = data.venueType || 
+        (initialData.coordinates || (initialData.venue && !initialData.venue.toLowerCase().includes('online')) 
+          ? 'In-person' 
+          : 'Online');
+
       setFormData({
         type: initialData.type || 'tournament',
         name: initialData.name || initialData.title || '',
         description: initialData.description || '',
         venue: initialData.venue || initialData.location || '',
+        venueType: venueType as 'Online' | 'In-person',
         startDate: startDateStr,
         endDate: endDateStr,
         startTime: initialData.startTime || startTimeStr,
         endTime: initialData.endTime || endTimeStr,
-        timeControl: initialData.timeControl || '',
+        checkInTime: data.checkInTime || '',
+        // Parse timeControl - handle both new object format and legacy string
+        timeControlCategory: (() => {
+          if (initialData.timeControl && typeof initialData.timeControl === 'object') {
+            return initialData.timeControl.category || '';
+          } else if (typeof initialData.timeControl === 'string') {
+            // Legacy: try to match string to category
+            const tc = initialData.timeControl.trim();
+            if (['Classical', 'Rapid', 'Blitz', 'Other'].includes(tc)) {
+              return tc as 'Classical' | 'Rapid' | 'Blitz' | 'Other';
+            }
+          }
+          return '';
+        })(),
+        timeControlFormat: (() => {
+          if (initialData.timeControl && typeof initialData.timeControl === 'object') {
+            return initialData.timeControl.format || '';
+          }
+          return '';
+        })(),
+        timeControlCustomLabel: (() => {
+          if (initialData.timeControl && typeof initialData.timeControl === 'object') {
+            return initialData.timeControl.customLabel || '';
+          }
+          return '';
+        })(),
+        ratingType: (initialData.ratingType || '') as '' | 'FIDE' | 'USCF' | 'Club',
         pricingTiers: pricingTiers,
         sections: initialData.sections || [],
         addOns: initialData.addOns || [],
-        image: initialData.image || '',
+        image: data.heroImageUrl || initialData.image || '', // Use heroImageUrl if available, fallback to image
         contactEmail: initialData.contactEmail || '',
         contactPhone: initialData.contactPhone || '',
+        ageLimit: data.ageLimit || '',
+        equipmentProvided: data.equipmentProvided || '',
+        coordinates: initialData.coordinates 
+          ? { lat: String(initialData.coordinates.lat), lng: String(initialData.coordinates.lng) }
+          : { lat: '', lng: '' },
       });
 
       if (initialData.image) {
@@ -208,7 +256,7 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
       reader.readAsDataURL(file);
 
       const imageUrl = await uploadImage(file);
-      setFormData({ ...formData, image: imageUrl });
+      setFormData({ ...formData, image: imageUrl }); // Will be mapped to both image and heroImageUrl on save
     } catch (err: any) {
       setError(err.message || 'Failed to upload image');
       setImagePreview(null);
@@ -476,10 +524,30 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
         }
       }
 
+      // Validate check-in time is before start time (if check-in time is provided)
+      if (formData.checkInTime && formData.startTime) {
+        const [checkInHour, checkInMin] = formData.checkInTime.split(':').map(Number);
+        const [startHour, startMin] = formData.startTime.split(':').map(Number);
+        const checkInMinutes = checkInHour * 60 + checkInMin;
+        const startMinutes = startHour * 60 + startMin;
+        
+        // If same date, check-in must be before start time
+        if (formData.startDate === formData.endDate && checkInMinutes >= startMinutes) {
+          setError('Check-in time must be before the tournament start time');
+          setLoading(false);
+          return;
+        }
+      }
+
       // Tournament-specific validation
       if (formData.type === 'tournament') {
-        if (!formData.timeControl.trim()) {
-          setError('Time control is required for tournaments');
+        if (!formData.timeControlCategory) {
+          setError('Time control category is required for tournaments');
+          setLoading(false);
+          return;
+        }
+        if (!formData.timeControlFormat.trim()) {
+          setError('Time setting is required for tournaments');
           setLoading(false);
           return;
         }
@@ -561,6 +629,10 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
       if (formData.endTime) {
         eventData.endTime = formData.endTime.trim();
       }
+      // Check-in time (optional)
+      if (formData.checkInTime) {
+        eventData.checkInTime = formData.checkInTime.trim();
+      }
       // Format time string for legacy 'time' field (e.g., "10:00 AM - 5:00 PM")
       if (formData.startTime && formData.endTime) {
         eventData.time = `${formatTimeForDisplay(formData.startTime)} - ${formatTimeForDisplay(formData.endTime)}`;
@@ -568,18 +640,58 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
         eventData.time = formatTimeForDisplay(formData.startTime);
       }
 
-      // Optional fields
-      if (formData.timeControl) {
-        eventData.timeControl = formData.timeControl.trim();
+      // Time Control - build TimeControl object
+      if (formData.type === 'tournament' && formData.timeControlCategory && formData.timeControlFormat) {
+        const timeControl: TimeControl = {
+          category: formData.timeControlCategory as "Classical" | "Rapid" | "Blitz" | "Other",
+          format: formData.timeControlFormat.trim(),
+        };
+        // Only add customLabel if it has a value (Firestore doesn't allow undefined)
+        const trimmedCustomLabel = formData.timeControlCustomLabel.trim();
+        if (trimmedCustomLabel) {
+          timeControl.customLabel = trimmedCustomLabel;
+        }
+        eventData.timeControl = timeControl;
+        // Also keep legacy string for backward compatibility
+        eventData.timeControlString = timeControl.customLabel || timeControl.format || timeControl.category;
       }
+
+      // Rating Type
+      if (formData.type === 'tournament' && formData.ratingType) {
+        eventData.ratingType = formData.ratingType as 'FIDE' | 'USCF' | 'Club';
+        // Legacy support: set fideRated if FIDE is selected
+        if (formData.ratingType === 'FIDE') {
+          eventData.fideRated = true;
+        }
+      }
+
+      // Optional fields
       if (formData.image) {
         eventData.image = formData.image.trim();
+        eventData.heroImageUrl = formData.image.trim(); // Map image to heroImageUrl for detail page
       }
       if (formData.contactEmail) {
         eventData.contactEmail = formData.contactEmail.trim();
       }
       if (formData.contactPhone) {
         eventData.contactPhone = formData.contactPhone.trim();
+      }
+      if (formData.venueType) {
+        eventData.venueType = formData.venueType;
+      }
+      if (formData.ageLimit) {
+        eventData.ageLimit = formData.ageLimit.trim();
+      }
+      if (formData.equipmentProvided) {
+        eventData.equipmentProvided = formData.equipmentProvided.trim();
+      }
+      // Coordinates - if provided, convert to numbers
+      if (formData.coordinates.lat && formData.coordinates.lng) {
+        const lat = parseFloat(formData.coordinates.lat);
+        const lng = parseFloat(formData.coordinates.lng);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          eventData.coordinates = { lat, lng };
+        }
       }
 
       // Pricing tiers
@@ -699,10 +811,29 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
         />
       </div>
 
-      {/* Venue */}
+      {/* Mode of Play */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Venue *
+          Mode of Play *
+        </label>
+        <select
+          value={formData.venueType}
+          onChange={(e) => setFormData({ ...formData, venueType: e.target.value as 'Online' | 'In-person' })}
+          required
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+        >
+          <option value="In-person">In-person</option>
+          <option value="Online">Online</option>
+        </select>
+        <p className="text-xs text-gray-500 mt-1">
+          Select whether players will play in-person or online
+        </p>
+      </div>
+
+      {/* Venue/Location - Single field that can contain venue name or full address */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          {formData.venueType === 'Online' ? 'Platform/Details' : 'Venue/Location'} *
         </label>
         <input
           type="text"
@@ -710,9 +841,48 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
           onChange={(e) => setFormData({ ...formData, venue: e.target.value })}
           required
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
-          placeholder="e.g., ABC Center, City, State"
+          placeholder={
+            formData.venueType === 'Online' 
+              ? 'e.g., Chess.com, Lichess.org, Zoom link'
+              : 'e.g., ABC Center, 123 Main St, City, State'
+          }
         />
+        {formData.venueType === 'In-person' && (
+          <p className="text-xs text-gray-500 mt-1">
+            You can enter just the venue name or include the full address
+          </p>
+        )}
       </div>
+
+      {/* Age Limit and Equipment (for tournaments) */}
+      {formData.type === 'tournament' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Age Limit (Optional)
+            </label>
+            <input
+              type="text"
+              value={formData.ageLimit}
+              onChange={(e) => setFormData({ ...formData, ageLimit: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+              placeholder="e.g., All ages, 18+, Under 16"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Equipment Provided (Optional)
+            </label>
+            <input
+              type="text"
+              value={formData.equipmentProvided}
+              onChange={(e) => setFormData({ ...formData, equipmentProvided: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+              placeholder="e.g., All chess sets provided"
+            />
+          </div>
+        </div>
+      )}
 
       {/* Event Linking (Franchise/Standalone) - Only show in create mode */}
       {mode === 'create' && (
@@ -855,25 +1025,29 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Start Date *
           </label>
-          <input
-            type="date"
-            value={formData.startDate}
-            onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-            required
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
-          />
+          <div className="date-picker-wrapper-large">
+            <input
+              type="date"
+              value={formData.startDate}
+              onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+              required
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+            />
+          </div>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             End Date *
           </label>
-          <input
-            type="date"
-            value={formData.endDate}
-            onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-            required
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
-          />
+          <div className="date-picker-wrapper-large">
+            <input
+              type="date"
+              value={formData.endDate}
+              onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+              required
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+            />
+          </div>
         </div>
       </div>
 
@@ -883,23 +1057,45 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Start Time *
           </label>
-          <input
-            type="time"
-            value={formData.startTime}
-            onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-            required
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
-          />
+          <div className="time-picker-wrapper-large">
+            <input
+              type="time"
+              value={formData.startTime}
+              onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+              required
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+            />
+          </div>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             End Time *
           </label>
+          <div className="time-picker-wrapper-large">
+            <input
+              type="time"
+              value={formData.endTime}
+              onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+              required
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Check-in Time (Optional) */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Check-in Time <span className="text-gray-500 font-normal">(Optional)</span>
+        </label>
+        <p className="text-xs text-gray-500 mb-2">
+          Specify when contestants should check in before the tournament starts
+        </p>
+        <div className="time-picker-wrapper-large max-w-md">
           <input
             type="time"
-            value={formData.endTime}
-            onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-            required
+            value={formData.checkInTime}
+            onChange={(e) => setFormData({ ...formData, checkInTime: e.target.value })}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
           />
         </div>
@@ -907,22 +1103,87 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
 
       {/* Time Control (only for tournaments) */}
       {formData.type === 'tournament' && (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Time Control *
-          </label>
-          <select
-            value={formData.timeControl}
-            onChange={(e) => setFormData({ ...formData, timeControl: e.target.value })}
-            required
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
-          >
-            <option value="">Select time control</option>
-            <option value="Classical">Classical</option>
-            <option value="Rapid">Rapid</option>
-            <option value="Blitz">Blitz</option>
-            <option value="Other">Other</option>
-          </select>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Time Control Category *
+            </label>
+            <select
+              value={formData.timeControlCategory}
+              onChange={(e) => setFormData({ 
+                ...formData, 
+                timeControlCategory: e.target.value as '' | 'Classical' | 'Rapid' | 'Blitz' | 'Other'
+              })}
+              required
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+            >
+              <option value="">Select time control</option>
+              <option value="Classical">Classical</option>
+              <option value="Rapid">Rapid</option>
+              <option value="Blitz">Blitz</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Time Setting *
+            </label>
+            <input
+              type="text"
+              value={formData.timeControlFormat}
+              onChange={(e) => setFormData({ ...formData, timeControlFormat: e.target.value })}
+              placeholder="e.g. 60+5, 25+5, 5+0, G/30; d5"
+              required
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Use any format you like. Examples: 60+5 (60 minutes + 5s increment), 60+0, 5+0 Blitz, or USCF style G/30; d5.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Custom Time Control Label <span className="text-gray-500 font-normal">(Optional)</span>
+            </label>
+            <input
+              type="text"
+              value={formData.timeControlCustomLabel}
+              onChange={(e) => setFormData({ ...formData, timeControlCustomLabel: e.target.value })}
+              placeholder="e.g. Friday Night Rapid, Club Time Control"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              If you want a special name, enter it here. Otherwise we'll show the time setting only.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Rating Type (only for tournaments) */}
+      {formData.type === 'tournament' && (
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Rating Type <span className="text-gray-500 font-normal">(Optional)</span>
+            </label>
+            <select
+              value={formData.ratingType}
+              onChange={(e) => setFormData({ 
+                ...formData, 
+                ratingType: e.target.value as '' | 'FIDE' | 'USCF' | 'Club'
+              })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+            >
+              <option value="">No rating type</option>
+              <option value="FIDE">FIDE Rated</option>
+              <option value="USCF">USCF Rated</option>
+              <option value="Club">Club Rated</option>
+            </select>
+            <p className="mt-1 text-xs text-gray-500">
+              Select the rating system used for this tournament. This will help players find tournaments that match their rating type.
+            </p>
+          </div>
         </div>
       )}
 
@@ -1318,4 +1579,3 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
     </form>
   );
 }
-

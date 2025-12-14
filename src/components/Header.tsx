@@ -122,7 +122,7 @@ export default function Header() {
       </div>
 
       {/* Main Navigation Header */}
-      <nav className="bg-white shadow-md border-b border-gray-200 sticky top-0 z-[1000]" style={{ backgroundColor: 'var(--color-light)', position: 'relative' }}>
+      <nav className="sticky top-0 z-40 bg-black/90 backdrop-blur-md border-b border-white/5 shadow-lg" style={{ position: 'relative' }}>
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
           <div className="flex justify-between items-center h-16 sm:h-20">
             {/* Logo */}
@@ -131,7 +131,7 @@ export default function Header() {
                 <img 
                   src="/Ck Logo Enchanced.png" 
                   alt="Chess Tourneys Logo" 
-                  className="h-10 sm:h-14 md:h-16 w-auto cursor-pointer object-contain"
+                  className="h-10 sm:h-12 md:h-14 w-auto cursor-pointer object-contain brightness-0 invert"
                   onError={(e) => {
                     // Fallback if logo fails to load
                     console.error('Logo failed to load');
@@ -143,7 +143,7 @@ export default function Header() {
             {/* Mobile Menu Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2.5 rounded-md text-gray-700 hover:bg-gray-100 active:bg-gray-200 transition min-w-[44px] min-h-[44px] flex items-center justify-center"
+              className="md:hidden p-2.5 rounded-md text-white hover:bg-white/10 active:bg-white/20 transition min-w-[44px] min-h-[44px] flex items-center justify-center"
               aria-label="Toggle mobile menu"
             >
               <svg
@@ -165,13 +165,12 @@ export default function Header() {
               {/* Home Link */}
               <Link
                 href="/"
-                className="px-4 py-2 transition font-medium rounded-md hover:bg-gray-50"
-                style={{ color: 'var(--color-dark)' }}
+                className="px-4 py-2 transition font-medium rounded-md hover:bg-white/10 text-white/80 hover:text-white"
               >
                 Home
               </Link>
 
-              {/* Tournaments Dropdown */}
+              {/* Tournaments Dropdown - Emphasized */}
               <div className="relative tournaments-dropdown">
                 <button
                   onClick={(e) => {
@@ -179,10 +178,13 @@ export default function Header() {
                     e.stopPropagation();
                     setTournamentsOpen(!tournamentsOpen);
                   }}
-                  className="flex items-center gap-1 px-4 py-2 transition font-medium rounded-md hover:bg-gray-50"
-                  style={{ color: 'var(--color-dark)' }}
+                  className="flex items-center gap-1 px-4 py-2 transition font-semibold rounded-md hover:bg-white/10 relative"
+                  style={{ color: 'white' }}
                 >
-                  Tournaments
+                  <span className="relative">
+                    Tournaments
+                    <span className="absolute -bottom-1 left-0 right-0 h-0.5 bg-orange-500"></span>
+                  </span>
                   <svg
                     className={`w-4 h-4 transition-transform ${tournamentsOpen ? 'rotate-180' : ''}`}
                     fill="none"
@@ -193,7 +195,7 @@ export default function Header() {
                   </svg>
                 </button>
                 {tournamentsOpen && (
-                  <div className="absolute top-full left-0 mt-2 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 z-[200] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                  <div className="absolute top-full left-0 mt-2 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 z-[200] overflow-hidden" onClick={(e) => e.stopPropagation()} style={{ backgroundColor: 'white' }}>
                     {/* Featured Preview Cards */}
                     {upcomingEvents.length > 0 && (
                       <div className="p-4 bg-gradient-to-r from-orange-50 to-orange-100 border-b border-gray-200">
@@ -332,20 +334,10 @@ export default function Header() {
                 )}
               </div>
 
-              {/* Online Tutoring */}
-              <Link
-                href="/online-tutoring"
-                className="px-4 py-2 transition font-medium rounded-md hover:bg-gray-50"
-                style={{ color: 'var(--color-dark)' }}
-              >
-                Online Tutoring
-              </Link>
-
               {/* Merchandise */}
               <Link
                 href="/merchandise"
-                className="px-4 py-2 transition font-medium rounded-md hover:bg-gray-50"
-                style={{ color: 'var(--color-dark)' }}
+                className="px-4 py-2 transition font-medium rounded-md hover:bg-white/10 text-white/70 hover:text-white"
               >
                 Merchandise
               </Link>
@@ -353,17 +345,24 @@ export default function Header() {
               {/* Ranking */}
               <Link
                 href="/ranking"
-                className="px-4 py-2 transition font-medium rounded-md hover:bg-gray-50"
-                style={{ color: 'var(--color-dark)' }}
+                className="px-4 py-2 transition font-medium rounded-md hover:bg-white/10 text-white/70 hover:text-white"
               >
                 Ranking
+              </Link>
+
+              {/* Results - Coming Soon */}
+              <Link
+                href="/tournaments"
+                className="px-4 py-2 transition font-medium rounded-md hover:bg-white/10 text-white/70 hover:text-white relative group"
+              >
+                Results
+                <span className="ml-1.5 text-xs text-orange-400 opacity-75">Coming Soon</span>
               </Link>
 
               {/* Locations */}
               <Link
                 href="/locations"
-                className="px-4 py-2 transition font-medium rounded-md hover:bg-gray-50"
-                style={{ color: 'var(--color-dark)' }}
+                className="px-4 py-2 transition font-medium rounded-md hover:bg-white/10 text-white/70 hover:text-white"
               >
                 Locations
               </Link>
@@ -413,11 +412,7 @@ export default function Header() {
               ) : (
                 <Link
                   href="/login"
-                  className="text-white font-semibold transition shadow-lg px-4 py-2 sm:px-6 sm:py-2.5 rounded-md text-sm sm:text-base min-h-[44px] sm:min-h-0 flex items-center justify-center"
-                  style={{
-                    backgroundColor: 'var(--color-accent)',
-                    color: 'var(--color-light)',
-                  }}
+                  className="bg-orange-500 text-white font-semibold transition shadow-lg px-4 py-2 sm:px-6 sm:py-2.5 rounded-md text-sm sm:text-base min-h-[44px] sm:min-h-0 flex items-center justify-center hover:bg-orange-600"
                 >
                   Login
                 </Link>
@@ -429,14 +424,13 @@ export default function Header() {
 
       {/* Mobile Navigation Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden bg-white border-t border-gray-200 shadow-lg relative z-[200]">
+        <div className="md:hidden bg-black/95 backdrop-blur-md border-t border-white/10 shadow-lg relative z-[200]">
           <div className="px-4 py-4 space-y-2">
             {/* Home Link */}
             <Link
               href="/"
-              className="block px-4 py-3 font-medium rounded-md hover:bg-gray-50 transition"
+              className="block px-4 py-3 font-medium rounded-md hover:bg-white/10 transition text-white/80 hover:text-white"
               onClick={() => setMobileMenuOpen(false)}
-              style={{ color: 'var(--color-dark)' }}
             >
               Home
             </Link>
@@ -449,10 +443,12 @@ export default function Header() {
                   e.stopPropagation();
                   setTournamentsOpen(!tournamentsOpen);
                 }}
-                className="w-full flex items-center justify-between px-4 py-3 text-left font-medium rounded-md hover:bg-gray-50 transition"
-                style={{ color: 'var(--color-dark)' }}
+                className="w-full flex items-center justify-between px-4 py-3 text-left font-semibold rounded-md hover:bg-white/10 transition text-white relative"
               >
-                <span>Tournaments</span>
+                <span className="relative">
+                  Tournaments
+                  <span className="absolute -bottom-1 left-0 right-0 h-0.5 bg-orange-500"></span>
+                </span>
                 <svg
                   className={`w-5 h-5 transition-transform ${tournamentsOpen ? 'rotate-180' : ''}`}
                   fill="none"
@@ -608,37 +604,34 @@ export default function Header() {
             </div>
 
             <Link
-              href="/online-tutoring"
-              className="block px-4 py-3 font-medium rounded-md hover:bg-gray-50 transition"
-              onClick={() => setMobileMenuOpen(false)}
-              style={{ color: 'var(--color-dark)' }}
-            >
-              Online Tutoring
-            </Link>
-
-            <Link
               href="/merchandise"
-              className="block px-4 py-3 font-medium rounded-md hover:bg-gray-50 transition"
+              className="block px-4 py-3 font-medium rounded-md hover:bg-white/10 transition text-white/70 hover:text-white"
               onClick={() => setMobileMenuOpen(false)}
-              style={{ color: 'var(--color-dark)' }}
             >
               Merchandise
             </Link>
 
             <Link
               href="/ranking"
-              className="block px-4 py-3 font-medium rounded-md hover:bg-gray-50 transition"
+              className="block px-4 py-3 font-medium rounded-md hover:bg-white/10 transition text-white/70 hover:text-white"
               onClick={() => setMobileMenuOpen(false)}
-              style={{ color: 'var(--color-dark)' }}
             >
               Ranking
             </Link>
 
             <Link
-              href="/locations"
-              className="block px-4 py-3 font-medium rounded-md hover:bg-gray-50 transition"
+              href="/tournaments"
+              className="block px-4 py-3 font-medium rounded-md hover:bg-white/10 transition text-white/70 hover:text-white relative group"
               onClick={() => setMobileMenuOpen(false)}
-              style={{ color: 'var(--color-dark)' }}
+            >
+              Results
+              <span className="ml-1.5 text-xs text-orange-400 opacity-75">Coming Soon</span>
+            </Link>
+
+            <Link
+              href="/locations"
+              className="block px-4 py-3 font-medium rounded-md hover:bg-white/10 transition text-white/70 hover:text-white"
+              onClick={() => setMobileMenuOpen(false)}
             >
               Locations
             </Link>

@@ -62,3 +62,6 @@ export default function ContactOrganizerCard({ event }: ContactOrganizerCardProp
   );
 }
 
+
+
+

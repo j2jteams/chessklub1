@@ -6,12 +6,13 @@ export interface TournamentFilters {
   countries: string[];
   cities: string[];
   dateRange: { start: string; end: string };
-  minRating: number | null;
-  maxRating: number | null;
+  minRating: number | null; // Keep for backward compatibility
+  maxRating: number | null; // Keep for backward compatibility
+  ratingTypes: string[]; // New: Array of rating types (FIDE, USCF, Club)
   timeControls: string[];
   tournamentLevels: string[];
   priceRange: { min: number | null; max: number | null };
-  fideRatedOnly: boolean;
+  fideRatedOnly: boolean; // Keep for backward compatibility
   hasPrizeFund: boolean;
   registrationOpen: boolean;
 }
@@ -65,6 +66,7 @@ export default function FilterPanel({
       dateRange: { start: '', end: '' },
       minRating: null,
       maxRating: null,
+      ratingTypes: [],
       timeControls: [],
       tournamentLevels: [],
       priceRange: { min: null, max: null },
@@ -83,6 +85,7 @@ export default function FilterPanel({
     (localFilters.dateRange.end ? 1 : 0) +
     (localFilters.minRating !== null ? 1 : 0) +
     (localFilters.maxRating !== null ? 1 : 0) +
+    localFilters.ratingTypes.length +
     localFilters.timeControls.length +
     localFilters.tournamentLevels.length +
     (localFilters.priceRange.min !== null ? 1 : 0) +
@@ -418,4 +421,7 @@ function FilterContent({
     </div>
   );
 }
+
+
+
 

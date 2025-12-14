@@ -12,6 +12,7 @@ import TournamentSearchBar from '@/components/tournaments/TournamentSearchBar';
 import TournamentFilters from '@/components/tournaments/TournamentFilters';
 import { TournamentFilters as FilterType } from '@/components/tournaments/FilterPanel';
 import { filterTournaments, getUniqueCountries, getUniqueCities } from '@/lib/tournamentSearch';
+import { getAllChessCountries, getAllChessCities } from '@/lib/chessCountries';
 
 function AllContent() {
   const searchParams = useSearchParams();
@@ -27,6 +28,7 @@ function AllContent() {
     dateRange: { start: '', end: '' },
     minRating: null,
     maxRating: null,
+    ratingTypes: [],
     timeControls: [],
     tournamentLevels: [],
     priceRange: { min: null, max: null },
@@ -65,9 +67,9 @@ function AllContent() {
     });
   }, [events]);
 
-  // Get unique countries and cities for filter panel
-  const availableCountries = useMemo(() => getUniqueCountries(allItems), [allItems]);
-  const availableCities = useMemo(() => getUniqueCities(allItems), [allItems]);
+  // Get countries and cities from comprehensive lists (all major chess-playing nations and their cities)
+  const availableCountries = useMemo(() => getAllChessCountries(), []);
+  const availableCities = useMemo(() => getAllChessCities(), []);
 
   // Apply basic filter tabs (new, upcoming, all)
   const basicFiltered = useMemo(() => {

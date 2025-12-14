@@ -12,6 +12,10 @@ import TournamentSearchBar from '@/components/tournaments/TournamentSearchBar';
 import TournamentFilters from '@/components/tournaments/TournamentFilters';
 import { TournamentFilters as FilterType } from '@/components/tournaments/FilterPanel';
 import { filterTournaments, getUniqueCountries, getUniqueCities } from '@/lib/tournamentSearch';
+import { getAllChessCountries, getAllChessCities } from '@/lib/chessCountries';
+import TournamentCard from '@/components/tournament/TournamentCard';
+import { getTournamentStartDate, getTournamentCreatedDate, getTournamentPrice } from '@/lib/tournamentHelpers';
+import { getUserLocation, getCountryFromCoordinates, filterByDistance, filterByCountry } from '@/lib/locationHelpers';
 
 function TournamentsContent() {
   const searchParams = useSearchParams();
@@ -24,6 +28,11 @@ function TournamentsContent() {
   const [events, setEvents] = useState<EventData[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQueryState, setSearchQueryState] = useState(searchQuery);
+  const [sortBy, setSortBy] = useState<'soonest' | 'newest' | 'price-low' | 'price-high'>('soonest');
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [userCountry, setUserCountry] = useState<{ code: string; name: string } | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const [filters, setFilters] = useState<FilterType>({
     countries: [],
     cities: locationParam ? [locationParam] : [],
@@ -33,6 +42,7 @@ function TournamentsContent() {
     },
     minRating: null,
     maxRating: null,
+    ratingTypes: [],
     timeControls: [],
     tournamentLevels: [],
     priceRange: { min: null, max: null },
@@ -58,112 +68,32 @@ function TournamentsContent() {
     fetchEvents();
   }, [isSuperAdmin]);
 
-  // Demo tournaments for now
-  const demoTournaments: EventData[] = [
-    {
-      id: 'demo-1',
-      title: '2024 SC State Championship',
-      date: 'March 15-17, 2024',
-      location: 'Columbia, SC',
-      price: '$150',
-      description: 'Join us for the prestigious SC State Championship featuring multiple categories including K-3, K-5, and Middle School divisions.',
-      category: 'tournament',
-      status: 'approved',
-      createdBy: 'system',
-      createdByEmail: 'admin@chessklub.com',
-      registeredUsers: [],
-      savedByUsers: [],
-      createdAt: new Date('2024-03-01'),
-      updatedAt: new Date('2024-03-01'),
-      tournamentLevel: 'National', // State championship = National level
-      country: 'USA',
-      city: 'Columbia',
-      region: 'North America',
-    },
-    {
-      id: 'demo-2',
-      title: 'NC State Championship - Under 1200',
-      date: 'April 20-21, 2024',
-      location: 'Raleigh, NC',
-      price: '$125',
-      description: 'Competitive tournament for players rated under 1200. Multiple age categories available.',
-      category: 'tournament',
-      status: 'approved',
-      createdBy: 'system',
-      createdByEmail: 'admin@chessklub.com',
-      registeredUsers: [],
-      savedByUsers: [],
-      createdAt: new Date('2024-03-10'),
-      updatedAt: new Date('2024-03-10'),
-      tournamentLevel: 'National', // State championship = National level
-      country: 'USA',
-      city: 'Raleigh',
-      region: 'North America',
-    },
-    {
-      id: 'demo-3',
-      title: 'Ballantyne Chess Open',
-      date: 'May 10, 2024',
-      location: 'Ballantyne, Charlotte, NC',
-      price: '$75',
-      description: 'Local open tournament for all skill levels. Great for beginners and experienced players alike.',
-      category: 'tournament',
-      status: 'approved',
-      createdBy: 'system',
-      createdByEmail: 'admin@chessklub.com',
-      registeredUsers: [],
-      savedByUsers: [],
-      createdAt: new Date('2024-04-15'),
-      updatedAt: new Date('2024-04-15'),
-      tournamentLevel: 'Local', // Local open tournament
-      country: 'USA',
-      city: 'Charlotte',
-      region: 'North America',
-    },
-    {
-      id: 'demo-4',
-      title: 'Summer Blitz Championship',
-      date: 'June 22, 2024',
-      location: 'Fort Mill, SC',
-      price: '$50',
-      description: 'Fast-paced blitz tournament with 5-minute time controls. Exciting and action-packed!',
-      category: 'tournament',
-      status: 'approved',
-      createdBy: 'system',
-      createdByEmail: 'admin@chessklub.com',
-      registeredUsers: [],
-      savedByUsers: [],
-      createdAt: new Date('2024-05-01'),
-      updatedAt: new Date('2024-05-01'),
-      tournamentLevel: 'Regional', // Regional championship
-      country: 'USA',
-      city: 'Fort Mill',
-      region: 'North America',
-    },
-    {
-      id: 'demo-5',
-      title: 'National Qualifier Tournament',
-      date: 'July 15-16, 2024',
-      location: 'Charlotte, NC',
-      price: '$200',
-      description: 'Qualifying tournament for national championships. High-level competition for serious players.',
-      category: 'tournament',
-      status: 'approved',
-      createdBy: 'system',
-      createdByEmail: 'admin@chessklub.com',
-      registeredUsers: [],
-      savedByUsers: [],
-      createdAt: new Date('2024-06-01'),
-      updatedAt: new Date('2024-06-01'),
-      tournamentLevel: 'National', // National qualifier
-      country: 'USA',
-      city: 'Charlotte',
-      region: 'North America',
-    },
-  ];
+  // Get user location when "Near Me" filter is selected
+  useEffect(() => {
+    if (filter === 'nearme' && !userLocation && !locationLoading && !locationError) {
+      setLocationLoading(true);
+      getUserLocation()
+        .then(async (location) => {
+          setUserLocation(location);
+          // Get country from coordinates (returns both code and name)
+          const countryInfo = await getCountryFromCoordinates(location.lat, location.lng);
+          if (countryInfo) {
+            setUserCountry(countryInfo);
+          }
+          setLocationError(null);
+        })
+        .catch((error) => {
+          console.error('Error getting user location:', error);
+          setLocationError(error.message || 'Unable to get your location. Please enable location permissions.');
+        })
+        .finally(() => {
+          setLocationLoading(false);
+        });
+    }
+  }, [filter, userLocation, locationLoading, locationError]);
 
-  // Combine real events with demo tournaments
-  const allTournaments = [...events, ...demoTournaments];
+  // Use only real events from database (no demo/featured tournaments)
+  const allTournaments = events;
 
   // Filter to only tournaments
   const tournamentsOnly = useMemo(() => {
@@ -173,39 +103,149 @@ function TournamentsContent() {
     });
   }, [allTournaments]);
 
-  // Get unique countries and cities for filter panel
-  const availableCountries = useMemo(() => getUniqueCountries(tournamentsOnly), [tournamentsOnly]);
-  const availableCities = useMemo(() => getUniqueCities(tournamentsOnly), [tournamentsOnly]);
+  // Get countries and cities from comprehensive lists (all major chess-playing nations and their cities)
+  const availableCountries = useMemo(() => getAllChessCountries(), []);
+  const availableCities = useMemo(() => getAllChessCities(), []);
 
   // Apply basic filter tabs (new, upcoming, all)
   const now = new Date();
+  now.setHours(0, 0, 0, 0); // Set to start of day for accurate date comparison
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   
   const basicFiltered = useMemo(() => {
     return tournamentsOnly.filter((tournament) => {
+      // Always exclude demo/featured tournaments (they're just examples)
+      if (tournament.id && tournament.id.startsWith('featured-')) {
+        return false;
+      }
+      
+      // Get tournament start date
+      let eventDate: Date | null = null;
+      try {
+        if (tournament.startDate) {
+          eventDate = tournament.startDate instanceof Date 
+            ? tournament.startDate 
+            : new Date(tournament.startDate);
+        } else if (tournament.date) {
+          // tournament.date is typed as string, so always convert to Date
+          eventDate = new Date(tournament.date);
+        }
+        
+        if (eventDate) {
+          eventDate.setHours(0, 0, 0, 0); // Set to start of day for comparison
+        }
+      } catch {
+        eventDate = null;
+      }
+      
+      // Check if event is finished (end date or start date is in the past)
+      const isFinished = eventDate && !isNaN(eventDate.getTime()) && eventDate < now;
+      
       if (filter === 'new') {
         const createdDate = tournament.createdAt ? new Date(tournament.createdAt) : null;
-        return createdDate && createdDate >= sevenDaysAgo;
-      } else if (filter === 'upcoming') {
-        try {
-          const eventDate = tournament.startDate 
-            ? new Date(tournament.startDate)
-            : tournament.date 
-            ? new Date(tournament.date)
-            : null;
-          return eventDate && !isNaN(eventDate.getTime()) && eventDate >= now;
-        } catch {
-          return false;
+        if (createdDate) {
+          createdDate.setHours(0, 0, 0, 0);
         }
+        // New tournaments created in last 7 days AND not finished
+        return createdDate && createdDate >= sevenDaysAgo && !isFinished;
+      } else if (filter === 'upcoming') {
+        // Upcoming: future events only
+        return eventDate && !isNaN(eventDate.getTime()) && eventDate >= now;
       }
-      return true; // 'all'
+      
+      // 'all' filter: show upcoming events only (exclude finished)
+      return !isFinished;
     });
   }, [tournamentsOnly, filter, now, sevenDaysAgo]);
 
+  // Apply location-based filtering for "Near Me"
+  const locationFiltered = useMemo(() => {
+    if (filter !== 'nearme') {
+      return basicFiltered;
+    }
+
+    // If we have user location, filter by distance and country
+    if (userLocation) {
+      // Get nearby tournaments (within 100 miles = ~160km)
+      const nearbyTournaments = filterByDistance(basicFiltered, userLocation.lat, userLocation.lng, 160);
+      
+      // Get all tournaments in user's country using improved filter
+      const countryTournaments = userCountry 
+        ? filterByCountry(basicFiltered, userCountry.code, userCountry.name)
+        : [];
+
+      // Combine nearby and country tournaments, removing duplicates
+      const combined = [...nearbyTournaments];
+      countryTournaments.forEach((tournament) => {
+        if (!combined.find((t) => t.id === tournament.id)) {
+          combined.push(tournament);
+        }
+      });
+
+      console.log('Location filter results:', {
+        totalBasic: basicFiltered.length,
+        nearby: nearbyTournaments.length,
+        country: countryTournaments.length,
+        combined: combined.length,
+        userCountry: userCountry?.name || userCountry?.code,
+        userLocation
+      });
+
+      return combined;
+    }
+
+    // If location not yet loaded, return all tournaments (will filter once location is available)
+    return basicFiltered;
+  }, [basicFiltered, filter, userLocation, userCountry]);
+
   // Apply search and advanced filters
   const filteredTournaments = useMemo(() => {
-    return filterTournaments(basicFiltered, searchQueryState, filters);
-  }, [basicFiltered, searchQueryState, filters]);
+    return filterTournaments(locationFiltered, searchQueryState, filters);
+  }, [locationFiltered, searchQueryState, filters]);
+
+  // Apply sorting
+  const sortedTournaments = useMemo(() => {
+    const sorted = [...filteredTournaments];
+    
+    switch (sortBy) {
+      case 'soonest':
+        sorted.sort((a, b) => {
+          const dateA = getTournamentStartDate(a);
+          const dateB = getTournamentStartDate(b);
+          if (!dateA && !dateB) return 0;
+          if (!dateA) return 1;
+          if (!dateB) return -1;
+          return dateA.getTime() - dateB.getTime();
+        });
+        break;
+      case 'newest':
+        sorted.sort((a, b) => {
+          const dateA = getTournamentCreatedDate(a);
+          const dateB = getTournamentCreatedDate(b);
+          if (!dateA && !dateB) return 0;
+          if (!dateA) return 1;
+          if (!dateB) return -1;
+          return dateB.getTime() - dateA.getTime();
+        });
+        break;
+      case 'price-low':
+        sorted.sort((a, b) => {
+          const priceA = getTournamentPrice(a) ?? 0;
+          const priceB = getTournamentPrice(b) ?? 0;
+          return priceA - priceB;
+        });
+        break;
+      case 'price-high':
+        sorted.sort((a, b) => {
+          const priceA = getTournamentPrice(a) ?? 0;
+          const priceB = getTournamentPrice(b) ?? 0;
+          return priceB - priceA;
+        });
+        break;
+    }
+    
+    return sorted;
+  }, [filteredTournaments, sortBy]);
 
   return (
     <>
@@ -255,6 +295,31 @@ function TournamentsContent() {
             />
           </div>
 
+          {/* Location Status for "Near Me" filter */}
+          {filter === 'nearme' && (
+            <div className="mb-4">
+              {locationLoading && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center gap-3">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                  <p className="text-sm text-blue-800">Getting your location...</p>
+                </div>
+              )}
+              {locationError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <p className="text-sm text-red-800">{locationError}</p>
+                  <p className="text-xs text-red-600 mt-1">Please enable location permissions in your browser settings.</p>
+                </div>
+              )}
+              {userLocation && userCountry && !locationLoading && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <p className="text-sm text-green-800">
+                    Showing tournaments within 100 miles of your location and all tournaments in {userCountry.name || userCountry.code}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Dropdown Filters Bar */}
           <div className="mb-6">
             <TournamentFilters
@@ -299,19 +364,36 @@ function TournamentsContent() {
             </Link>
           </div>
 
-          {/* Results Count */}
-          <div className="mb-6 flex items-center justify-between">
+          {/* Results Count and Sort */}
+          <div className="mb-6 flex items-center justify-between flex-wrap gap-4">
             <p className="text-gray-600">
               {loading ? (
                 'Loading tournaments...'
               ) : (
                 <>
-                  <span className="font-semibold text-gray-900">{filteredTournaments.length}</span>{' '}
-                  tournament{filteredTournaments.length !== 1 ? 's' : ''} found
+                  <span className="font-semibold text-gray-900">{sortedTournaments.length}</span>{' '}
+                  tournament{sortedTournaments.length !== 1 ? 's' : ''} found
                 </>
               )}
             </p>
-            {/* Sort Options - Can be added later */}
+            {!loading && sortedTournaments.length > 0 && (
+              <div className="flex items-center gap-2">
+                <label htmlFor="sort-select" className="text-sm text-gray-600">
+                  Sort by:
+                </label>
+                <select
+                  id="sort-select"
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none bg-white"
+                >
+                  <option value="soonest">Soonest</option>
+                  <option value="newest">Newest</option>
+                  <option value="price-low">Price: Low to High</option>
+                  <option value="price-high">Price: High to Low</option>
+                </select>
+              </div>
+            )}
           </div>
 
           {/* Tournaments Grid */}
@@ -320,172 +402,49 @@ function TournamentsContent() {
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
               <p className="mt-4 text-gray-600">Loading tournaments...</p>
             </div>
-          ) : filteredTournaments.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-gray-600 text-lg">No tournaments found for this filter.</p>
+          ) : sortedTournaments.length === 0 ? (
+            <div className="text-center py-16">
+              <div className="max-w-md mx-auto bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+                <div className="text-6xl mb-4">😕</div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">No tournaments found</h3>
+                <p className="text-gray-600 mb-6">
+                  {searchQueryState || Object.values(filters).some(v => 
+                    Array.isArray(v) ? v.length > 0 : v !== null && v !== '' && JSON.stringify(v) !== '{}'
+                  )
+                    ? 'Try adjusting your filters or search terms.'
+                    : 'There are no tournaments available at the moment. Check back soon!'}
+                </p>
+                {(searchQueryState || Object.values(filters).some(v => 
+                  Array.isArray(v) ? v.length > 0 : v !== null && v !== '' && JSON.stringify(v) !== '{}'
+                )) && (
+                  <Link
+                    href="/tournaments"
+                    className="inline-flex items-center px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg transition"
+                  >
+                    Clear filters
+                  </Link>
+                )}
+              </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredTournaments.map((tournament) => (
-                <div
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 py-6">
+              {sortedTournaments.map((tournament) => (
+                <TournamentCard
                   key={tournament.id}
-                  className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow flex flex-col"
-                >
-                  {/* Tournament Image - Clickable */}
-                  <Link href={`/events/${tournament.id}`} className="block w-full h-48 overflow-hidden">
-                    {tournament.image ? (
-                      <img 
-                        src={tournament.image} 
-                        alt={tournament.title}
-                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-300 cursor-pointer"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                        }}
-                      />
-                    ) : (
-                      <div className="w-full h-48 bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center hover:opacity-90 transition-opacity cursor-pointer">
-                        <span className="text-white text-xl font-bold text-center px-4">{tournament.title}</span>
-                      </div>
-                    )}
-                  </Link>
-                  
-                  <div className="p-6 flex-grow flex flex-col">
-                    <div className="flex items-start justify-between mb-2">
-                      <h3 className="text-xl font-bold text-slate-900">{tournament.title || tournament.name}</h3>
-                      {/* Event Type Badge */}
-                      {(tournament.type || tournament.category) && (
-                        <span className="ml-2 px-2 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-800">
-                          {tournament.type === 'tournament' || tournament.category === 'tournament' ? 'Tournament' :
-                           tournament.type === 'camp' ? 'Camp' :
-                           tournament.type === 'class' ? 'Class' :
-                           tournament.type === 'simul' ? 'Simul' :
-                           tournament.type === 'clubNight' ? 'Club Night' :
-                           tournament.type === 'other' ? 'Event' : 'Event'}
-                        </span>
-                      )}
-                    </div>
-                    <div className="space-y-2 mb-4">
-                      {/* Date display - prefer startDate/endDate for tournaments, fallback to date */}
-                      <p className="text-gray-600 flex items-center">
-                        <svg className="w-5 h-5 mr-2 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        {tournament.category === 'tournament' && tournament.startDate && tournament.endDate ? (
-                          (() => {
-                            const startDate = tournament.startDate instanceof Date ? tournament.startDate : new Date(tournament.startDate);
-                            const endDate = tournament.endDate instanceof Date ? tournament.endDate : new Date(tournament.endDate);
-                            const startStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                            const endStr = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                            return startStr === endStr ? startStr : `${startStr} - ${endStr}`;
-                          })()
-                        ) : tournament.date}
-                      </p>
-                      {/* Venue/Location display - prefer venue for tournaments */}
-                      <p className="text-gray-600 flex items-center">
-                        <svg className="w-5 h-5 mr-2 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        {tournament.category === 'tournament' && tournament.venue ? tournament.venue : tournament.location}
-                      </p>
-                      {/* Time Control for tournaments */}
-                      {tournament.category === 'tournament' && tournament.timeControl && (
-                        <p className="text-gray-600 flex items-center">
-                          <svg className="w-5 h-5 mr-2 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          {tournament.timeControl}
-                        </p>
-                      )}
-                      <p className="text-gray-600 flex items-center">
-                        <svg className="w-5 h-5 mr-2 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        {(() => {
-                          // Get display price - prefer sections entry fees, then base price
-                          if (tournament.category === 'tournament' && tournament.sections && tournament.sections.length > 0) {
-                            const sectionsWithFee = tournament.sections.filter((s: any) => s.entryFee !== null && s.entryFee !== undefined);
-                            if (sectionsWithFee.length > 0) {
-                              const fees = sectionsWithFee.map((s: any) => s.entryFee!);
-                              const minFee = Math.min(...fees);
-                              const maxFee = Math.max(...fees);
-                              if (minFee === maxFee) {
-                                return `$${minFee.toFixed(2)}`;
-                              } else {
-                                return `$${minFee.toFixed(2)} - $${maxFee.toFixed(2)}`;
-                              }
-                            }
-                          }
-                          // Fall back to base price
-                          if (tournament.price) {
-                            if (!tournament.price.startsWith('$') && !tournament.price.toLowerCase().includes('free')) {
-                              return `$${tournament.price}`;
-                            }
-                            return tournament.price;
-                          }
-                          return 'Free';
-                        })()}
-                        {/* Show sections summary if available */}
-                        {tournament.category === 'tournament' && tournament.sections && tournament.sections.length > 0 && (
-                          <span className="ml-2 text-xs text-gray-500">
-                            ({tournament.sections.length} section{tournament.sections.length !== 1 ? 's' : ''})
-                          </span>
-                        )}
-                        {/* Show add-ons indicator if available */}
-                        {tournament.addOns && tournament.addOns.length > 0 && (
-                          <span className="ml-2 text-xs text-orange-600 font-medium">
-                            + {tournament.addOns.length} add-on{tournament.addOns.length !== 1 ? 's' : ''} available
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                    {tournament.description && (
-                      <p className="text-gray-700 text-sm mb-4 line-clamp-3">{tournament.description}</p>
-                    )}
-                    <div className="mt-auto flex flex-col gap-3">
-                      <div className="flex gap-3">
-                        <Link
-                          href={`/events/${tournament.id}`}
-                          className="flex-1 inline-flex items-center justify-center text-orange-500 font-semibold hover:text-orange-600 transition border-2 border-orange-500 hover:bg-orange-50 py-2 rounded-md"
-                        >
-                          Learn More →
-                        </Link>
-                        <Link
-                          href={`/events/${tournament.id}`}
-                          className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 rounded-md transition text-center"
-                        >
-                          Register
-                        </Link>
-                      </div>
-                      {isSuperAdmin && tournament.id && !tournament.id.startsWith('demo-') && (
-                        <div className="flex gap-2 pt-2 border-t border-gray-200">
-                          <Link
-                            href={`/admin/events/edit/${tournament.id}`}
-                            className="flex-1 text-center px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded transition"
-                          >
-                            Edit
-                          </Link>
-                          <button
-                            onClick={async () => {
-                              if (!confirm(`Are you sure you want to delete "${tournament.title}"?`)) return;
-                              try {
-                                await deleteEvent(tournament.id!);
-                                setEvents(prev => prev.filter(e => e.id !== tournament.id));
-                                alert('Event deleted successfully');
-                              } catch (error: any) {
-                                console.error('Error deleting event:', error);
-                                alert('Failed to delete event: ' + (error.message || 'Unknown error'));
-                              }
-                            }}
-                            className="flex-1 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded transition"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                  tournament={tournament}
+                  isSuperAdmin={isSuperAdmin}
+                  onDelete={async (id) => {
+                    try {
+                      await deleteEvent(id);
+                      setEvents(prev => prev.filter(e => e.id !== id));
+                      alert('Event deleted successfully');
+                    } catch (error: any) {
+                      console.error('Error deleting event:', error);
+                      alert('Failed to delete event: ' + (error.message || 'Unknown error'));
+                    }
+                  }}
+                  registrationCount={tournament.registeredUsers?.length}
+                />
               ))}
             </div>
           )}

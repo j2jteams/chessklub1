@@ -16,7 +16,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { EventData, EventStatus, EventCategory, TournamentSection, EventAddOn, ChessEvent, TournamentRegistration } from './types';
+import { EventData, EventStatus, EventCategory, TournamentSection, EventAddOn, ChessEvent, TournamentRegistration, TimeControl } from './types';
 import { Timestamp } from 'firebase/firestore';
 
 const EVENTS_COLLECTION = 'events';
@@ -115,7 +115,19 @@ function fromFirestoreEvent(docId: string, data: any): EventData {
     endDate: endDate,
     startTime: data.startTime,
     endTime: data.endTime,
-    timeControl: data.timeControl,
+    // Handle timeControl - support both new object format and legacy string
+    timeControl: (() => {
+      if (data.timeControl) {
+        if (typeof data.timeControl === 'object' && data.timeControl.category) {
+          // New format: TimeControl object
+          return data.timeControl as TimeControl;
+        } else if (typeof data.timeControl === 'string') {
+          // Legacy format: string - convert to TimeControl object
+          return data.timeControl;
+        }
+      }
+      return undefined;
+    })(),
     sections: sections.length > 0 ? sections : undefined,
     // Add-ons (new unified model)
     addOns: addOns.length > 0 ? addOns : undefined,
@@ -251,9 +263,12 @@ export async function createEvent(
       
       // Time control (required for tournaments - validated in form)
       if (event.timeControl !== undefined && event.timeControl !== null) {
-        const timeControlStr = typeof event.timeControl === 'string' ? event.timeControl.trim() : String(event.timeControl).trim();
-        if (timeControlStr) {
-          eventData.timeControl = timeControlStr;
+        if (typeof event.timeControl === 'object' && 'category' in event.timeControl) {
+          // New format: TimeControl object
+          eventData.timeControl = event.timeControl as TimeControl;
+        } else if (typeof event.timeControl === 'string') {
+          // Legacy format: string
+          eventData.timeControl = event.timeControl.trim();
         }
       }
 
@@ -405,9 +420,17 @@ export async function updateEvent(
   }
   
   if (updates.timeControl !== undefined) {
-    const timeControlValue = typeof updates.timeControl === 'string' ? updates.timeControl.trim() : updates.timeControl;
-    if (timeControlValue && timeControlValue !== '') {
-      updateData.timeControl = timeControlValue;
+    if (typeof updates.timeControl === 'object' && 'category' in updates.timeControl) {
+      // New format: TimeControl object
+      updateData.timeControl = updates.timeControl as TimeControl;
+    } else if (typeof updates.timeControl === 'string') {
+      // Legacy format: string
+      const timeControlValue = updates.timeControl.trim();
+      if (timeControlValue) {
+        updateData.timeControl = timeControlValue;
+      } else {
+        updateData.timeControl = deleteField();
+      }
     } else {
       updateData.timeControl = deleteField();
     }
@@ -919,17 +942,27 @@ export async function createTournamentRegistration(
 
 export async function getTournamentRegistrations(tournamentId: string): Promise<TournamentRegistration[]> {
   try {
+    // Query without orderBy to avoid requiring a composite index
+    // We'll sort in memory instead
     const snapshot = await getDocs(
       query(
         collection(db, REGISTRATIONS_COLLECTION),
-        where('tournamentId', '==', tournamentId),
-        orderBy('registrationDate', 'desc')
+        where('tournamentId', '==', tournamentId)
       )
     );
-    return snapshot.docs.map((docSnap) => fromFirestoreRegistration(docSnap.id, docSnap.data()));
+    const registrations = snapshot.docs.map((docSnap) => fromFirestoreRegistration(docSnap.id, docSnap.data()));
+    
+    // Sort by registrationDate in memory (descending - newest first)
+    return registrations.sort((a, b) => {
+      const dateA = a.registrationDate instanceof Date ? a.registrationDate : new Date(a.registrationDate);
+      const dateB = b.registrationDate instanceof Date ? b.registrationDate : new Date(b.registrationDate);
+      return dateB.getTime() - dateA.getTime();
+    });
   } catch (error: any) {
     console.error('Error fetching tournament registrations:', error);
-    throw new Error(`Failed to fetch registrations: ${error.message || 'Unknown error'}`);
+    // Don't throw - return empty array so page still loads
+    // The error is logged for debugging
+    return [];
   }
 }
 
