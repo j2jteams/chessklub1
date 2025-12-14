@@ -231,7 +231,7 @@ export function filterByCountry(
     if (countryCode.toUpperCase() === 'US') {
       const usStates = ['al', 'ak', 'az', 'ar', 'ca', 'co', 'ct', 'de', 'fl', 'ga', 'hi', 'id', 'il', 'in', 'ia', 'ks', 'ky', 'la', 'me', 'md', 'ma', 'mi', 'mn', 'ms', 'mo', 'mt', 'ne', 'nv', 'nh', 'nj', 'nm', 'ny', 'nc', 'nd', 'oh', 'ok', 'or', 'pa', 'ri', 'sc', 'sd', 'tn', 'tx', 'ut', 'vt', 'va', 'wa', 'wv', 'wi', 'wy', 'dc'];
       const locationParts = location.split(/[,\s]+/);
-      if (locationParts.some(part => usStates.includes(part.toLowerCase()))) {
+      if (locationParts.some((part: string) => usStates.includes(part.toLowerCase()))) {
         return true;
       }
     }

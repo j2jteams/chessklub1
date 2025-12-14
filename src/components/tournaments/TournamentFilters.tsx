@@ -84,6 +84,7 @@ export default function TournamentFilters({
       dateRange: { start: '', end: '' },
       minRating: null,
       maxRating: null,
+      ratingTypes: [],
       timeControls: [],
       tournamentLevels: [],
       priceRange: { min: null, max: null },

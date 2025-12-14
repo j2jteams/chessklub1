@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import { EventData, TimeControl } from '@/lib/types';
 
 interface RulesAccordionProps {
-  event?: {
-    timeControl?: string;
+  event?: EventData | {
+    timeControl?: string | TimeControl;
     description?: string;
   };
 }
