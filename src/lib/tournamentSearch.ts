@@ -192,9 +192,18 @@ export function filterTournaments(
   // Apply time control filter
   if (filters.timeControls.length > 0) {
     filtered = filtered.filter((tournament) => {
-      const timeControl = (tournament.timeControl || '').toLowerCase();
+      let timeControlStr = '';
+      if (tournament.timeControl) {
+        if (typeof tournament.timeControl === 'string') {
+          timeControlStr = tournament.timeControl.toLowerCase();
+        } else if (typeof tournament.timeControl === 'object' && 'category' in tournament.timeControl) {
+          // TimeControl object - use category or format
+          const tc = tournament.timeControl;
+          timeControlStr = (tc.customLabel || tc.format || tc.category || '').toLowerCase();
+        }
+      }
       return filters.timeControls.some((control) =>
-        timeControl.includes(control.toLowerCase())
+        timeControlStr.includes(control.toLowerCase())
       );
     });
   }
