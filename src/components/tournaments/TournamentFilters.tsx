@@ -145,9 +145,10 @@ export default function TournamentFilters({
         return 'All dates';
       case 'rating':
         const parts = [];
-        if (filters.minRating !== null) parts.push(`Min: ${filters.minRating}`);
-        if (filters.maxRating !== null) parts.push(`Max: ${filters.maxRating}`);
-        if (filters.fideRatedOnly) parts.push('FIDE');
+        if (filters.ratingTypes && filters.ratingTypes.length > 0) {
+          parts.push(...filters.ratingTypes);
+        }
+        if (filters.fideRatedOnly && !parts.includes('FIDE')) parts.push('FIDE'); // Legacy support
         if (parts.length === 0) return 'All ratings';
         return parts.join(', ');
       default:
@@ -438,7 +439,7 @@ export default function TournamentFilters({
         <button
           onClick={(e) => toggleDropdown('rating', e)}
           className={`flex items-center gap-2 px-4 py-2.5 bg-white border-2 rounded-lg font-medium text-gray-700 hover:border-orange-400 transition-colors ${
-            filters.minRating !== null || filters.maxRating !== null || filters.fideRatedOnly
+            (filters.ratingTypes && filters.ratingTypes.length > 0) || filters.fideRatedOnly
               ? 'border-orange-500 bg-orange-50'
               : 'border-gray-200'
           }`}
@@ -466,123 +467,38 @@ export default function TournamentFilters({
               <div>
                 <h3 className="text-xs font-semibold text-gray-500 uppercase mb-3">Rating Type</h3>
                 <div className="space-y-2">
-                  <label className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer rounded">
-                    <input
-                      type="checkbox"
-                      checked={filters.fideRatedOnly}
-                      onChange={(e) => updateFilter('fideRatedOnly', e.target.checked)}
-                      className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
-                    />
-                    <span className="ml-3 text-sm text-gray-700 font-medium">FIDE Rated Only</span>
-                  </label>
+                  {['FIDE', 'USCF', 'Club'].map((ratingType) => (
+                    <label key={ratingType} className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer rounded">
+                      <input
+                        type="checkbox"
+                        checked={filters.ratingTypes?.includes(ratingType) || false}
+                        onChange={(e) => {
+                          const currentTypes = filters.ratingTypes || [];
+                          const updated = e.target.checked
+                            ? [...currentTypes, ratingType]
+                            : currentTypes.filter(t => t !== ratingType);
+                          updateFilter('ratingTypes', updated);
+                        }}
+                        className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                      />
+                      <span className="ml-3 text-sm text-gray-700 font-medium">{ratingType} Rated</span>
+                    </label>
+                  ))}
                 </div>
               </div>
 
-              {/* Min Rating */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-2">
-                  Minimum Rating: {filters.minRating !== null ? filters.minRating : 'Any'}
-                </label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="range"
-                    min="0"
-                    max="3000"
-                    step="50"
-                    value={filters.minRating ?? 0}
-                    onChange={(e) => updateFilter('minRating', e.target.value ? Number(e.target.value) : null)}
-                    className="flex-1"
-                  />
-                  <input
-                    type="number"
-                    min="0"
-                    max="3000"
-                    step="50"
-                    value={filters.minRating ?? ''}
-                    onChange={(e) => updateFilter('minRating', e.target.value ? Number(e.target.value) : null)}
-                    placeholder="Any"
-                    className="w-20 px-2 py-1 border border-gray-300 rounded text-sm text-center focus:ring-orange-500 focus:border-orange-500"
-                  />
-                </div>
-              </div>
-
-              {/* Max Rating */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-2">
-                  Maximum Rating: {filters.maxRating !== null ? filters.maxRating : 'Any'}
-                </label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="range"
-                    min="0"
-                    max="3000"
-                    step="50"
-                    value={filters.maxRating ?? 3000}
-                    onChange={(e) => updateFilter('maxRating', e.target.value ? Number(e.target.value) : null)}
-                    className="flex-1"
-                  />
-                  <input
-                    type="number"
-                    min="0"
-                    max="3000"
-                    step="50"
-                    value={filters.maxRating ?? ''}
-                    onChange={(e) => updateFilter('maxRating', e.target.value ? Number(e.target.value) : null)}
-                    placeholder="Any"
-                    className="w-20 px-2 py-1 border border-gray-300 rounded text-sm text-center focus:ring-orange-500 focus:border-orange-500"
-                  />
-                </div>
-              </div>
-
-              {/* Quick Rating Presets */}
+              {/* Clear Button */}
               <div className="pt-3 border-t border-gray-200">
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => {
-                      updateFilter('minRating', 0);
-                      updateFilter('maxRating', 1200);
-                    }}
-                    className="px-3 py-1.5 text-xs font-medium bg-gray-100 hover:bg-orange-100 text-gray-700 rounded-md transition-colors"
-                  >
-                    Beginner (0-1200)
-                  </button>
-                  <button
-                    onClick={() => {
-                      updateFilter('minRating', 1200);
-                      updateFilter('maxRating', 1800);
-                    }}
-                    className="px-3 py-1.5 text-xs font-medium bg-gray-100 hover:bg-orange-100 text-gray-700 rounded-md transition-colors"
-                  >
-                    Intermediate (1200-1800)
-                  </button>
-                  <button
-                    onClick={() => {
-                      updateFilter('minRating', 1800);
-                      updateFilter('maxRating', 2200);
-                    }}
-                    className="px-3 py-1.5 text-xs font-medium bg-gray-100 hover:bg-orange-100 text-gray-700 rounded-md transition-colors"
-                  >
-                    Advanced (1800-2200)
-                  </button>
-                  <button
-                    onClick={() => {
-                      updateFilter('minRating', 2200);
-                      updateFilter('maxRating', null);
-                    }}
-                    className="px-3 py-1.5 text-xs font-medium bg-gray-100 hover:bg-orange-100 text-gray-700 rounded-md transition-colors"
-                  >
-                    Expert (2200+)
-                  </button>
-                  <button
-                    onClick={() => {
-                      updateFilter('minRating', null);
-                      updateFilter('maxRating', null);
-                    }}
-                    className="px-3 py-1.5 text-xs font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors"
-                  >
-                    Clear
-                  </button>
-                </div>
+                <button
+                  onClick={() => {
+                    updateFilter('ratingTypes', []);
+                    // Also clear legacy fields
+                    updateFilter('fideRatedOnly', false);
+                  }}
+                  className="w-full px-3 py-1.5 text-xs font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors"
+                >
+                  Clear
+                </button>
               </div>
             </div>
           </div>

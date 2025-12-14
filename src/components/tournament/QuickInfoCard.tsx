@@ -1,6 +1,6 @@
 'use client';
 
-import { EventData } from '@/lib/types';
+import { EventData, TimeControl } from '@/lib/types';
 
 interface QuickInfoCardProps {
   event: EventData;
@@ -8,7 +8,24 @@ interface QuickInfoCardProps {
 }
 
 export default function QuickInfoCard({ event, registrationsCount }: QuickInfoCardProps) {
-  const format = event.timeControl || 'Not specified';
+  // Compute time control label with priority: customLabel > format > category
+  const tc = event.timeControl;
+  const format = (() => {
+    if (tc) {
+      if (typeof tc === 'object' && 'category' in tc) {
+        // New format: TimeControl object
+        const timeControl = tc as TimeControl;
+        return timeControl.customLabel?.trim() || 
+               timeControl.format?.trim() || 
+               timeControl.category || 
+               'Not specified';
+      } else if (typeof tc === 'string') {
+        // Legacy format: string
+        return tc;
+      }
+    }
+    return 'Not specified';
+  })();
   const venueType = event.coordinates ? 'In-person' : 'Online';
 
   return (
@@ -48,13 +65,14 @@ export default function QuickInfoCard({ event, registrationsCount }: QuickInfoCa
           <span className="text-sm font-medium text-gray-900">{format}</span>
         </div>
 
-        {/* Venue Type */}
+        {/* Mode of Play */}
         <div className="flex justify-between items-center">
-          <span className="text-sm text-[#6A6A6A]">Venue Type:</span>
+          <span className="text-sm text-[#6A6A6A]">Mode of Play:</span>
           <span className="text-sm font-medium text-gray-900">{venueType}</span>
         </div>
       </div>
     </div>
   );
 }
+
 

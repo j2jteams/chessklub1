@@ -6,6 +6,8 @@ interface AboutTournamentCardProps {
 }
 
 export default function AboutTournamentCard({ description, eventName }: AboutTournamentCardProps) {
+  const hasDescription = description && description.trim().length > 10;
+
   return (
     <div className="bg-white rounded-xl shadow-sm p-6">
       {/* Title */}
@@ -21,20 +23,26 @@ export default function AboutTournamentCard({ description, eventName }: AboutTou
 
       {/* Body Text with Left Border Accent */}
       <div className="border-l-4 border-[#FF7A00] pl-4">
-        <div className="prose prose-base max-w-none text-gray-700 whitespace-pre-line">
-          {description.split('\n').map((line, index) => {
-            // Check if line starts with bullet point indicators
-            if (line.trim().match(/^[-•*]\s/)) {
-              return (
-                <div key={index} className="flex items-start mb-2">
-                  <span className="text-[#FF7A00] mr-2">•</span>
-                  <span>{line.replace(/^[-•*]\s/, '')}</span>
-                </div>
-              );
-            }
-            return <p key={index} className="mb-4 last:mb-0">{line}</p>;
-          })}
-        </div>
+        {hasDescription ? (
+          <div className="prose prose-base max-w-none text-gray-700 whitespace-pre-line">
+            {description.split('\n').map((line, index) => {
+              // Check if line starts with bullet point indicators
+              if (line.trim().match(/^[-•*]\s/)) {
+                return (
+                  <div key={index} className="flex items-start mb-2">
+                    <span className="text-[#FF7A00] mr-2">•</span>
+                    <span>{line.replace(/^[-•*]\s/, '')}</span>
+                  </div>
+                );
+              }
+              return <p key={index} className="mb-4 last:mb-0">{line}</p>;
+            })}
+          </div>
+        ) : (
+          <p className="text-base text-gray-600 italic">
+            The organizer has not added a detailed description yet. For questions, please contact them using the email on this page.
+          </p>
+        )}
       </div>
     </div>
   );

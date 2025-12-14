@@ -84,3 +84,6 @@ export default function PriceSection({ event }: PriceSectionProps) {
   );
 }
 
+
+
+

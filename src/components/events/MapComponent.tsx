@@ -42,3 +42,6 @@ export default function MapComponent({ center, zoom, location }: MapComponentPro
   );
 }
 
+
+
+

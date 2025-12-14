@@ -36,20 +36,74 @@ export function filterTournaments(
   // Apply country filter
   if (filters.countries.length > 0) {
     filtered = filtered.filter((tournament) => {
-      const tournamentCountry = tournament.country || '';
-      return filters.countries.some((country) =>
-        tournamentCountry.toLowerCase().includes(country.toLowerCase())
-      );
+      const tournamentCountry = (tournament.country || '').toLowerCase();
+      const location = (tournament.location || tournament.venue || '').toLowerCase();
+      
+      return filters.countries.some((country) => {
+        const countryLower = country.toLowerCase();
+        
+        // Check exact country field
+        if (tournamentCountry && (
+          tournamentCountry === countryLower || 
+          tournamentCountry.includes(countryLower) ||
+          countryLower.includes(tournamentCountry)
+        )) {
+          return true;
+        }
+        
+        // Also check location/venue field for country name (e.g., "Charlotte, NC, USA")
+        if (location && location.includes(countryLower)) {
+          return true;
+        }
+        
+        // Handle common country variations
+        const countryVariations: { [key: string]: string[] } = {
+          'united states': ['usa', 'us', 'united states of america', 'u.s.a', 'u.s.'],
+          'united kingdom': ['uk', 'britain', 'great britain', 'england'],
+        };
+        
+        // Check if tournament country matches any variation of the selected country
+        const variations = countryVariations[countryLower] || [];
+        if (variations.some(v => 
+          tournamentCountry === v || 
+          tournamentCountry.includes(v) || 
+          location.includes(v)
+        )) {
+          return true;
+        }
+        
+        // Reverse check: if tournament has a variation, check if it matches selected country
+        for (const [key, vars] of Object.entries(countryVariations)) {
+          if (vars.some(v => tournamentCountry === v || tournamentCountry.includes(v))) {
+            if (key === countryLower || countryLower.includes(key)) {
+              return true;
+            }
+          }
+        }
+        
+        return false;
+      });
     });
   }
 
   // Apply city filter
   if (filters.cities.length > 0) {
     filtered = filtered.filter((tournament) => {
-      const tournamentCity = tournament.city || '';
-      return filters.cities.some((city) =>
-        tournamentCity.toLowerCase().includes(city.toLowerCase())
-      );
+      const tournamentCity = (tournament.city || '').toLowerCase();
+      const location = (tournament.location || tournament.venue || '').toLowerCase();
+      
+      return filters.cities.some((city) => {
+        const cityLower = city.toLowerCase().trim();
+        // Check exact city field
+        if (tournamentCity && tournamentCity.includes(cityLower)) {
+          return true;
+        }
+        // Also check location/venue field for city name (e.g., "Charlotte, NC")
+        if (location && location.includes(cityLower)) {
+          return true;
+        }
+        return false;
+      });
     });
   }
 
@@ -116,6 +170,22 @@ export function filterTournaments(
       }
       // If no rating requirement, include it
       return true;
+    });
+  }
+
+  // Apply rating type filter
+  if (filters.ratingTypes && filters.ratingTypes.length > 0) {
+    filtered = filtered.filter((tournament) => {
+      // Check if tournament has ratingType field
+      if (tournament.ratingType) {
+        return filters.ratingTypes.includes(tournament.ratingType);
+      }
+      // Legacy support: check fideRated field
+      if (filters.ratingTypes.includes('FIDE') && tournament.fideRated) {
+        return true;
+      }
+      // If no rating type specified, exclude from results
+      return false;
     });
   }
 

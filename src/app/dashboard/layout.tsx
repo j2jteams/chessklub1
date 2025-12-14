@@ -102,7 +102,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </button>
           </div>
         </aside>
-        <main className="flex-1 p-6">{children}</main>
+        <main className="flex-1 p-6 overflow-x-hidden min-w-0">{children}</main>
       </div>
     </div>
   );

@@ -83,6 +83,12 @@ export interface PricingTier {
   description?: string;       // optional description
 }
 
+export interface TimeControl {
+  category: "Classical" | "Rapid" | "Blitz" | "Other";
+  format?: string;            // e.g. "60+5", "25+5", "G/30; d5"
+  customLabel?: string;        // e.g. "Club Rapid", "Holiday Blitz"
+}
+
 export interface EventData {
   id?: string;
   title: string;
@@ -111,7 +117,7 @@ export interface EventData {
   endDate?: Date | string;           // Standardized end date
   startTime?: string;                // Start time (e.g., "09:00" or "09:00 AM")
   endTime?: string;                  // End time (e.g., "17:00" or "5:00 PM")
-  timeControl?: string;              // Time control type: "Classical", "Rapid", "Blitz"
+  timeControl?: TimeControl | string; // Time control object (new) or string (legacy)
   sections?: TournamentSection[];    // Tournament sections array
   // UPDATED: Add-ons support (for backward compatibility, optional in EventData)
   addOns?: EventAddOn[];
@@ -131,13 +137,19 @@ export interface EventData {
     lng: number;
   };
   tournamentLevel?: string;       // "Local", "Regional", "National", "International"
-  fideRated?: boolean;           // Is this FIDE-rated?
+  fideRated?: boolean;           // Is this FIDE-rated? (legacy field)
+  ratingType?: 'FIDE' | 'USCF' | 'Club' | null; // Rating type for the tournament
   maxPlayers?: number;           // Tournament capacity
   registrationDeadline?: Date | string; // Registration deadline
   minRating?: number;            // Minimum rating requirement (tournament-wide)
   maxRating?: number;            // Maximum rating requirement (tournament-wide)
   prizeFund?: number;            // Prize money
   prizeCurrency?: string;        // "USD", "EUR", "INR", etc.
+  // Additional UI/display fields
+  heroImageUrl?: string;        // Hero image URL for tournament detail page
+  venueType?: 'Online' | 'In-person' | string; // Venue type for display
+  address?: string;             // Full address for in-person events
+  tags?: string[];               // Tags for badges (e.g., 'rated', 'scholastic')
 }
 
 // UPDATED: Unified ChessEvent interface - the new standard model
@@ -152,7 +164,7 @@ export interface ChessEvent {
   endDate: Date | string | any;   // Firestore Timestamp or Date
   startTime?: string;          // Start time (e.g., "09:00" or "09:00 AM")
   endTime?: string;            // End time (e.g., "17:00" or "5:00 PM")
-  timeControl?: string;        // required for tournaments, optional for others
+  timeControl?: TimeControl | string; // Time control object (new) or string (legacy)
   status: EventStatus;
 
   // Tournament-specific
@@ -196,12 +208,19 @@ export interface ChessEvent {
     lng: number;
   };
   tournamentLevel?: string;       // "Local", "Regional", "National", "International"
-  fideRated?: boolean;           // Is this FIDE-rated?
+  fideRated?: boolean;           // Is this FIDE-rated? (legacy field)
+  ratingType?: 'FIDE' | 'USCF' | 'Club' | null; // Rating type for the tournament
   maxPlayers?: number;           // Tournament capacity
   registrationDeadline?: Date | string; // Registration deadline
   minRating?: number;            // Minimum rating requirement (tournament-wide)
   maxRating?: number;            // Maximum rating requirement (tournament-wide)
   prizeFund?: number;            // Prize money
   prizeCurrency?: string;        // "USD", "EUR", "INR", etc.
+  // Additional UI/display fields
+  heroImageUrl?: string;        // Hero image URL for tournament detail page
+  venueType?: 'Online' | 'In-person' | string; // Venue type for display
+  address?: string;             // Full address for in-person events
+  ageLimit?: string;            // Age limit (e.g., "All ages", "18+")
+  equipmentProvided?: string;   // Equipment information (e.g., "All chess sets provided")
 }
 

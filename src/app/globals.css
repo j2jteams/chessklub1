@@ -132,3 +132,125 @@ header Link {
   z-index: 1010 !important;
   pointer-events: auto !important;
 }
+
+/* Toast notification animation */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+/* Enhanced Date Picker Styling - Larger Calendar Popup, Normal Input Size */
+.date-picker-wrapper-large {
+  position: relative;
+  width: 100%;
+  /* Use zoom to scale the calendar popup */
+  zoom: 1.5;
+  /* Compensate for zoom by reducing container width */
+  width: calc(100% / 1.5);
+  margin: 0 auto;
+}
+
+.date-picker-wrapper-large input[type="date"] {
+  /* Scale down the input to appear normal size (inverse of zoom: 1/1.5 = 0.667) */
+  transform: scale(0.667);
+  transform-origin: top left;
+  /* Increase width to compensate for scale so it fills the container */
+  width: 150%;
+  /* Match standard input styling from the form */
+  font-size: 16px !important;
+  padding: 8px 16px !important;
+  min-height: auto !important;
+  height: auto !important;
+  cursor: pointer !important;
+  box-sizing: border-box;
+  border: 1px solid #d1d5db !important;
+  border-radius: 0.5rem;
+}
+
+.date-picker-wrapper-large input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  font-size: 18px;
+  padding: 4px;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.date-picker-wrapper-large input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+/* For browsers that don't support zoom */
+@supports not (zoom: 1.5) {
+  .date-picker-wrapper-large {
+    zoom: 1;
+    width: 100%;
+  }
+  
+  .date-picker-wrapper-large input[type="date"] {
+    transform: scale(1);
+    width: 100%;
+  }
+}
+
+/* Enhanced Time Picker Styling - Larger Time Picker Popup, Normal Input Size */
+.time-picker-wrapper-large {
+  position: relative;
+  width: 100%;
+  /* Use zoom to scale the time picker popup */
+  zoom: 1.5;
+  /* Compensate for zoom by reducing container width */
+  width: calc(100% / 1.5);
+  margin: 0 auto;
+}
+
+.time-picker-wrapper-large input[type="time"] {
+  /* Scale down the input to appear normal size (inverse of zoom: 1/1.5 = 0.667) */
+  transform: scale(0.667);
+  transform-origin: top left;
+  /* Increase width to compensate for scale so it fills the container */
+  width: 150%;
+  /* Match standard input styling from the form */
+  font-size: 16px !important;
+  padding: 8px 16px !important;
+  min-height: auto !important;
+  height: auto !important;
+  cursor: pointer !important;
+  box-sizing: border-box;
+  border: 1px solid #d1d5db !important;
+  border-radius: 0.5rem;
+}
+
+.time-picker-wrapper-large input[type="time"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  font-size: 18px;
+  padding: 4px;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.time-picker-wrapper-large input[type="time"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+/* For browsers that don't support zoom */
+@supports not (zoom: 1.5) {
+  .time-picker-wrapper-large {
+    zoom: 1;
+    width: 100%;
+  }
+  
+  .time-picker-wrapper-large input[type="time"] {
+    transform: scale(1);
+    width: 100%;
+  }
+}
