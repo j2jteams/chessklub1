@@ -6,7 +6,6 @@ import Footer from "@/components/Footer";
 import { getApprovedEvents } from "@/lib/events";
 import { EventData } from "@/lib/types";
 import HeroSearchSection from "@/components/landing/HeroSearchSection";
-import TournamentCategoryChips from "@/components/landing/TournamentCategoryChips";
 import FeaturedTournamentsCarousel from "@/components/landing/FeaturedTournamentsCarousel";
 import UpcomingTournamentsGrid from "@/components/landing/UpcomingTournamentsGrid";
 import HowItWorks from "@/components/landing/HowItWorks";
@@ -76,9 +75,6 @@ export default function Page() {
 
       {/* Hero Section with Search */}
       <HeroSearchSection />
-
-      {/* Category Filter Chips */}
-      <TournamentCategoryChips />
 
       {/* Featured Tournaments Carousel */}
       <FeaturedTournamentsCarousel tournaments={allTournaments} loading={loading} />
