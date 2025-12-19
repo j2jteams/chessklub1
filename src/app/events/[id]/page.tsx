@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useRouter } from 'next/navigation';
 import { getEvent, getTournamentRegistrations, getUserRegistration } from '@/lib/events';
 import { EventData, TournamentRegistration } from '@/lib/types';
@@ -46,6 +47,19 @@ function EventDetailContent() {
       loadRegistrations();
     }
   }, [user, eventId]);
+
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (showRegistrationForm) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    // Cleanup: restore scroll when component unmounts
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showRegistrationForm]);
 
   const loadEvent = async () => {
     try {
@@ -413,7 +427,7 @@ function EventDetailContent() {
                   className={`${badge.color} text-white px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg`}
                 >
                   {badge.label}
-                </span>
+              </span>
               ))}
             </div>
             
@@ -470,14 +484,23 @@ function EventDetailContent() {
       </div>
 
       {/* Registration Form Modal - Only show if user is logged in */}
-      {showRegistrationForm && event && user && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="relative w-full max-w-3xl">
+      {showRegistrationForm && event && user && typeof window !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4"
+          onClick={(e) => {
+            // Close modal when clicking backdrop
+            if (e.target === e.currentTarget) {
+              setShowRegistrationForm(false);
+            }
+          }}
+        >
+          <div className="relative w-full max-w-3xl bg-white rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setShowRegistrationForm(false)}
-              className="absolute -top-12 right-0 text-white hover:text-gray-300 transition"
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition z-10 bg-white rounded-full p-1 shadow-sm"
+              aria-label="Close registration form"
             >
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
@@ -487,7 +510,8 @@ function EventDetailContent() {
               onCancel={() => setShowRegistrationForm(false)}
             />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Main Content Area */}

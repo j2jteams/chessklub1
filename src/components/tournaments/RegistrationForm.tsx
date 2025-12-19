@@ -160,7 +160,7 @@ export default function RegistrationForm({ event, onRegistrationComplete, onCanc
   const addOns: EventAddOn[] = event.addOns || [];
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6 max-w-2xl mx-auto">
+    <div className="p-6">
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Register for Tournament</h2>
         <p className="text-gray-600">{event.name}</p>
