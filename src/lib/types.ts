@@ -3,11 +3,42 @@
 export type UserRole = 'player' | 'standaloneAdmin' | 'franchisee' | 'superAdmin' | null;
 
 export interface USCFRatings {
+  // Standard Ratings
   regular?: string;
+  regularFloor?: string;
   quick?: string;
+  quickFloor?: string;
   blitz?: string;
+  blitzFloor?: string;
+  
+  // Online Ratings
+  onlineRegular?: string;
+  onlineRegularGames?: string;
+  onlineRegularFloor?: string;
+  onlineQuick?: string;
+  onlineQuickFloor?: string;
+  onlineBlitz?: string;
+  onlineBlitzFloor?: string;
+  
+  // Rankings
+  overallRank?: string;
+  overallTotal?: string;
+  overallPercentile?: string;
+  stateRank?: string;
+  stateTotal?: string;
+  statePercentile?: string;
+  stateName?: string;
+  
+  // Membership Info
+  membershipId?: string;
   status?: string;
+  gender?: string;
   expires?: string;
+  updated?: string;
+  fideId?: string;
+  fideCountry?: string;
+  
+  // Metadata
   lastSynced?: Date;
 }
 
