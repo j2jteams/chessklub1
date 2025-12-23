@@ -385,43 +385,18 @@ async function main() {
     
     console.log(`Found ${usersSnapshot.size} users with USCF IDs`);
     
-    // Filter users that need syncing (no ratings or ratings older than 7 days)
+    // Sync ALL users with USCF IDs (no filtering by lastSynced)
     const usersToSync: Array<{ uid: string; uscfId: string }> = [];
-    const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
     
     usersSnapshot.forEach((doc) => {
       const data = doc.data();
       const uscfId = data.uscfId;
-      const uscfRatings = data.uscfRatings;
       
       if (!uscfId) return;
       
-      // Check if sync is needed
-      let needsSync = !uscfRatings || !uscfRatings.lastSynced;
-      
-      if (!needsSync && uscfRatings.lastSynced) {
-        // Handle both Firestore Timestamp and Date objects
-        let lastSyncedMillis = 0;
-        if (uscfRatings.lastSynced.toMillis) {
-          // Firestore Timestamp
-          lastSyncedMillis = uscfRatings.lastSynced.toMillis();
-        } else if (uscfRatings.lastSynced.toDate) {
-          // Firestore Timestamp (alternative)
-          lastSyncedMillis = uscfRatings.lastSynced.toDate().getTime();
-        } else if (uscfRatings.lastSynced instanceof Date) {
-          // Date object
-          lastSyncedMillis = uscfRatings.lastSynced.getTime();
-        } else if (typeof uscfRatings.lastSynced === 'number') {
-          // Unix timestamp
-          lastSyncedMillis = uscfRatings.lastSynced;
-        }
-        
-        needsSync = lastSyncedMillis < sevenDaysAgo;
-      }
-      
-      if (needsSync) {
-        usersToSync.push({ uid: doc.id, uscfId });
-      }
+      // Add all users with USCF IDs to sync list
+      usersToSync.push({ uid: doc.id, uscfId });
+      console.log(`User ${doc.id} (USCF: ${uscfId}) - Added to sync list`);
     });
     
     console.log(`Syncing ${usersToSync.length} users...`);
