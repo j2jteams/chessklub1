@@ -104,92 +104,121 @@ async function scrapeUSCFPage(page: Page, uscfId: string): Promise<ScrapedUSCFDa
     result.fideCountry = fideMatch[2];
   }
   
-  // Extract ratings - look for patterns in the text
-  // Regular Rating
-  const regularMatch = bodyText.match(/REGULAR[\s\S]{0,200}?(\d{3,4})(?:\s+FLOOR[\s:]*(\d{3,4}))?/i);
-  if (regularMatch) {
-    result.regular = regularMatch[1];
-    if (regularMatch[2]) result.regularFloor = regularMatch[2];
+  // Extract ratings - use a helper function to find the actual rating (not floor)
+  // The rating is the larger 3-4 digit number, floor is usually 100-200
+  const extractRating = (text: string, type: string): { rating?: string; floor?: string } => {
+    // Look for pattern: TYPE ... [number] ... FLOOR [number]
+    // The first number (3-4 digits, usually 1000+) is the rating
+    // The second number (after FLOOR, usually 100-200) is the floor
+    const pattern = new RegExp(`${type}[^\\d]*?(\\d{3,4})[^\\d]*?(?:FLOOR[^\\d]*?(\\d{1,3}))?`, 'i');
+    const match = text.match(pattern);
+    
+    if (match) {
+      const num1 = parseInt(match[1]);
+      const num2 = match[2] ? parseInt(match[2]) : null;
+      
+      // Rating is usually 1000+, floor is usually 100-200
+      // If we have two numbers, the larger one is the rating
+      if (num2 && num2 > num1) {
+        return { rating: match[2], floor: match[1] };
+      } else if (num1 >= 100) {
+        return { rating: match[1], floor: match[2] || undefined };
+      }
+    }
+    
+    return {};
+  };
+  
+  // Extract each rating type
+  const regularData = extractRating(bodyText, 'REGULAR');
+  if (regularData.rating) {
+    result.regular = regularData.rating;
+    if (regularData.floor) result.regularFloor = regularData.floor;
   }
   
-  // Quick Rating
-  const quickMatch = bodyText.match(/QUICK[\s\S]{0,200}?(\d{3,4})(?:\s+FLOOR[\s:]*(\d{3,4}))?/i);
-  if (quickMatch) {
-    result.quick = quickMatch[1];
-    if (quickMatch[2]) result.quickFloor = quickMatch[2];
+  const quickData = extractRating(bodyText, 'QUICK');
+  if (quickData.rating) {
+    result.quick = quickData.rating;
+    if (quickData.floor) result.quickFloor = quickData.floor;
   }
   
-  // Blitz Rating
-  const blitzMatch = bodyText.match(/BLITZ[\s\S]{0,200}?(\d{3,4})(?:\s+FLOOR[\s:]*(\d{3,4}))?/i);
-  if (blitzMatch) {
-    result.blitz = blitzMatch[1];
-    if (blitzMatch[2]) result.blitzFloor = blitzMatch[2];
+  const blitzData = extractRating(bodyText, 'BLITZ');
+  if (blitzData.rating) {
+    result.blitz = blitzData.rating;
+    if (blitzData.floor) result.blitzFloor = blitzData.floor;
   }
   
-  // Online Regular
-  const onlineRegularMatch = bodyText.match(/ONLINE-REGULAR[\s\S]{0,200}?(\d{3,4})\s*\/\s*(\d+)(?:\s+FLOOR[\s:]*(\d{3,4}))?/i);
-  if (onlineRegularMatch) {
+  // Online Regular - special format: "1039 / 20" (rating / games)
+  const onlineRegularMatch = bodyText.match(/ONLINE-REGULAR[^\d]*?(\d{3,4})(?:\s*\/\s*(\d+))?[^\d]*?(?:FLOOR[^\d]*?(\d{1,3}))?/i);
+  if (onlineRegularMatch && parseInt(onlineRegularMatch[1]) >= 100) {
     result.onlineRegular = onlineRegularMatch[1];
-    result.onlineRegularGames = onlineRegularMatch[2];
+    if (onlineRegularMatch[2]) result.onlineRegularGames = onlineRegularMatch[2];
     if (onlineRegularMatch[3]) result.onlineRegularFloor = onlineRegularMatch[3];
   }
   
   // Online Quick
-  const onlineQuickMatch = bodyText.match(/ONLINE-QUICK[\s\S]{0,200}?(\d{3,4})(?:\s+FLOOR[\s:]*(\d{3,4}))?/i);
-  if (onlineQuickMatch) {
-    result.onlineQuick = onlineQuickMatch[1];
-    if (onlineQuickMatch[2]) result.onlineQuickFloor = onlineQuickMatch[2];
+  const onlineQuickData = extractRating(bodyText, 'ONLINE-QUICK');
+  if (onlineQuickData.rating) {
+    result.onlineQuick = onlineQuickData.rating;
+    if (onlineQuickData.floor) result.onlineQuickFloor = onlineQuickData.floor;
   }
   
   // Online Blitz
-  const onlineBlitzMatch = bodyText.match(/ONLINE-BLITZ[\s\S]{0,200}?(\d{3,4})(?:\s+FLOOR[\s:]*(\d{3,4}))?/i);
-  if (onlineBlitzMatch) {
-    result.onlineBlitz = onlineBlitzMatch[1];
-    if (onlineBlitzMatch[2]) result.onlineBlitzFloor = onlineBlitzMatch[2];
+  const onlineBlitzData = extractRating(bodyText, 'ONLINE-BLITZ');
+  if (onlineBlitzData.rating) {
+    result.onlineBlitz = onlineBlitzData.rating;
+    if (onlineBlitzData.floor) result.onlineBlitzFloor = onlineBlitzData.floor;
   }
   
-  // Extract Rankings
-  const rankingPattern = /(\d{1,3}(?:,\d{3})*)\s+out of\s+(\d{1,3}(?:,\d{3})*)/g;
-  const rankingMatches = Array.from(bodyText.matchAll(rankingPattern));
-  
-  if (rankingMatches.length > 0) {
-    // First match is usually overall
-    const overallContext = bodyText.substring(Math.max(0, rankingMatches[0].index! - 100), rankingMatches[0].index! + 200);
-    if (overallContext.toUpperCase().includes('OVERALL')) {
-      result.overallRank = rankingMatches[0][1].replace(/,/g, '');
-      result.overallTotal = rankingMatches[0][2].replace(/,/g, '');
-    } else {
-      // Try to find overall in a different way
-      const overallSection = bodyText.match(/OVERALL[\s\S]{0,300}?(\d{1,3}(?:,\d{3})*)\s+out of\s+(\d{1,3}(?:,\d{3})*)/i);
-      if (overallSection) {
-        result.overallRank = overallSection[1].replace(/,/g, '');
-        result.overallTotal = overallSection[2].replace(/,/g, '');
-      } else if (rankingMatches[0]) {
-        result.overallRank = rankingMatches[0][1].replace(/,/g, '');
-        result.overallTotal = rankingMatches[0][2].replace(/,/g, '');
-      }
-    }
+  // Extract Rankings - be precise with OVERALL and STATE sections
+  // Overall Ranking
+  const overallMatch = bodyText.match(/OVERALL[^\d]*?(\d{1,3}(?:,\d{3})*)\s+out of\s+(\d{1,3}(?:,\d{3})*)/i);
+  if (overallMatch) {
+    result.overallRank = overallMatch[1].replace(/,/g, '');
+    result.overallTotal = overallMatch[2].replace(/,/g, '');
     
-    // Second match or state-specific match
-    if (rankingMatches.length > 1) {
-      const stateContext = bodyText.substring(Math.max(0, rankingMatches[1].index! - 100), rankingMatches[1].index! + 200);
-      const stateNameMatch = stateContext.match(/([A-Z\s]{3,30})\s+(\d{1,3}(?:,\d{3})*)\s+out of/i);
-      if (stateNameMatch && !stateNameMatch[1].includes('OVERALL')) {
-        result.stateName = stateNameMatch[1].trim();
-        result.stateRank = rankingMatches[1][1].replace(/,/g, '');
-        result.stateTotal = rankingMatches[1][2].replace(/,/g, '');
-      }
+    // Extract percentile for overall - look near the overall section
+    const overallSection = bodyText.substring(
+      Math.max(0, overallMatch.index! - 50),
+      overallMatch.index! + overallMatch[0].length + 100
+    );
+    const overallPercentileMatch = overallSection.match(/(\d{1,2})(?:st|nd|rd|th)\s+percentile/i);
+    if (overallPercentileMatch) {
+      result.overallPercentile = overallPercentileMatch[1];
     }
   }
   
-  // Extract percentiles
-  const percentilePattern = /(\d{1,2})(?:st|nd|rd|th)\s+percentile/gi;
-  const percentileMatches = Array.from(bodyText.matchAll(percentilePattern));
-  if (percentileMatches.length > 0) {
-    result.overallPercentile = percentileMatches[0][1];
+  // State Ranking - look for state name pattern (all caps, 2+ words)
+  // Pattern: [STATE NAME] ... [rank] out of [total]
+  const stateRankingMatch = bodyText.match(/([A-Z]{2,}\s+[A-Z]{2,}|[A-Z]{3,})\s+(\d{1,3}(?:,\d{3})*)\s+out of\s+(\d{1,3}(?:,\d{3})*)/);
+  if (stateRankingMatch && !stateRankingMatch[1].includes('OVERALL')) {
+    result.stateName = stateRankingMatch[1].trim();
+    result.stateRank = stateRankingMatch[2].replace(/,/g, '');
+    result.stateTotal = stateRankingMatch[3].replace(/,/g, '');
+    
+    // Extract percentile for state - look near the state section
+    const stateSection = bodyText.substring(
+      Math.max(0, stateRankingMatch.index! - 50),
+      stateRankingMatch.index! + stateRankingMatch[0].length + 100
+    );
+    const statePercentileMatch = stateSection.match(/(\d{1,2})(?:st|nd|rd|th)\s+percentile/i);
+    if (statePercentileMatch) {
+      result.statePercentile = statePercentileMatch[1];
+    }
   }
-  if (percentileMatches.length > 1) {
-    result.statePercentile = percentileMatches[1][1];
+  
+  // Fallback: If we didn't get state name, try to find it from context
+  if (!result.stateName && result.stateRank) {
+    // Look for state abbreviations or names near the ranking
+    const stateAbbrMatch = bodyText.match(/([A-Z]{2})\s+(\d{1,3}(?:,\d{3})*)\s+out of/i);
+    if (stateAbbrMatch && stateAbbrMatch[2] === result.stateRank) {
+      // Try to find full state name
+      const stateNames: { [key: string]: string } = {
+        'SC': 'SOUTH CAROLINA', 'NC': 'NORTH CAROLINA', 'CA': 'CALIFORNIA',
+        'NY': 'NEW YORK', 'TX': 'TEXAS', 'FL': 'FLORIDA', 'IL': 'ILLINOIS'
+      };
+      result.stateName = stateNames[stateAbbrMatch[1]] || stateAbbrMatch[1];
+    }
   }
   
   const data = result;
