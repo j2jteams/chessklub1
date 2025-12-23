@@ -207,205 +207,241 @@ export default function UserDashboardPage() {
               </button>
             </div>
           ) : profile.uscfRatings ? (
-            <div className="space-y-6">
-              {/* All Ratings - Combined Grid */}
-              {(profile.uscfRatings.regular || profile.uscfRatings.quick || profile.uscfRatings.blitz || 
-                profile.uscfRatings.onlineRegular || profile.uscfRatings.onlineQuick || profile.uscfRatings.onlineBlitz) && (
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Ratings</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                    {profile.uscfRatings.regular && (
-                      <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-3 text-center">
-                        <p className="text-xs text-blue-600 uppercase tracking-wide font-semibold mb-1">Regular</p>
-                        <p className="text-xl font-bold text-blue-900">{profile.uscfRatings.regular}</p>
+            <div>
+              {/* Single Row: Ratings on Left, Rankings on Right */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {/* Left: RATINGS Section (2 columns) */}
+                {(profile.uscfRatings.regular || profile.uscfRatings.quick || profile.uscfRatings.blitz || 
+                  profile.uscfRatings.onlineRegular || profile.uscfRatings.onlineQuick || profile.uscfRatings.onlineBlitz) && (
+                  <div className="lg:col-span-2">
+                    <div className="flex items-center gap-2 mb-3">
+                      <h3 className="text-sm font-semibold text-gray-900">RATINGS</h3>
+                      <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {/* Left Column: Standard Ratings */}
+                      <div className="space-y-1.5">
+                        {/* Regular Rating */}
+                        {profile.uscfRatings.regular ? (
+                          <div className="bg-white border border-gray-200 rounded p-2 relative overflow-hidden hover:shadow-sm transition-shadow">
+                            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-500"></div>
+                            <div className="pl-2 flex items-center justify-between">
+                              <div>
+                                <p className="text-lg font-bold text-gray-900">{profile.uscfRatings.regular}</p>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">REGULAR</p>
+                              </div>
+                              {profile.uscfRatings.regularFloor && (
+                                <p className="text-[10px] text-gray-400">{profile.uscfRatings.regularFloor}</p>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="bg-white border border-gray-200 rounded p-2 relative overflow-hidden opacity-50">
+                            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gray-300"></div>
+                            <div className="pl-2">
+                              <p className="text-lg font-bold text-gray-400">----</p>
+                              <p className="text-[10px] text-gray-400 uppercase tracking-wide font-medium">REGULAR</p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Quick Rating */}
+                        {profile.uscfRatings.quick ? (
+                          <div className="bg-white border border-gray-200 rounded p-2 relative overflow-hidden hover:shadow-sm transition-shadow">
+                            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-500"></div>
+                            <div className="pl-2 flex items-center justify-between">
+                              <div>
+                                <p className="text-lg font-bold text-gray-900">{profile.uscfRatings.quick}</p>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">QUICK</p>
+                              </div>
+                              {profile.uscfRatings.quickFloor && (
+                                <p className="text-[10px] text-gray-400">{profile.uscfRatings.quickFloor}</p>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="bg-white border border-gray-200 rounded p-2 relative overflow-hidden opacity-50">
+                            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gray-300"></div>
+                            <div className="pl-2">
+                              <p className="text-lg font-bold text-gray-400">----</p>
+                              <p className="text-[10px] text-gray-400 uppercase tracking-wide font-medium">QUICK</p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Blitz Rating */}
+                        {profile.uscfRatings.blitz ? (
+                          <div className="bg-white border border-gray-200 rounded p-2 relative overflow-hidden hover:shadow-sm transition-shadow">
+                            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-yellow-400"></div>
+                            <div className="pl-2 flex items-center justify-between">
+                              <div>
+                                <p className="text-lg font-bold text-gray-900">{profile.uscfRatings.blitz}</p>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">BLITZ</p>
+                              </div>
+                              {profile.uscfRatings.blitzFloor && (
+                                <p className="text-[10px] text-gray-400">{profile.uscfRatings.blitzFloor}</p>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="bg-white border border-gray-200 rounded p-2 relative overflow-hidden opacity-50">
+                            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gray-300"></div>
+                            <div className="pl-2">
+                              <p className="text-lg font-bold text-gray-400">----</p>
+                              <p className="text-[10px] text-gray-400 uppercase tracking-wide font-medium">BLITZ</p>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {profile.uscfRatings.quick && (
-                      <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-lg p-3 text-center">
-                        <p className="text-xs text-green-600 uppercase tracking-wide font-semibold mb-1">Quick</p>
-                        <p className="text-xl font-bold text-green-900">{profile.uscfRatings.quick}</p>
+                      
+                      {/* Right Column: Online Ratings */}
+                      <div className="space-y-1.5">
+                        {/* Online Regular */}
+                        {profile.uscfRatings.onlineRegular ? (
+                          <div className="bg-white border border-gray-200 rounded p-2 relative overflow-hidden hover:shadow-sm transition-shadow">
+                            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-500"></div>
+                            <div className="pl-2 flex items-center justify-between">
+                              <div>
+                                <p className="text-lg font-bold text-gray-900">
+                                  {profile.uscfRatings.onlineRegular}
+                                  {profile.uscfRatings.onlineRegularGames && (
+                                    <span className="text-xs font-normal text-gray-500 ml-1">/ {profile.uscfRatings.onlineRegularGames}</span>
+                                  )}
+                                </p>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">ONLINE-REGULAR</p>
+                              </div>
+                              {profile.uscfRatings.onlineRegularFloor && (
+                                <p className="text-[10px] text-gray-400">{profile.uscfRatings.onlineRegularFloor}</p>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="bg-white border border-gray-200 rounded p-2 relative overflow-hidden opacity-50">
+                            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gray-300"></div>
+                            <div className="pl-2">
+                              <p className="text-lg font-bold text-gray-400">----</p>
+                              <p className="text-[10px] text-gray-400 uppercase tracking-wide font-medium">ONLINE-REGULAR</p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Online Quick */}
+                        {profile.uscfRatings.onlineQuick ? (
+                          <div className="bg-white border border-gray-200 rounded p-2 relative overflow-hidden hover:shadow-sm transition-shadow">
+                            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-500"></div>
+                            <div className="pl-2 flex items-center justify-between">
+                              <div>
+                                <p className="text-lg font-bold text-gray-900">{profile.uscfRatings.onlineQuick}</p>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">ONLINE-QUICK</p>
+                              </div>
+                              {profile.uscfRatings.onlineQuickFloor && (
+                                <p className="text-[10px] text-gray-400">{profile.uscfRatings.onlineQuickFloor}</p>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="bg-white border border-gray-200 rounded p-2 relative overflow-hidden opacity-50">
+                            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gray-300"></div>
+                            <div className="pl-2">
+                              <p className="text-lg font-bold text-gray-400">----</p>
+                              <p className="text-[10px] text-gray-400 uppercase tracking-wide font-medium">ONLINE-QUICK</p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Online Blitz */}
+                        {profile.uscfRatings.onlineBlitz ? (
+                          <div className="bg-white border border-gray-200 rounded p-2 relative overflow-hidden hover:shadow-sm transition-shadow">
+                            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-yellow-400"></div>
+                            <div className="pl-2 flex items-center justify-between">
+                              <div>
+                                <p className="text-lg font-bold text-gray-900">{profile.uscfRatings.onlineBlitz}</p>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">ONLINE-BLITZ</p>
+                              </div>
+                              {profile.uscfRatings.onlineBlitzFloor && (
+                                <p className="text-[10px] text-gray-400">{profile.uscfRatings.onlineBlitzFloor}</p>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="bg-white border border-gray-200 rounded p-2 relative overflow-hidden opacity-50">
+                            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gray-300"></div>
+                            <div className="pl-2">
+                              <p className="text-lg font-bold text-gray-400">----</p>
+                              <p className="text-[10px] text-gray-400 uppercase tracking-wide font-medium">ONLINE-BLITZ</p>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {profile.uscfRatings.blitz && (
-                      <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-3 text-center">
-                        <p className="text-xs text-purple-600 uppercase tracking-wide font-semibold mb-1">Blitz</p>
-                        <p className="text-xl font-bold text-purple-900">{profile.uscfRatings.blitz}</p>
-                      </div>
-                    )}
-                    {profile.uscfRatings.onlineRegular && (
-                      <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 border border-cyan-200 rounded-lg p-3 text-center">
-                        <p className="text-xs text-cyan-600 uppercase tracking-wide font-semibold mb-1">Online Regular</p>
-                        <p className="text-xl font-bold text-cyan-900">
-                          {profile.uscfRatings.onlineRegular}
-                          {profile.uscfRatings.onlineRegularGames && (
-                            <span className="text-xs font-normal text-cyan-700 block mt-0.5">({profile.uscfRatings.onlineRegularGames} games)</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Right: RANKING Section */}
+                {(profile.uscfRatings.overallRank || profile.uscfRatings.stateRank) && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <h3 className="text-sm font-semibold text-gray-900">RANKING</h3>
+                      <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div className="space-y-2">
+                      {profile.uscfRatings.overallRank && (
+                        <div className="bg-white border border-gray-200 rounded p-3 hover:shadow-sm transition-shadow">
+                          <p className="text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">OVERALL</p>
+                          <p className="text-xl font-bold text-gray-900 mb-1">
+                            {parseInt(profile.uscfRatings.overallRank).toLocaleString()}
+                          </p>
+                          {profile.uscfRatings.overallTotal && (
+                            <p className="text-xs text-gray-600 mb-0.5">
+                              out of {parseInt(profile.uscfRatings.overallTotal).toLocaleString()}
+                            </p>
                           )}
-                        </p>
-                      </div>
-                    )}
-                    {profile.uscfRatings.onlineQuick && (
-                      <div className="bg-gradient-to-br from-teal-50 to-teal-100 border border-teal-200 rounded-lg p-3 text-center">
-                        <p className="text-xs text-teal-600 uppercase tracking-wide font-semibold mb-1">Online Quick</p>
-                        <p className="text-xl font-bold text-teal-900">{profile.uscfRatings.onlineQuick}</p>
-                      </div>
-                    )}
-                    {profile.uscfRatings.onlineBlitz && (
-                      <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 border border-indigo-200 rounded-lg p-3 text-center">
-                        <p className="text-xs text-indigo-600 uppercase tracking-wide font-semibold mb-1">Online Blitz</p>
-                        <p className="text-xl font-bold text-indigo-900">{profile.uscfRatings.onlineBlitz}</p>
-                      </div>
-                    )}
+                          {profile.uscfRatings.overallPercentile && (
+                            <p className="text-[10px] text-gray-500 italic">
+                              {profile.uscfRatings.overallPercentile}th percentile
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      {profile.uscfRatings.stateRank && (
+                        <div className="bg-white border border-gray-200 rounded p-3 hover:shadow-sm transition-shadow">
+                          <p className="text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
+                            {profile.uscfRatings.stateName || 'STATE'}
+                          </p>
+                          <p className="text-xl font-bold text-gray-900 mb-1">
+                            {parseInt(profile.uscfRatings.stateRank).toLocaleString()}
+                          </p>
+                          {profile.uscfRatings.stateTotal && (
+                            <p className="text-xs text-gray-600 mb-0.5">
+                              out of {parseInt(profile.uscfRatings.stateTotal).toLocaleString()}
+                            </p>
+                          )}
+                          {profile.uscfRatings.statePercentile && (
+                            <p className="text-[10px] text-gray-500 italic">
+                              {profile.uscfRatings.statePercentile}th percentile
+                            </p>
+                          )}
                   </div>
-                </div>
-              )}
-
-              {/* Rankings */}
-              {(profile.uscfRatings.overallRank || profile.uscfRatings.stateRank) && (
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Rankings</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {profile.uscfRatings.overallRank && (
-                      <div className="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-xl p-5">
-                        <p className="text-xs text-orange-600 uppercase tracking-wide font-semibold mb-2">Overall</p>
-                        <p className="text-3xl font-bold text-orange-900 mb-1">
-                          #{parseInt(profile.uscfRatings.overallRank).toLocaleString()}
-                        </p>
-                        {profile.uscfRatings.overallTotal && (
-                          <p className="text-sm text-orange-700 mb-1">
-                            of {parseInt(profile.uscfRatings.overallTotal).toLocaleString()} players
-                          </p>
-                        )}
-                        {profile.uscfRatings.overallPercentile && (
-                          <p className="text-xs text-orange-600 font-medium">
-                            {profile.uscfRatings.overallPercentile}th percentile
-                          </p>
-                        )}
-                      </div>
-                    )}
-                    {profile.uscfRatings.stateRank && (
-                      <div className="bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200 rounded-xl p-5">
-                        <p className="text-xs text-amber-600 uppercase tracking-wide font-semibold mb-2">
-                          {profile.uscfRatings.stateName || 'State'}
-                        </p>
-                        <p className="text-3xl font-bold text-amber-900 mb-1">
-                          #{parseInt(profile.uscfRatings.stateRank).toLocaleString()}
-                        </p>
-                        {profile.uscfRatings.stateTotal && (
-                          <p className="text-sm text-amber-700 mb-1">
-                            of {parseInt(profile.uscfRatings.stateTotal).toLocaleString()} players
-                          </p>
-                        )}
-                        {profile.uscfRatings.statePercentile && (
-                          <p className="text-xs text-amber-600 font-medium">
-                            {profile.uscfRatings.statePercentile}th percentile
-                          </p>
-                        )}
-                      </div>
-                    )}
+                )}
+                    </div>
                   </div>
-                </div>
-              )}
-
-              {/* Membership Info */}
-              {(profile.uscfRatings.membershipId || profile.uscfRatings.status || profile.uscfRatings.expires || 
-                profile.uscfRatings.gender || profile.uscfRatings.fideId) && (
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                  <p className="text-sm font-semibold text-gray-900 mb-3">Membership Information</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-600">
-                    {profile.uscfRatings.membershipId && (
-                      <p>
-                        <span className="font-semibold text-gray-900">ID:</span> {profile.uscfRatings.membershipId}
-                      </p>
-                    )}
-                    {profile.uscfRatings.status && (
-                      <p>
-                        <span className="font-semibold text-gray-900">Status:</span>{' '}
-                        <span className={`font-semibold ${
-                          profile.uscfRatings.status === 'Active' ? 'text-green-600' : 'text-red-600'
-                        }`}>
-                          {profile.uscfRatings.status}
-                        </span>
-                      </p>
-                    )}
-                    {profile.uscfRatings.gender && (
-                      <p>
-                        <span className="font-semibold text-gray-900">Gender:</span> {profile.uscfRatings.gender}
-                      </p>
-                    )}
-                    {profile.uscfRatings.expires && (
-                      <p>
-                        <span className="font-semibold text-gray-900">Expires:</span> {profile.uscfRatings.expires}
-                      </p>
-                    )}
-                    {profile.uscfRatings.updated && (
-                      <p>
-                        <span className="font-semibold text-gray-900">Updated:</span> {profile.uscfRatings.updated}
-                      </p>
-                    )}
-                    {profile.uscfRatings.fideId && (
-                      <p>
-                        <span className="font-semibold text-gray-900">FIDE ID:</span> {profile.uscfRatings.fideId}
-                        {profile.uscfRatings.fideCountry && (
-                          <span className="ml-1 text-gray-500">({profile.uscfRatings.fideCountry})</span>
-                        )}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
 
               {/* Last Synced */}
               {profile.uscfRatings.lastSynced && (
-                <p className="text-xs text-gray-500 text-right">
+                <p className="text-xs text-gray-500 text-right mt-4">
                   Last synced: {new Date(profile.uscfRatings.lastSynced).toLocaleString()}
                 </p>
               )}
-
-              {/* Manual Sync Button */}
-              <button
-                onClick={async () => {
-                  if (user && profile?.uscfId) {
-                    setUscfSyncing(true);
-                    setUscfError(null);
-                    try {
-                      await syncUSCFRatings(user.uid, profile.uscfId!);
-                      window.location.reload();
-                    } catch (error: any) {
-                      setUscfError(error.message || 'Failed to sync USCF ratings');
-                    } finally {
-                      setUscfSyncing(false);
-                    }
-                  }
-                }}
-                disabled={uscfSyncing}
-                className="w-full px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition"
-              >
-                {uscfSyncing ? 'Syncing...' : 'Refresh USCF Data'}
-              </button>
             </div>
           ) : (
             <div className="text-center py-10 text-gray-500 text-sm">
               <p>No USCF ratings data available.</p>
-              {user && profile?.uscfId && (
-                <button
-                  onClick={async () => {
-                    setUscfSyncing(true);
-                    setUscfError(null);
-                    try {
-                      await syncUSCFRatings(user.uid, profile.uscfId!);
-                      window.location.reload();
-                    } catch (error: any) {
-                      setUscfError(error.message || 'Failed to sync USCF ratings');
-                    } finally {
-                      setUscfSyncing(false);
-                    }
-                  }}
-                  disabled={uscfSyncing}
-                  className="mt-4 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg disabled:opacity-50 transition"
-                >
-                  {uscfSyncing ? 'Syncing...' : 'Sync USCF Ratings'}
-                </button>
-              )}
             </div>
           )}
         </SectionWrapper>
