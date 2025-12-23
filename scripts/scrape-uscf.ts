@@ -104,70 +104,132 @@ async function scrapeUSCFPage(page: Page, uscfId: string): Promise<ScrapedUSCFDa
     result.fideCountry = fideMatch[2];
   }
   
-  // Extract ratings - use a helper function to find the actual rating (not floor)
-  // The rating is the larger 3-4 digit number, floor is usually 100-200
+  // Extract ratings - foolproof method: always get the FIRST number after the type name
+  // The rating appears BEFORE "FLOOR", floor appears AFTER "FLOOR"
+  // Ratings are typically 1000+, floors are typically 100-200
   const extractRating = (text: string, type: string): { rating?: string; floor?: string } => {
-    // Look for pattern: TYPE ... [number] ... FLOOR [number]
-    // The first number (3-4 digits, usually 1000+) is the rating
-    // The second number (after FLOOR, usually 100-200) is the floor
-    const pattern = new RegExp(`${type}[^\\d]*?(\\d{3,4})[^\\d]*?(?:FLOOR[^\\d]*?(\\d{1,3}))?`, 'i');
+    // Look for pattern: TYPE ... [rating number] ... FLOOR [floor number]
+    // The number BEFORE "FLOOR" is always the rating
+    // The number AFTER "FLOOR" is always the floor
+    const pattern = new RegExp(`${type}[^\\d]*?(\\d{3,4})(?![^\\d]*FLOOR)[^\\d]*?(?:FLOOR[^\\d]*?(\\d{1,3}))?`, 'i');
     const match = text.match(pattern);
     
     if (match) {
-      const num1 = parseInt(match[1]);
-      const num2 = match[2] ? parseInt(match[2]) : null;
+      const ratingNum = parseInt(match[1]);
+      const floorNum = match[2] ? parseInt(match[2]) : null;
       
-      // Rating is usually 1000+, floor is usually 100-200
-      // If we have two numbers, the larger one is the rating
-      if (num2 && num2 > num1) {
-        return { rating: match[2], floor: match[1] };
-      } else if (num1 >= 100) {
-        return { rating: match[1], floor: match[2] || undefined };
+      // Validate: rating should be 1000+ (or at least 500+ for very low ratings)
+      // Floor should be 100-200 (or at most 300)
+      // If rating is less than 500, it's probably a floor value, skip it
+      if (ratingNum >= 500) {
+        // Only accept if it looks like a real rating
+        return { 
+          rating: match[1], 
+          floor: floorNum && floorNum >= 50 && floorNum <= 500 ? match[2] : undefined 
+        };
+      }
+    }
+    
+    // Alternative: Try to find rating in a more specific pattern
+    // Look for: TYPE ... large number ... FLOOR ... small number
+    const altPattern = new RegExp(`${type}[^\\d]*?(\\d{4})[^\\d]*?FLOOR[^\\d]*?(\\d{1,3})`, 'i');
+    const altMatch = text.match(altPattern);
+    if (altMatch) {
+      const ratingNum = parseInt(altMatch[1]);
+      const floorNum = parseInt(altMatch[2]);
+      // If first number is 4 digits (1000+), it's definitely the rating
+      if (ratingNum >= 1000 && floorNum <= 500) {
+        return { rating: altMatch[1], floor: altMatch[2] };
       }
     }
     
     return {};
   };
   
-  // Extract each rating type
-  const regularData = extractRating(bodyText, 'REGULAR');
-  if (regularData.rating) {
-    result.regular = regularData.rating;
-    if (regularData.floor) result.regularFloor = regularData.floor;
+  // Extract each rating type with more precise matching
+  // Use a more specific approach: find the rating type, then the first large number after it
+  
+  // Regular Rating - be very specific
+  const regularPattern = /REGULAR[^\d]*?(\d{4})[^\d]*?(?:FLOOR[^\d]*?(\d{1,3}))?/i;
+  const regularMatch = bodyText.match(regularPattern);
+  if (regularMatch) {
+    const ratingNum = parseInt(regularMatch[1]);
+    if (ratingNum >= 1000) { // Ratings are typically 1000+
+      result.regular = regularMatch[1];
+      if (regularMatch[2] && parseInt(regularMatch[2]) <= 500) {
+        result.regularFloor = regularMatch[2];
+      }
+    }
   }
   
-  const quickData = extractRating(bodyText, 'QUICK');
-  if (quickData.rating) {
-    result.quick = quickData.rating;
-    if (quickData.floor) result.quickFloor = quickData.floor;
+  // Quick Rating
+  const quickPattern = /QUICK[^\d]*?(\d{4})[^\d]*?(?:FLOOR[^\d]*?(\d{1,3}))?/i;
+  const quickMatch = bodyText.match(quickPattern);
+  if (quickMatch) {
+    const ratingNum = parseInt(quickMatch[1]);
+    if (ratingNum >= 1000) {
+      result.quick = quickMatch[1];
+      if (quickMatch[2] && parseInt(quickMatch[2]) <= 500) {
+        result.quickFloor = quickMatch[2];
+      }
+    }
   }
   
-  const blitzData = extractRating(bodyText, 'BLITZ');
-  if (blitzData.rating) {
-    result.blitz = blitzData.rating;
-    if (blitzData.floor) result.blitzFloor = blitzData.floor;
+  // Blitz Rating - can be 3 or 4 digits
+  const blitzPattern = /BLITZ[^\d]*?(\d{3,4})[^\d]*?(?:FLOOR[^\d]*?(\d{1,3}))?/i;
+  const blitzMatch = bodyText.match(blitzPattern);
+  if (blitzMatch) {
+    const ratingNum = parseInt(blitzMatch[1]);
+    // Blitz ratings can be lower, but should still be at least 500+
+    if (ratingNum >= 500 && ratingNum <= 3000) {
+      result.blitz = blitzMatch[1];
+      if (blitzMatch[2] && parseInt(blitzMatch[2]) <= 500) {
+        result.blitzFloor = blitzMatch[2];
+      }
+    }
   }
   
-  // Online Regular - special format: "1039 / 20" (rating / games)
-  const onlineRegularMatch = bodyText.match(/ONLINE-REGULAR[^\d]*?(\d{3,4})(?:\s*\/\s*(\d+))?[^\d]*?(?:FLOOR[^\d]*?(\d{1,3}))?/i);
-  if (onlineRegularMatch && parseInt(onlineRegularMatch[1]) >= 100) {
-    result.onlineRegular = onlineRegularMatch[1];
-    if (onlineRegularMatch[2]) result.onlineRegularGames = onlineRegularMatch[2];
-    if (onlineRegularMatch[3]) result.onlineRegularFloor = onlineRegularMatch[3];
+  // Online Regular - format: "838 / 20" (rating / games) or just "838"
+  const onlineRegularPattern = /ONLINE-REGULAR[^\d]*?(\d{3,4})(?:\s*\/\s*(\d+))?[^\d]*?(?:FLOOR[^\d]*?(\d{1,3}))?/i;
+  const onlineRegularMatch = bodyText.match(onlineRegularPattern);
+  if (onlineRegularMatch) {
+    const ratingNum = parseInt(onlineRegularMatch[1]);
+    // Online ratings can be lower, but should be at least 100+
+    if (ratingNum >= 100 && ratingNum <= 3000) {
+      result.onlineRegular = onlineRegularMatch[1];
+      if (onlineRegularMatch[2]) {
+        result.onlineRegularGames = onlineRegularMatch[2];
+      }
+      if (onlineRegularMatch[3] && parseInt(onlineRegularMatch[3]) <= 500) {
+        result.onlineRegularFloor = onlineRegularMatch[3];
+      }
+    }
   }
   
   // Online Quick
-  const onlineQuickData = extractRating(bodyText, 'ONLINE-QUICK');
-  if (onlineQuickData.rating) {
-    result.onlineQuick = onlineQuickData.rating;
-    if (onlineQuickData.floor) result.onlineQuickFloor = onlineQuickData.floor;
+  const onlineQuickPattern = /ONLINE-QUICK[^\d]*?(\d{3,4})[^\d]*?(?:FLOOR[^\d]*?(\d{1,3}))?/i;
+  const onlineQuickMatch = bodyText.match(onlineQuickPattern);
+  if (onlineQuickMatch) {
+    const ratingNum = parseInt(onlineQuickMatch[1]);
+    if (ratingNum >= 100 && ratingNum <= 3000) {
+      result.onlineQuick = onlineQuickMatch[1];
+      if (onlineQuickMatch[2] && parseInt(onlineQuickMatch[2]) <= 500) {
+        result.onlineQuickFloor = onlineQuickMatch[2];
+      }
+    }
   }
   
   // Online Blitz
-  const onlineBlitzData = extractRating(bodyText, 'ONLINE-BLITZ');
-  if (onlineBlitzData.rating) {
-    result.onlineBlitz = onlineBlitzData.rating;
-    if (onlineBlitzData.floor) result.onlineBlitzFloor = onlineBlitzData.floor;
+  const onlineBlitzPattern = /ONLINE-BLITZ[^\d]*?(\d{3,4})[^\d]*?(?:FLOOR[^\d]*?(\d{1,3}))?/i;
+  const onlineBlitzMatch = bodyText.match(onlineBlitzPattern);
+  if (onlineBlitzMatch) {
+    const ratingNum = parseInt(onlineBlitzMatch[1]);
+    if (ratingNum >= 100 && ratingNum <= 3000) {
+      result.onlineBlitz = onlineBlitzMatch[1];
+      if (onlineBlitzMatch[2] && parseInt(onlineBlitzMatch[2]) <= 500) {
+        result.onlineBlitzFloor = onlineBlitzMatch[2];
+      }
+    }
   }
   
   // Extract Rankings - be precise with OVERALL and STATE sections
