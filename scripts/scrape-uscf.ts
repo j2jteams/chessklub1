@@ -88,7 +88,7 @@ async function scrapeUSCFPage(page: Page, uscfId: string): Promise<ScrapedUSCFDa
   const result: ScrapedUSCFData = {};
   
   // Extract membership info from text
-  const membershipMatch = bodyText.match(/ID:\s*(\d+).*?Status:\s*[•·]\s*(Active|Expired|Inactive).*?Gender:\s*([MF]).*?Expires:\s*(\d{4}-\d{2}-\d{2}).*?Updated:\s*(\d{4}-\d{2}-\d{2})/is);
+  const membershipMatch = bodyText.match(/ID:\s*(\d+)[\s\S]*?Status:\s*[•·]\s*(Active|Expired|Inactive)[\s\S]*?Gender:\s*([MF])[\s\S]*?Expires:\s*(\d{4}-\d{2}-\d{2})[\s\S]*?Updated:\s*(\d{4}-\d{2}-\d{2})/i);
   if (membershipMatch) {
     result.membershipId = membershipMatch[1];
     result.status = membershipMatch[2];
