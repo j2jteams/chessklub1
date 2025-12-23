@@ -252,7 +252,10 @@ async function scrapeUSCFPage(page: Page, uscfId: string): Promise<ScrapedUSCFDa
   
   // State Ranking - look for state name pattern (all caps, 2+ words)
   // Pattern: [STATE NAME] ... [rank] out of [total]
-  const stateRankingMatch = bodyText.match(/([A-Z]{2,}\s+[A-Z]{2,}|[A-Z]{3,})\s+(\d{1,3}(?:,\d{3})*)\s+out of\s+(\d{1,3}(?:,\d{3})*)/);
+  // First try to find state name with ranking pattern
+  const stateRankingPattern = /([A-Z]{2,}\s+[A-Z]{2,}|[A-Z]{3,})\s+(\d{1,3}(?:,\d{3})*)\s+out of\s+(\d{1,3}(?:,\d{3})*)/;
+  const stateRankingMatch = bodyText.match(stateRankingPattern);
+  
   if (stateRankingMatch && !stateRankingMatch[1].includes('OVERALL')) {
     result.stateName = stateRankingMatch[1].trim();
     result.stateRank = stateRankingMatch[2].replace(/,/g, '');
@@ -267,19 +270,51 @@ async function scrapeUSCFPage(page: Page, uscfId: string): Promise<ScrapedUSCFDa
     if (statePercentileMatch) {
       result.statePercentile = statePercentileMatch[1];
     }
+  } else {
+    // Alternative: Look for ranking pattern after OVERALL section
+    // Find all "X out of Y" patterns and the second one is usually the state
+    const allRankingPattern = /(\d{1,3}(?:,\d{3})*)\s+out of\s+(\d{1,3}(?:,\d{3})*)/g;
+    const allRankings = Array.from(bodyText.matchAll(allRankingPattern));
+    
+    if (allRankings.length >= 2) {
+      // Second match is usually the state ranking
+      const stateRankMatch = allRankings[1];
+      const stateContext = bodyText.substring(
+        Math.max(0, stateRankMatch.index! - 200),
+        stateRankMatch.index! + stateRankMatch[0].length + 100
+      );
+      
+      // Try to extract state name from context
+      const stateNamePattern = /([A-Z]{2,}\s+[A-Z]{2,}|[A-Z]{3,})/;
+      const stateNameMatch = stateContext.match(stateNamePattern);
+      
+      if (stateNameMatch && !stateNameMatch[1].includes('OVERALL')) {
+        result.stateName = stateNameMatch[1].trim();
+        result.stateRank = stateRankMatch[1].replace(/,/g, '');
+        result.stateTotal = stateRankMatch[2].replace(/,/g, '');
+        
+        // Extract percentile
+        const statePercentileMatch = stateContext.match(/(\d{1,2})(?:st|nd|rd|th)\s+percentile/i);
+        if (statePercentileMatch) {
+          result.statePercentile = statePercentileMatch[1];
+        }
+      }
+    }
   }
   
-  // Fallback: If we didn't get state name, try to find it from context
-  if (!result.stateName && result.stateRank) {
-    // Look for state abbreviations or names near the ranking
-    const stateAbbrMatch = bodyText.match(/([A-Z]{2})\s+(\d{1,3}(?:,\d{3})*)\s+out of/i);
-    if (stateAbbrMatch && stateAbbrMatch[2] === result.stateRank) {
-      // Try to find full state name
+  // Fallback: If we have state rank but no name, try to find it from membership section
+  if (result.stateRank && !result.stateName) {
+    // Check if we extracted state abbreviation from membership (e.g., "SC" in "ID: 30025270 SC")
+    const membershipStateMatch = bodyText.match(/ID:\s*\d+\s+([A-Z]{2})/);
+    if (membershipStateMatch) {
+      const stateAbbr = membershipStateMatch[1];
       const stateNames: { [key: string]: string } = {
         'SC': 'SOUTH CAROLINA', 'NC': 'NORTH CAROLINA', 'CA': 'CALIFORNIA',
-        'NY': 'NEW YORK', 'TX': 'TEXAS', 'FL': 'FLORIDA', 'IL': 'ILLINOIS'
+        'NY': 'NEW YORK', 'TX': 'TEXAS', 'FL': 'FLORIDA', 'IL': 'ILLINOIS',
+        'GA': 'GEORGIA', 'VA': 'VIRGINIA', 'PA': 'PENNSYLVANIA', 'OH': 'OHIO',
+        'MI': 'MICHIGAN', 'MA': 'MASSACHUSETTS', 'WA': 'WASHINGTON', 'OR': 'OREGON'
       };
-      result.stateName = stateNames[stateAbbrMatch[1]] || stateAbbrMatch[1];
+      result.stateName = stateNames[stateAbbr] || stateAbbr;
     }
   }
   
