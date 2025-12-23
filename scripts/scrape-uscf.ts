@@ -79,16 +79,17 @@ async function scrapeUSCFPage(page: Page, uscfId: string): Promise<ScrapedUSCFDa
   
   // Extract data from the page
   const data = await page.evaluate(() => {
-    const result: ScrapedUSCFData = {};
+    // Remove TypeScript types - this runs in browser context
+    const result = {};
     
     // Helper function to get text content
-    const getText = (selector: string): string | undefined => {
+    const getText = (selector) => {
       const element = document.querySelector(selector);
       return element?.textContent?.trim();
     };
     
     // Helper function to get all text content
-    const getAllText = (selector: string): string[] => {
+    const getAllText = (selector) => {
       const elements = document.querySelectorAll(selector);
       return Array.from(elements).map(el => el.textContent?.trim() || '');
     };
@@ -239,7 +240,7 @@ async function scrapeUSCFPage(page: Page, uscfId: string): Promise<ScrapedUSCFDa
     }
     
     return result;
-  });
+  }) as ScrapedUSCFData;
   
   // If direct extraction didn't work well, use DeepSeek as fallback
   if (!data.regular && !data.quick && !data.blitz) {
