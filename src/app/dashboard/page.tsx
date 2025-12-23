@@ -208,77 +208,51 @@ export default function UserDashboardPage() {
             </div>
           ) : profile.uscfRatings ? (
             <div className="space-y-6">
-              {/* Standard Ratings Grid */}
-              {(profile.uscfRatings.regular || profile.uscfRatings.quick || profile.uscfRatings.blitz) && (
+              {/* All Ratings - Combined Grid */}
+              {(profile.uscfRatings.regular || profile.uscfRatings.quick || profile.uscfRatings.blitz || 
+                profile.uscfRatings.onlineRegular || profile.uscfRatings.onlineQuick || profile.uscfRatings.onlineBlitz) && (
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Standard Ratings</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Ratings</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                     {profile.uscfRatings.regular && (
-                      <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-4">
-                        <p className="text-xs text-blue-600 uppercase tracking-wide font-semibold">Regular</p>
-                        <p className="text-2xl font-bold text-blue-900 mt-1">{profile.uscfRatings.regular}</p>
-                        {profile.uscfRatings.regularFloor && (
-                          <p className="text-xs text-blue-600 mt-1">Floor: {profile.uscfRatings.regularFloor}</p>
-                        )}
+                      <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-3 text-center">
+                        <p className="text-xs text-blue-600 uppercase tracking-wide font-semibold mb-1">Regular</p>
+                        <p className="text-xl font-bold text-blue-900">{profile.uscfRatings.regular}</p>
                       </div>
                     )}
                     {profile.uscfRatings.quick && (
-                      <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-xl p-4">
-                        <p className="text-xs text-green-600 uppercase tracking-wide font-semibold">Quick</p>
-                        <p className="text-2xl font-bold text-green-900 mt-1">{profile.uscfRatings.quick}</p>
-                        {profile.uscfRatings.quickFloor && (
-                          <p className="text-xs text-green-600 mt-1">Floor: {profile.uscfRatings.quickFloor}</p>
-                        )}
+                      <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-lg p-3 text-center">
+                        <p className="text-xs text-green-600 uppercase tracking-wide font-semibold mb-1">Quick</p>
+                        <p className="text-xl font-bold text-green-900">{profile.uscfRatings.quick}</p>
                       </div>
                     )}
                     {profile.uscfRatings.blitz && (
-                      <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-xl p-4">
-                        <p className="text-xs text-purple-600 uppercase tracking-wide font-semibold">Blitz</p>
-                        <p className="text-2xl font-bold text-purple-900 mt-1">{profile.uscfRatings.blitz}</p>
-                        {profile.uscfRatings.blitzFloor && (
-                          <p className="text-xs text-purple-600 mt-1">Floor: {profile.uscfRatings.blitzFloor}</p>
-                        )}
+                      <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-3 text-center">
+                        <p className="text-xs text-purple-600 uppercase tracking-wide font-semibold mb-1">Blitz</p>
+                        <p className="text-xl font-bold text-purple-900">{profile.uscfRatings.blitz}</p>
                       </div>
                     )}
-                  </div>
-                </div>
-              )}
-
-              {/* Online Ratings Grid */}
-              {(profile.uscfRatings.onlineRegular || profile.uscfRatings.onlineQuick || profile.uscfRatings.onlineBlitz) && (
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Online Ratings</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {profile.uscfRatings.onlineRegular && (
-                      <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 border border-cyan-200 rounded-xl p-4">
-                        <p className="text-xs text-cyan-600 uppercase tracking-wide font-semibold">Online Regular</p>
-                        <p className="text-2xl font-bold text-cyan-900 mt-1">
+                      <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 border border-cyan-200 rounded-lg p-3 text-center">
+                        <p className="text-xs text-cyan-600 uppercase tracking-wide font-semibold mb-1">Online Regular</p>
+                        <p className="text-xl font-bold text-cyan-900">
                           {profile.uscfRatings.onlineRegular}
                           {profile.uscfRatings.onlineRegularGames && (
-                            <span className="text-sm font-normal text-cyan-700"> / {profile.uscfRatings.onlineRegularGames}</span>
+                            <span className="text-xs font-normal text-cyan-700 block mt-0.5">({profile.uscfRatings.onlineRegularGames} games)</span>
                           )}
                         </p>
-                        {profile.uscfRatings.onlineRegularFloor && (
-                          <p className="text-xs text-cyan-600 mt-1">Floor: {profile.uscfRatings.onlineRegularFloor}</p>
-                        )}
                       </div>
                     )}
                     {profile.uscfRatings.onlineQuick && (
-                      <div className="bg-gradient-to-br from-teal-50 to-teal-100 border border-teal-200 rounded-xl p-4">
-                        <p className="text-xs text-teal-600 uppercase tracking-wide font-semibold">Online Quick</p>
-                        <p className="text-2xl font-bold text-teal-900 mt-1">{profile.uscfRatings.onlineQuick}</p>
-                        {profile.uscfRatings.onlineQuickFloor && (
-                          <p className="text-xs text-teal-600 mt-1">Floor: {profile.uscfRatings.onlineQuickFloor}</p>
-                        )}
+                      <div className="bg-gradient-to-br from-teal-50 to-teal-100 border border-teal-200 rounded-lg p-3 text-center">
+                        <p className="text-xs text-teal-600 uppercase tracking-wide font-semibold mb-1">Online Quick</p>
+                        <p className="text-xl font-bold text-teal-900">{profile.uscfRatings.onlineQuick}</p>
                       </div>
                     )}
                     {profile.uscfRatings.onlineBlitz && (
-                      <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 border border-indigo-200 rounded-xl p-4">
-                        <p className="text-xs text-indigo-600 uppercase tracking-wide font-semibold">Online Blitz</p>
-                        <p className="text-2xl font-bold text-indigo-900 mt-1">{profile.uscfRatings.onlineBlitz}</p>
-                        {profile.uscfRatings.onlineBlitzFloor && (
-                          <p className="text-xs text-indigo-600 mt-1">Floor: {profile.uscfRatings.onlineBlitzFloor}</p>
-                        )}
+                      <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 border border-indigo-200 rounded-lg p-3 text-center">
+                        <p className="text-xs text-indigo-600 uppercase tracking-wide font-semibold mb-1">Online Blitz</p>
+                        <p className="text-xl font-bold text-indigo-900">{profile.uscfRatings.onlineBlitz}</p>
                       </div>
                     )}
                   </div>
@@ -291,38 +265,38 @@ export default function UserDashboardPage() {
                   <h3 className="text-sm font-semibold text-gray-700 mb-3">Rankings</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {profile.uscfRatings.overallRank && (
-                      <div className="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-xl p-4">
-                        <p className="text-xs text-orange-600 uppercase tracking-wide font-semibold">Overall</p>
-                        <p className="text-2xl font-bold text-orange-900 mt-1">
-                          {parseInt(profile.uscfRatings.overallRank).toLocaleString()}
+                      <div className="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-xl p-5">
+                        <p className="text-xs text-orange-600 uppercase tracking-wide font-semibold mb-2">Overall</p>
+                        <p className="text-3xl font-bold text-orange-900 mb-1">
+                          #{parseInt(profile.uscfRatings.overallRank).toLocaleString()}
                         </p>
                         {profile.uscfRatings.overallTotal && (
-                          <p className="text-sm text-orange-700 mt-1">
-                            out of {parseInt(profile.uscfRatings.overallTotal).toLocaleString()}
+                          <p className="text-sm text-orange-700 mb-1">
+                            of {parseInt(profile.uscfRatings.overallTotal).toLocaleString()} players
                           </p>
                         )}
                         {profile.uscfRatings.overallPercentile && (
-                          <p className="text-xs text-orange-600 mt-1">
+                          <p className="text-xs text-orange-600 font-medium">
                             {profile.uscfRatings.overallPercentile}th percentile
                           </p>
                         )}
                       </div>
                     )}
                     {profile.uscfRatings.stateRank && (
-                      <div className="bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200 rounded-xl p-4">
-                        <p className="text-xs text-amber-600 uppercase tracking-wide font-semibold">
+                      <div className="bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200 rounded-xl p-5">
+                        <p className="text-xs text-amber-600 uppercase tracking-wide font-semibold mb-2">
                           {profile.uscfRatings.stateName || 'State'}
                         </p>
-                        <p className="text-2xl font-bold text-amber-900 mt-1">
-                          {parseInt(profile.uscfRatings.stateRank).toLocaleString()}
+                        <p className="text-3xl font-bold text-amber-900 mb-1">
+                          #{parseInt(profile.uscfRatings.stateRank).toLocaleString()}
                         </p>
                         {profile.uscfRatings.stateTotal && (
-                          <p className="text-sm text-amber-700 mt-1">
-                            out of {parseInt(profile.uscfRatings.stateTotal).toLocaleString()}
+                          <p className="text-sm text-amber-700 mb-1">
+                            of {parseInt(profile.uscfRatings.stateTotal).toLocaleString()} players
                           </p>
                         )}
                         {profile.uscfRatings.statePercentile && (
-                          <p className="text-xs text-amber-600 mt-1">
+                          <p className="text-xs text-amber-600 font-medium">
                             {profile.uscfRatings.statePercentile}th percentile
                           </p>
                         )}
