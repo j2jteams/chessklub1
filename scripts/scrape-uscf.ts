@@ -77,170 +77,122 @@ async function scrapeUSCFPage(page: Page, uscfId: string): Promise<ScrapedUSCFDa
   // Wait for page to fully load
   await page.waitForTimeout(3000);
   
-  // Extract data from the page
-  const data = await page.evaluate(() => {
-    // Remove TypeScript types - this runs in browser context
-    const result = {};
-    
-    // Helper function to get text content
-    const getText = (selector) => {
-      const element = document.querySelector(selector);
-      return element?.textContent?.trim();
-    };
-    
-    // Helper function to get all text content
-    const getAllText = (selector) => {
-      const elements = document.querySelectorAll(selector);
-      return Array.from(elements).map(el => el.textContent?.trim() || '');
-    };
-    
-    // Extract membership info
-    const membershipSection = document.querySelector('[class*="membership"], [class*="Membership"]');
-    if (membershipSection) {
-      const membershipText = membershipSection.textContent || '';
-      
-      // Extract ID
-      const idMatch = membershipText.match(/ID:\s*(\d+)/i);
-      if (idMatch) result.membershipId = idMatch[1];
-      
-      // Extract Status
-      const statusMatch = membershipText.match(/Status:\s*[•·]\s*(Active|Expired|Inactive)/i);
-      if (statusMatch) result.status = statusMatch[1];
-      
-      // Extract Gender
-      const genderMatch = membershipText.match(/Gender:\s*([MF])/i);
-      if (genderMatch) result.gender = genderMatch[1];
-      
-      // Extract Expires
-      const expiresMatch = membershipText.match(/Expires:\s*(\d{4}-\d{2}-\d{2})/i);
-      if (expiresMatch) result.expires = expiresMatch[1];
-      
-      // Extract Updated
-      const updatedMatch = membershipText.match(/Updated:\s*(\d{4}-\d{2}-\d{2})/i);
-      if (updatedMatch) result.updated = updatedMatch[1];
-      
-      // Extract FIDE ID
-      const fideMatch = membershipText.match(/FIDE:\s*(\d+)/i);
-      if (fideMatch) result.fideId = fideMatch[1];
-      
-      // Extract FIDE Country
-      const fideCountryMatch = membershipText.match(/FIDE:\s*\d+\s+([A-Z]{2,3})/i);
-      if (fideCountryMatch) result.fideCountry = fideCountryMatch[1];
-    }
-    
-    // Extract Ratings - Look for rating boxes/cards
-    const ratingBoxes = document.querySelectorAll('[class*="rating"], [class*="Rating"], [class*="card"]');
-    ratingBoxes.forEach((box) => {
-      const text = box.textContent || '';
-      const boxText = text.toLowerCase();
-      
-      // Regular Rating
-      if (boxText.includes('regular') && !boxText.includes('online')) {
-        const ratingMatch = text.match(/(\d{3,4})/);
-        if (ratingMatch) result.regular = ratingMatch[1];
-        const floorMatch = text.match(/floor[:\s]*(\d{3,4})/i);
-        if (floorMatch) result.regularFloor = floorMatch[1];
-      }
-      
-      // Quick Rating
-      if (boxText.includes('quick') && !boxText.includes('online')) {
-        const ratingMatch = text.match(/(\d{3,4})/);
-        if (ratingMatch) result.quick = ratingMatch[1];
-        const floorMatch = text.match(/floor[:\s]*(\d{3,4})/i);
-        if (floorMatch) result.quickFloor = floorMatch[1];
-      }
-      
-      // Blitz Rating
-      if (boxText.includes('blitz') && !boxText.includes('online')) {
-        const ratingMatch = text.match(/(\d{3,4})/);
-        if (ratingMatch) result.blitz = ratingMatch[1];
-        const floorMatch = text.match(/floor[:\s]*(\d{3,4})/i);
-        if (floorMatch) result.blitzFloor = floorMatch[1];
-      }
-      
-      // Online Regular
-      if (boxText.includes('online-regular') || (boxText.includes('online') && boxText.includes('regular'))) {
-        const ratingMatch = text.match(/(\d{3,4})\s*\/\s*(\d+)/);
-        if (ratingMatch) {
-          result.onlineRegular = ratingMatch[1];
-          result.onlineRegularGames = ratingMatch[2];
-        }
-        const floorMatch = text.match(/floor[:\s]*(\d{3,4})/i);
-        if (floorMatch) result.onlineRegularFloor = floorMatch[1];
-      }
-      
-      // Online Quick
-      if (boxText.includes('online-quick') || (boxText.includes('online') && boxText.includes('quick'))) {
-        const ratingMatch = text.match(/(\d{3,4})/);
-        if (ratingMatch) result.onlineQuick = ratingMatch[1];
-        const floorMatch = text.match(/floor[:\s]*(\d{3,4})/i);
-        if (floorMatch) result.onlineQuickFloor = floorMatch[1];
-      }
-      
-      // Online Blitz
-      if (boxText.includes('online-blitz') || (boxText.includes('online') && boxText.includes('blitz'))) {
-        const ratingMatch = text.match(/(\d{3,4})/);
-        if (ratingMatch) result.onlineBlitz = ratingMatch[1];
-        const floorMatch = text.match(/floor[:\s]*(\d{3,4})/i);
-        if (floorMatch) result.onlineBlitzFloor = floorMatch[1];
-      }
-    });
-    
-    // Extract Rankings
-    const rankingSection = document.querySelector('[class*="ranking"], [class*="Ranking"]');
-    if (rankingSection) {
-      const rankingText = rankingSection.textContent || '';
-      
-      // Overall Ranking
-      if (rankingText.includes('OVERALL') || rankingText.includes('Overall')) {
-        const overallMatch = rankingText.match(/(\d{1,3}(?:,\d{3})*)\s+out of\s+(\d{1,3}(?:,\d{3})*)/i);
-        if (overallMatch) {
-          result.overallRank = overallMatch[1].replace(/,/g, '');
-          result.overallTotal = overallMatch[2].replace(/,/g, '');
-        }
-        const percentileMatch = rankingText.match(/(\d{1,2})(?:st|nd|rd|th)\s+percentile/i);
-        if (percentileMatch) result.overallPercentile = percentileMatch[1];
-      }
-      
-      // State Ranking - look for state name patterns
-      const stateMatch = rankingText.match(/([A-Z\s]+)\s+(\d{1,3}(?:,\d{3})*)\s+out of\s+(\d{1,3}(?:,\d{3})*)/i);
-      if (stateMatch && !stateMatch[1].includes('OVERALL')) {
-        result.stateName = stateMatch[1].trim();
-        result.stateRank = stateMatch[2].replace(/,/g, '');
-        result.stateTotal = stateMatch[3].replace(/,/g, '');
-        
-        // Find percentile for state
-        const statePercentileMatch = rankingText.match(/(\d{1,2})(?:st|nd|rd|th)\s+percentile/i);
-        if (statePercentileMatch) result.statePercentile = statePercentileMatch[1];
+  // Get HTML content and parse in Node.js (avoids browser context issues)
+  const html = await page.content();
+  // Extract text content safely - use simple string evaluation
+  const bodyText = await page.evaluate(() => {
+    return document.body ? document.body.innerText || document.body.textContent || '' : '';
+  });
+  
+  // Parse data from HTML/text in Node.js context
+  const result: ScrapedUSCFData = {};
+  
+  // Extract membership info from text
+  const membershipMatch = bodyText.match(/ID:\s*(\d+).*?Status:\s*[•·]\s*(Active|Expired|Inactive).*?Gender:\s*([MF]).*?Expires:\s*(\d{4}-\d{2}-\d{2}).*?Updated:\s*(\d{4}-\d{2}-\d{2})/is);
+  if (membershipMatch) {
+    result.membershipId = membershipMatch[1];
+    result.status = membershipMatch[2];
+    result.gender = membershipMatch[3];
+    result.expires = membershipMatch[4];
+    result.updated = membershipMatch[5];
+  }
+  
+  // Extract FIDE info
+  const fideMatch = bodyText.match(/FIDE:\s*(\d+)\s+([A-Z]{2,3})/i);
+  if (fideMatch) {
+    result.fideId = fideMatch[1];
+    result.fideCountry = fideMatch[2];
+  }
+  
+  // Extract ratings - look for patterns in the text
+  // Regular Rating
+  const regularMatch = bodyText.match(/REGULAR[\s\S]{0,200}?(\d{3,4})(?:\s+FLOOR[\s:]*(\d{3,4}))?/i);
+  if (regularMatch) {
+    result.regular = regularMatch[1];
+    if (regularMatch[2]) result.regularFloor = regularMatch[2];
+  }
+  
+  // Quick Rating
+  const quickMatch = bodyText.match(/QUICK[\s\S]{0,200}?(\d{3,4})(?:\s+FLOOR[\s:]*(\d{3,4}))?/i);
+  if (quickMatch) {
+    result.quick = quickMatch[1];
+    if (quickMatch[2]) result.quickFloor = quickMatch[2];
+  }
+  
+  // Blitz Rating
+  const blitzMatch = bodyText.match(/BLITZ[\s\S]{0,200}?(\d{3,4})(?:\s+FLOOR[\s:]*(\d{3,4}))?/i);
+  if (blitzMatch) {
+    result.blitz = blitzMatch[1];
+    if (blitzMatch[2]) result.blitzFloor = blitzMatch[2];
+  }
+  
+  // Online Regular
+  const onlineRegularMatch = bodyText.match(/ONLINE-REGULAR[\s\S]{0,200}?(\d{3,4})\s*\/\s*(\d+)(?:\s+FLOOR[\s:]*(\d{3,4}))?/i);
+  if (onlineRegularMatch) {
+    result.onlineRegular = onlineRegularMatch[1];
+    result.onlineRegularGames = onlineRegularMatch[2];
+    if (onlineRegularMatch[3]) result.onlineRegularFloor = onlineRegularMatch[3];
+  }
+  
+  // Online Quick
+  const onlineQuickMatch = bodyText.match(/ONLINE-QUICK[\s\S]{0,200}?(\d{3,4})(?:\s+FLOOR[\s:]*(\d{3,4}))?/i);
+  if (onlineQuickMatch) {
+    result.onlineQuick = onlineQuickMatch[1];
+    if (onlineQuickMatch[2]) result.onlineQuickFloor = onlineQuickMatch[2];
+  }
+  
+  // Online Blitz
+  const onlineBlitzMatch = bodyText.match(/ONLINE-BLITZ[\s\S]{0,200}?(\d{3,4})(?:\s+FLOOR[\s:]*(\d{3,4}))?/i);
+  if (onlineBlitzMatch) {
+    result.onlineBlitz = onlineBlitzMatch[1];
+    if (onlineBlitzMatch[2]) result.onlineBlitzFloor = onlineBlitzMatch[2];
+  }
+  
+  // Extract Rankings
+  const rankingPattern = /(\d{1,3}(?:,\d{3})*)\s+out of\s+(\d{1,3}(?:,\d{3})*)/g;
+  const rankingMatches = Array.from(bodyText.matchAll(rankingPattern));
+  
+  if (rankingMatches.length > 0) {
+    // First match is usually overall
+    const overallContext = bodyText.substring(Math.max(0, rankingMatches[0].index! - 100), rankingMatches[0].index! + 200);
+    if (overallContext.toUpperCase().includes('OVERALL')) {
+      result.overallRank = rankingMatches[0][1].replace(/,/g, '');
+      result.overallTotal = rankingMatches[0][2].replace(/,/g, '');
+    } else {
+      // Try to find overall in a different way
+      const overallSection = bodyText.match(/OVERALL[\s\S]{0,300}?(\d{1,3}(?:,\d{3})*)\s+out of\s+(\d{1,3}(?:,\d{3})*)/i);
+      if (overallSection) {
+        result.overallRank = overallSection[1].replace(/,/g, '');
+        result.overallTotal = overallSection[2].replace(/,/g, '');
+      } else if (rankingMatches[0]) {
+        result.overallRank = rankingMatches[0][1].replace(/,/g, '');
+        result.overallTotal = rankingMatches[0][2].replace(/,/g, '');
       }
     }
     
-    // Alternative: Try to find rankings by looking for large numbers with "out of" pattern
-    const allText = document.body.textContent || '';
-    const rankingPattern = /(\d{1,3}(?:,\d{3})*)\s+out of\s+(\d{1,3}(?:,\d{3})*)/g;
-    const matches = Array.from(allText.matchAll(rankingPattern));
-    
-    if (matches.length > 0 && !result.overallRank) {
-      result.overallRank = matches[0][1].replace(/,/g, '');
-      result.overallTotal = matches[0][2].replace(/,/g, '');
+    // Second match or state-specific match
+    if (rankingMatches.length > 1) {
+      const stateContext = bodyText.substring(Math.max(0, rankingMatches[1].index! - 100), rankingMatches[1].index! + 200);
+      const stateNameMatch = stateContext.match(/([A-Z\s]{3,30})\s+(\d{1,3}(?:,\d{3})*)\s+out of/i);
+      if (stateNameMatch && !stateNameMatch[1].includes('OVERALL')) {
+        result.stateName = stateNameMatch[1].trim();
+        result.stateRank = rankingMatches[1][1].replace(/,/g, '');
+        result.stateTotal = rankingMatches[1][2].replace(/,/g, '');
+      }
     }
-    
-    if (matches.length > 1 && !result.stateRank) {
-      result.stateRank = matches[1][1].replace(/,/g, '');
-      result.stateTotal = matches[1][2].replace(/,/g, '');
-    }
-    
-    // Extract percentile from text
-    const percentileMatches = Array.from(allText.matchAll(/(\d{1,2})(?:st|nd|rd|th)\s+percentile/gi));
-    if (percentileMatches.length > 0 && !result.overallPercentile) {
-      result.overallPercentile = percentileMatches[0][1];
-    }
-    if (percentileMatches.length > 1 && !result.statePercentile) {
-      result.statePercentile = percentileMatches[1][1];
-    }
-    
-    return result;
-  }) as ScrapedUSCFData;
+  }
+  
+  // Extract percentiles
+  const percentilePattern = /(\d{1,2})(?:st|nd|rd|th)\s+percentile/gi;
+  const percentileMatches = Array.from(bodyText.matchAll(percentilePattern));
+  if (percentileMatches.length > 0) {
+    result.overallPercentile = percentileMatches[0][1];
+  }
+  if (percentileMatches.length > 1) {
+    result.statePercentile = percentileMatches[1][1];
+  }
+  
+  const data = result;
   
   // If direct extraction didn't work well, use DeepSeek as fallback
   if (!data.regular && !data.quick && !data.blitz) {
