@@ -244,8 +244,8 @@ export default function UserDashboardPage() {
                               <p className="text-lg font-bold text-gray-400">----</p>
                               <p className="text-[10px] text-gray-400 uppercase tracking-wide font-medium">REGULAR</p>
                             </div>
-                          </div>
-                        )}
+                  </div>
+                )}
                         
                         {/* Quick Rating */}
                         {profile.uscfRatings.quick ? (
@@ -268,8 +268,8 @@ export default function UserDashboardPage() {
                               <p className="text-lg font-bold text-gray-400">----</p>
                               <p className="text-[10px] text-gray-400 uppercase tracking-wide font-medium">QUICK</p>
                             </div>
-                          </div>
-                        )}
+                  </div>
+                )}
                         
                         {/* Blitz Rating */}
                         {profile.uscfRatings.blitz ? (
@@ -292,10 +292,10 @@ export default function UserDashboardPage() {
                               <p className="text-lg font-bold text-gray-400">----</p>
                               <p className="text-[10px] text-gray-400 uppercase tracking-wide font-medium">BLITZ</p>
                             </div>
-                          </div>
-                        )}
-                      </div>
-                      
+                  </div>
+                )}
+              </div>
+
                       {/* Right Column: Online Ratings */}
                       <div className="space-y-1.5">
                         {/* Online Regular */}
@@ -418,18 +418,18 @@ export default function UserDashboardPage() {
                           {profile.uscfRatings.stateTotal && (
                             <p className="text-xs text-gray-600 mb-0.5">
                               out of {parseInt(profile.uscfRatings.stateTotal).toLocaleString()}
-                            </p>
-                          )}
+                      </p>
+                    )}
                           {profile.uscfRatings.statePercentile && (
                             <p className="text-[10px] text-gray-500 italic">
                               {profile.uscfRatings.statePercentile}th percentile
                             </p>
                           )}
                   </div>
-                )}
-                    </div>
+                    )}
                   </div>
-                )}
+                </div>
+              )}
               </div>
 
               {/* Last Synced */}
