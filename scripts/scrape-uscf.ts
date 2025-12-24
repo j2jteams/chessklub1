@@ -348,6 +348,34 @@ async function scrapeUSCFPage(page: Page, uscfId: string): Promise<ScrapedUSCFDa
 }
 
 /**
+ * Remove undefined values from an object (recursively)
+ */
+function removeUndefinedValues(obj: any): any {
+  if (obj === null || obj === undefined) {
+    return undefined;
+  }
+  
+  if (Array.isArray(obj)) {
+    return obj.map(removeUndefinedValues).filter(item => item !== undefined);
+  }
+  
+  if (typeof obj === 'object') {
+    const cleaned: any = {};
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        const value = removeUndefinedValues(obj[key]);
+        if (value !== undefined) {
+          cleaned[key] = value;
+        }
+      }
+    }
+    return cleaned;
+  }
+  
+  return obj;
+}
+
+/**
  * Sync USCF ratings for a single user
  */
 async function syncUserUSCFRatings(uid: string, uscfId: string, browser: Browser): Promise<void> {
@@ -364,13 +392,16 @@ async function syncUserUSCFRatings(uid: string, uscfId: string, browser: Browser
       lastSynced: new Date(),
     };
     
+    // Remove undefined values before saving to Firestore
+    const cleanedRatings = removeUndefinedValues({
+      ...uscfRatings,
+      lastSynced: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    
     // Update Firestore
     const userRef = db.collection('users').doc(uid);
     await userRef.update({
-      uscfRatings: {
-        ...uscfRatings,
-        lastSynced: admin.firestore.FieldValue.serverTimestamp(),
-      },
+      uscfRatings: cleanedRatings,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
     
