@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { EventData } from '@/lib/types';
 import { getEventsByIds } from '@/lib/events';
-import { syncUSCFRatings } from '@/lib/uscfSync';
 import MyCalendar from '@/components/dashboard/MyCalendar';
 
 function SectionWrapper({
@@ -68,8 +67,6 @@ export default function UserDashboardPage() {
   const [savedEvents, setSavedEvents] = useState<EventData[]>([]);
   const [registeredEvents, setRegisteredEvents] = useState<EventData[]>([]);
   const [fetchLoading, setFetchLoading] = useState(false);
-  const [uscfSyncing, setUscfSyncing] = useState(false);
-  const [uscfError, setUscfError] = useState<string | null>(null);
 
   const savedEventIds = useMemo(() => profile?.savedEvents ?? [], [profile]);
   const registeredEventIds = useMemo(() => profile?.registeredEvents ?? [], [profile]);
@@ -97,32 +94,6 @@ export default function UserDashboardPage() {
     loadEvents();
   }, [user, profile, savedEventIds, registeredEventIds, loading, router]);
 
-  // Auto-sync USCF ratings if user has USCF ID but no ratings or stale ratings
-  useEffect(() => {
-    if (!profile || !profile.uscfId || loading) return;
-    
-    // Check if we need to sync (no ratings or ratings older than 7 days)
-    const shouldSync = !profile.uscfRatings || 
-      !profile.uscfRatings.lastSynced ||
-      (Date.now() - new Date(profile.uscfRatings.lastSynced).getTime()) > 7 * 24 * 60 * 60 * 1000;
-
-    if (shouldSync && user && profile.uscfId) {
-      const syncRatings = async () => {
-        setUscfSyncing(true);
-        setUscfError(null);
-        try {
-          await syncUSCFRatings(user.uid, profile.uscfId!);
-          // Reload page to show updated data
-          window.location.reload();
-        } catch (error: any) {
-          setUscfError(error.message || 'Failed to sync USCF ratings');
-        } finally {
-          setUscfSyncing(false);
-        }
-      };
-      syncRatings();
-    }
-  }, [profile, user, loading]);
 
   if (!user || loading) {
     return (
@@ -178,35 +149,7 @@ export default function UserDashboardPage() {
       {/* USCF Ratings Section */}
       {profile?.uscfId && (
         <SectionWrapper title="USCF Ratings" description="Your official USCF ratings and statistics">
-          {uscfSyncing ? (
-            <div className="text-center py-10">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto"></div>
-              <p className="text-sm text-gray-500 mt-2">Syncing USCF ratings...</p>
-            </div>
-          ) : uscfError ? (
-            <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
-              <p className="text-sm">{uscfError}</p>
-              <button
-                onClick={async () => {
-                  if (user && profile?.uscfId) {
-                    setUscfSyncing(true);
-                    setUscfError(null);
-                    try {
-                      await syncUSCFRatings(user.uid, profile.uscfId!);
-                      window.location.reload();
-                    } catch (error: any) {
-                      setUscfError(error.message || 'Failed to sync USCF ratings');
-                    } finally {
-                      setUscfSyncing(false);
-                    }
-                  }
-                }}
-                className="mt-2 text-sm text-red-600 hover:text-red-800 underline"
-              >
-                Try again
-              </button>
-            </div>
-          ) : profile.uscfRatings ? (
+          {profile.uscfRatings ? (
             <div>
               {/* Single Row: Ratings on Left, Rankings on Right */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
