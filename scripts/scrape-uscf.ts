@@ -149,25 +149,11 @@ async function scrapeUSCFPage(page: Page, uscfId: string): Promise<ScrapedUSCFDa
   // Wait for page to fully load
   await page.waitForTimeout(3000);
   
-  // Extract structured data using DOM selectors for better accuracy
-  const pageData = await page.evaluate(() => {
-    const getTextContent = (element: Element | null): string => {
-      return element ? (element.textContent || element.innerText || '').trim() : '';
-    };
-    
-    // Get all text content
-    const bodyText = document.body ? (document.body.innerText || document.body.textContent || '') : '';
-    
-    // Try to find rating sections by looking for specific text patterns
-    // This is more reliable than pure regex on the entire body
-    
-    return {
-      bodyText,
-      html: document.documentElement.outerHTML.substring(0, 50000) // First 50KB for context
-    };
+  // Extract text content safely - avoid page.evaluate() with complex code
+  // Use simple string evaluation to avoid TypeScript compilation issues
+  const bodyText = await page.evaluate(() => {
+    return document.body ? (document.body.innerText || document.body.textContent || '') : '';
   });
-  
-  const bodyText = pageData.bodyText;
   const result: ScrapedUSCFData = {};
   
   // Extract membership info - use more specific pattern
