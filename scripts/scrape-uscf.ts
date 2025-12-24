@@ -140,7 +140,187 @@ function extractRatingFromSection(sectionText: string, minRating: number = 100, 
 }
 
 /**
- * Scrape USCF player page using Playwright with intelligent extraction
+ * Call DeepSeek via OpenRouter to extract structured data from page text
+ */
+async function extractWithDeepSeek(pageText: string): Promise<ScrapedUSCFData> {
+  const openRouterApiKey = process.env.OPENROUTER_API_KEY;
+  
+  if (!openRouterApiKey) {
+    console.log('OPENROUTER_API_KEY not found, skipping DeepSeek extraction');
+    return {};
+  }
+  
+  console.log('Sending page text to DeepSeek for extraction...');
+  
+  // Limit text length to avoid token limits (keep first 15000 chars which should contain all ratings/rankings)
+  const textSnippet = pageText.substring(0, 15000);
+  
+  const prompt = `Extract ALL the following details from this USCF player profile page text:
+
+RATINGS (current rating numbers, NOT floor values):
+- Regular Rating (the main rating number, typically 1000-3000)
+- Regular Floor (if mentioned, typically 100-200)
+- Quick Rating (the main rating number, typically 1000-3000)
+- Quick Floor (if mentioned, typically 100-200)
+- Blitz Rating (the main rating number, can be 500-3000)
+- Blitz Floor (if mentioned, typically 100-200)
+- Online-Regular Rating (format: "rating" or "rating / games")
+- Online-Regular Games (number of games if mentioned)
+- Online-Regular Floor (if mentioned)
+- Online-Quick Rating
+- Online-Quick Floor (if mentioned)
+- Online-Blitz Rating
+- Online-Blitz Floor (if mentioned)
+
+RANKINGS:
+- Overall rank (number only, no commas)
+- Overall total (total players, number only)
+- Overall percentile (number only, e.g., "92" not "92th")
+- State name (full name in ALL CAPS, e.g., "SOUTH CAROLINA")
+- State rank (number only, no commas)
+- State total (total players in state, number only)
+- State percentile (number only)
+
+MEMBERSHIP:
+- Membership ID (number only)
+- Status (Active/Expired/Inactive)
+- Gender (M or F)
+- Expires date (YYYY-MM-DD format)
+- Updated date (YYYY-MM-DD format)
+- FIDE ID (number only)
+- FIDE Country code (2-3 letter code)
+
+Return ONLY valid JSON in this exact format, no explanation or markdown:
+{
+  "regular": "1717",
+  "regularFloor": "1500",
+  "quick": "1695",
+  "quickFloor": "1500",
+  "blitz": "1260",
+  "blitzFloor": "1200",
+  "onlineRegular": "838",
+  "onlineRegularGames": "20",
+  "onlineRegularFloor": "100",
+  "onlineQuick": "",
+  "onlineQuickFloor": "",
+  "onlineBlitz": "",
+  "onlineBlitzFloor": "",
+  "overallRank": "6997",
+  "overallTotal": "83133",
+  "overallPercentile": "92",
+  "stateName": "SOUTH CAROLINA",
+  "stateRank": "56",
+  "stateTotal": "684",
+  "statePercentile": "92",
+  "membershipId": "30025270",
+  "status": "Active",
+  "gender": "M",
+  "expires": "2026-07-31",
+  "updated": "2025-10-01",
+  "fideId": "39974847",
+  "fideCountry": "USA"
+}
+
+If any field is not available or not found, use empty string "" for strings or omit the field.
+IMPORTANT: Extract the ACTUAL RATING numbers, not floor values. Ratings are typically 1000+ for Regular/Quick, 500+ for Blitz, 100+ for Online ratings.
+
+Page text:
+${textSnippet}`;
+
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openRouterApiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://github.com/j2jteams/chessklub1',
+        'X-Title': 'ChessKlub USCF Scraper'
+      },
+      body: JSON.stringify({
+        model: 'deepseek/deepseek-chat',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a data extraction assistant. Extract structured data from USCF player profile pages and return ONLY valid JSON, no explanations.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.1,
+        max_tokens: 2000
+      }),
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('OpenRouter API error:', response.status, errorText);
+      return {};
+    }
+    
+    const data = await response.json();
+    const extractedContent = data.choices?.[0]?.message?.content;
+    
+    if (!extractedContent) {
+      console.error('No content in DeepSeek response');
+      return {};
+    }
+    
+    // Extract JSON from response (might be wrapped in markdown code blocks)
+    const jsonMatch = extractedContent.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/) || 
+                     extractedContent.match(/(\{[\s\S]*\})/);
+    
+    if (!jsonMatch) {
+      console.error('No JSON found in DeepSeek response');
+      console.error('Response:', extractedContent.substring(0, 500));
+      return {};
+    }
+    
+    const extractedJson = JSON.parse(jsonMatch[1]);
+    console.log('✓ DeepSeek extraction successful');
+    console.log('Extracted data:', JSON.stringify(extractedJson, null, 2));
+    
+    // Convert to ScrapedUSCFData format
+    const result: ScrapedUSCFData = {
+      regular: extractedJson.regular || undefined,
+      regularFloor: extractedJson.regularFloor || undefined,
+      quick: extractedJson.quick || undefined,
+      quickFloor: extractedJson.quickFloor || undefined,
+      blitz: extractedJson.blitz || undefined,
+      blitzFloor: extractedJson.blitzFloor || undefined,
+      onlineRegular: extractedJson.onlineRegular || undefined,
+      onlineRegularGames: extractedJson.onlineRegularGames || undefined,
+      onlineRegularFloor: extractedJson.onlineRegularFloor || undefined,
+      onlineQuick: extractedJson.onlineQuick || undefined,
+      onlineQuickFloor: extractedJson.onlineQuickFloor || undefined,
+      onlineBlitz: extractedJson.onlineBlitz || undefined,
+      onlineBlitzFloor: extractedJson.onlineBlitzFloor || undefined,
+      overallRank: extractedJson.overallRank || undefined,
+      overallTotal: extractedJson.overallTotal || undefined,
+      overallPercentile: extractedJson.overallPercentile || undefined,
+      stateName: extractedJson.stateName || undefined,
+      stateRank: extractedJson.stateRank || undefined,
+      stateTotal: extractedJson.stateTotal || undefined,
+      statePercentile: extractedJson.statePercentile || undefined,
+      membershipId: extractedJson.membershipId || undefined,
+      status: extractedJson.status || undefined,
+      gender: extractedJson.gender || undefined,
+      expires: extractedJson.expires || undefined,
+      updated: extractedJson.updated || undefined,
+      fideId: extractedJson.fideId || undefined,
+      fideCountry: extractedJson.fideCountry || undefined,
+    };
+    
+    return result;
+  } catch (error) {
+    console.error('DeepSeek extraction failed:', error);
+    return {};
+  }
+}
+
+/**
+ * Scrape USCF player page using Playwright and DeepSeek
  */
 async function scrapeUSCFPage(page: Page, uscfId: string): Promise<ScrapedUSCFData> {
   const url = `https://ratings.uschess.org/player/${uscfId}`;
@@ -154,213 +334,15 @@ async function scrapeUSCFPage(page: Page, uscfId: string): Promise<ScrapedUSCFDa
   // Wait for page to fully load
   await page.waitForTimeout(3000);
   
-  // Extract text content safely - avoid page.evaluate() with complex code
-  // Use simple string evaluation to avoid TypeScript compilation issues
+  // Extract text content - this is what we'll send to DeepSeek
   const bodyText = await page.evaluate(() => {
     return document.body ? (document.body.innerText || document.body.textContent || '') : '';
   });
-  const result: ScrapedUSCFData = {};
   
-  // Extract membership info - use more specific pattern
-  const membershipSection = bodyText.match(/ID:[\s\S]{0,500}?Updated:[\s\S]{0,200}/i);
-  if (membershipSection) {
-    const memText = membershipSection[0];
-    const idMatch = memText.match(/ID:\s*(\d+)/i);
-    const statusMatch = memText.match(/Status:\s*[•·\s]*([A-Za-z]+)/i);
-    const genderMatch = memText.match(/Gender:\s*([MF])/i);
-    const expiresMatch = memText.match(/Expires:\s*(\d{4}-\d{2}-\d{2})/i);
-    const updatedMatch = memText.match(/Updated:\s*(\d{4}-\d{2}-\d{2})/i);
-    
-    if (idMatch) result.membershipId = idMatch[1];
-    if (statusMatch) result.status = statusMatch[1];
-    if (genderMatch) result.gender = genderMatch[1];
-    if (expiresMatch) result.expires = expiresMatch[1];
-    if (updatedMatch) result.updated = updatedMatch[1];
-  }
+  console.log(`Extracted page text (${bodyText.length} characters)`);
   
-  // Extract FIDE info
-  const fideMatch = bodyText.match(/FIDE:\s*(\d+)\s+([A-Z]{2,3})/i);
-  if (fideMatch) {
-    result.fideId = fideMatch[1];
-    result.fideCountry = fideMatch[2];
-  }
-  
-  // Extract ratings using section-aware extraction
-  // Find the RATINGS section first to avoid cross-contamination
-  const ratingsSectionMatch = bodyText.match(/(?:RATINGS?|Rating)[\s\S]{0,2000}?(?=(?:RANKING|Ranking|OVERALL|Membership|FIDE)|$)/i);
-  const ratingsSection = ratingsSectionMatch ? ratingsSectionMatch[0] : bodyText;
-  
-  // Extract each rating type from the ratings section only
-  // This prevents Regular from matching Quick's number and vice versa
-  
-  // Extract ratings using simpler, more direct patterns
-  // Regular Rating - look for REGULAR followed by a 4-digit number
-  const regularMatch = ratingsSection.match(/REGULAR[^\d]*?(\d{4})(?![^\d]*FLOOR)[^\d]*?(?:FLOOR[^\d]*?(\d{1,3}))?/i);
-  if (regularMatch) {
-    const ratingNum = parseInt(regularMatch[1]);
-    if (ratingNum >= 1000 && ratingNum <= 3000) {
-      result.regular = regularMatch[1];
-      if (regularMatch[2] && parseInt(regularMatch[2]) <= 500) {
-        result.regularFloor = regularMatch[2];
-      }
-    }
-  }
-  
-  // Quick Rating - look for QUICK followed by a 4-digit number
-  const quickMatch = ratingsSection.match(/QUICK[^\d]*?(\d{4})(?![^\d]*FLOOR)[^\d]*?(?:FLOOR[^\d]*?(\d{1,3}))?/i);
-  if (quickMatch) {
-    const ratingNum = parseInt(quickMatch[1]);
-    if (ratingNum >= 1000 && ratingNum <= 3000) {
-      result.quick = quickMatch[1];
-      if (quickMatch[2] && parseInt(quickMatch[2]) <= 500) {
-        result.quickFloor = quickMatch[2];
-      }
-    }
-  }
-  
-  // Blitz Rating - can be 3 or 4 digits
-  const blitzMatch = ratingsSection.match(/BLITZ[^\d]*?(\d{3,4})(?![^\d]*FLOOR)[^\d]*?(?:FLOOR[^\d]*?(\d{1,3}))?/i);
-  if (blitzMatch) {
-    const ratingNum = parseInt(blitzMatch[1]);
-    if (ratingNum >= 500 && ratingNum <= 3000) {
-      result.blitz = blitzMatch[1];
-      if (blitzMatch[2] && parseInt(blitzMatch[2]) <= 500) {
-        result.blitzFloor = blitzMatch[2];
-      }
-    }
-  }
-  
-  // Online Regular - format: "838 / 20" (rating / games)
-  const onlineRegularMatch = ratingsSection.match(/ONLINE[\s-]?REGULAR[^\d]*?(\d{3,4})(?:\s*\/\s*(\d+))?[^\d]*?(?:FLOOR[^\d]*?(\d{1,3}))?/i);
-  if (onlineRegularMatch) {
-    const ratingNum = parseInt(onlineRegularMatch[1]);
-    if (ratingNum >= 100 && ratingNum <= 3000) {
-      result.onlineRegular = onlineRegularMatch[1];
-      if (onlineRegularMatch[2]) {
-        result.onlineRegularGames = onlineRegularMatch[2];
-      }
-      if (onlineRegularMatch[3] && parseInt(onlineRegularMatch[3]) <= 500) {
-        result.onlineRegularFloor = onlineRegularMatch[3];
-      }
-    }
-  }
-  
-  // Online Quick
-  const onlineQuickMatch = ratingsSection.match(/ONLINE[\s-]?QUICK[^\d]*?(\d{3,4})[^\d]*?(?:FLOOR[^\d]*?(\d{1,3}))?/i);
-  if (onlineQuickMatch) {
-    const ratingNum = parseInt(onlineQuickMatch[1]);
-    if (ratingNum >= 100 && ratingNum <= 3000) {
-      result.onlineQuick = onlineQuickMatch[1];
-      if (onlineQuickMatch[2] && parseInt(onlineQuickMatch[2]) <= 500) {
-        result.onlineQuickFloor = onlineQuickMatch[2];
-      }
-    }
-  }
-  
-  // Online Blitz
-  const onlineBlitzMatch = ratingsSection.match(/ONLINE[\s-]?BLITZ[^\d]*?(\d{3,4})[^\d]*?(?:FLOOR[^\d]*?(\d{1,3}))?/i);
-  if (onlineBlitzMatch) {
-    const ratingNum = parseInt(onlineBlitzMatch[1]);
-    if (ratingNum >= 100 && ratingNum <= 3000) {
-      result.onlineBlitz = onlineBlitzMatch[1];
-      if (onlineBlitzMatch[2] && parseInt(onlineBlitzMatch[2]) <= 500) {
-        result.onlineBlitzFloor = onlineBlitzMatch[2];
-      }
-    }
-  }
-  
-  // Extract Rankings - find RANKING section first
-  const rankingSectionMatch = bodyText.match(/(?:RANKING|Ranking)[\s\S]{0,2000}?(?=(?:Membership|FIDE|$))/i);
-  const rankingSection = rankingSectionMatch ? rankingSectionMatch[0] : bodyText;
-  
-  // Overall Ranking - must be in ranking section
-  const overallMatch = rankingSection.match(/OVERALL[\s\S]{0,300}?(\d{1,3}(?:,\d{3})*)\s+out of\s+(\d{1,3}(?:,\d{3})*)/i);
-  if (overallMatch) {
-    result.overallRank = overallMatch[1].replace(/,/g, '');
-    result.overallTotal = overallMatch[2].replace(/,/g, '');
-    
-    // Extract percentile - look in the overall section context
-    const overallContext = rankingSection.substring(
-      Math.max(0, rankingSection.indexOf(overallMatch[0]) - 50),
-      rankingSection.indexOf(overallMatch[0]) + overallMatch[0].length + 100
-    );
-    const percentileMatch = overallContext.match(/(\d{1,2})(?:st|nd|rd|th)\s+percentile/i);
-    if (percentileMatch) {
-      result.overallPercentile = percentileMatch[1];
-    }
-  }
-  
-  // State Ranking - use validated state names
-  // First, find all "X out of Y" patterns in ranking section
-  const allRankingPattern = /(\d{1,3}(?:,\d{3})*)\s+out of\s+(\d{1,3}(?:,\d{3})*)/g;
-  const allRankings = Array.from(rankingSection.matchAll(allRankingPattern));
-  
-  if (allRankings.length >= 2) {
-    // Second match should be the state ranking (first is overall)
-    const stateRankMatch = allRankings[1];
-    const stateContextStart = Math.max(0, stateRankMatch.index! - 300);
-    const stateContextEnd = stateRankMatch.index! + stateRankMatch[0].length + 100;
-    const stateContext = rankingSection.substring(stateContextStart, stateContextEnd);
-    
-    // Extract state name - look for known state names only
-    let stateName: string | undefined;
-    for (const state of US_STATES) {
-      // Check if state name appears in context before the ranking
-      const stateIndex = stateContext.toUpperCase().indexOf(state);
-      const rankIndex = stateContext.indexOf(stateRankMatch[0]);
-      if (stateIndex !== -1 && stateIndex < rankIndex) {
-        stateName = state;
-        break;
-      }
-    }
-    
-    // If no full state name found, try to find it with pattern but validate it
-    if (!stateName) {
-      const stateNamePattern = /([A-Z]{2,}\s+[A-Z]{2,}|[A-Z]{3,})/g;
-      const stateNameMatches = Array.from(stateContext.matchAll(stateNamePattern));
-      
-      for (const match of stateNameMatches) {
-        const candidate = match[1].trim().toUpperCase();
-        // Validate: must be a known state, not OVERALL, not a rating type
-        if (US_STATES.has(candidate) && 
-            !candidate.includes('OVERALL') && 
-            !['REGULAR', 'QUICK', 'BLITZ', 'FLOOR'].includes(candidate)) {
-          stateName = candidate;
-          break;
-        }
-      }
-    }
-    
-    if (stateName) {
-      result.stateName = stateName;
-      result.stateRank = stateRankMatch[1].replace(/,/g, '');
-      result.stateTotal = stateRankMatch[2].replace(/,/g, '');
-      
-      // Extract percentile
-      const percentileMatch = stateContext.match(/(\d{1,2})(?:st|nd|rd|th)\s+percentile/i);
-      if (percentileMatch) {
-        result.statePercentile = percentileMatch[1];
-      }
-    }
-  }
-  
-  // Fallback: If we have state rank but no name, try state abbreviation
-  if (result.stateRank && !result.stateName) {
-    const stateAbbrMap: { [key: string]: string } = {
-      'SC': 'SOUTH CAROLINA', 'NC': 'NORTH CAROLINA', 'CA': 'CALIFORNIA',
-      'NY': 'NEW YORK', 'TX': 'TEXAS', 'FL': 'FLORIDA', 'IL': 'ILLINOIS',
-      'GA': 'GEORGIA', 'VA': 'VIRGINIA', 'PA': 'PENNSYLVANIA', 'OH': 'OHIO',
-      'MI': 'MICHIGAN', 'MA': 'MASSACHUSETTS', 'WA': 'WASHINGTON', 'OR': 'OREGON'
-    };
-    
-    const stateAbbrMatch = bodyText.match(/ID:\s*\d+\s+([A-Z]{2})\b/);
-    if (stateAbbrMatch && stateAbbrMap[stateAbbrMatch[1]]) {
-      result.stateName = stateAbbrMap[stateAbbrMatch[1]];
-    }
-  }
-  
-  // Log what we extracted for debugging
-  console.log('Extracted data:', JSON.stringify(result, null, 2));
+  // Use DeepSeek to extract structured data
+  const result = await extractWithDeepSeek(bodyText);
   
   return result;
 }
