@@ -1,4 +1,4 @@
-name: Sync USCF Ratings
+name: Sync Chess Ratings
 
 on:
   # Run daily at 2 AM UTC
@@ -46,6 +46,12 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: npm run sync-uscf
+      
+      - name: Run FIDE ratings sync
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: npm run sync-fide
       
       - name: Cleanup
         if: always()

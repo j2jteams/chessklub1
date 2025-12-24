@@ -63,7 +63,7 @@ function EventsGrid({ events, emptyLabel }: { events: EventData[]; emptyLabel: s
 }
 
 export default function UserDashboardPage() {
-  const { user, profile, role, loading } = useAuth();
+  const { user, profile, playerRatings, role, loading } = useAuth();
   const router = useRouter();
   const [savedEvents, setSavedEvents] = useState<EventData[]>([]);
   const [registeredEvents, setRegisteredEvents] = useState<EventData[]>([]);
@@ -119,7 +119,7 @@ export default function UserDashboardPage() {
       setUscfId(profile.uscfId || '');
       setLichessUsername(profile.lichessUsername || '');
       // FIDE ID can be in profile or synced from USCF ratings
-      setFideId(profile.fideId || profile.uscfRatings?.fideId || '');
+      setFideId(profile.fideId || playerRatings?.uschessRatings?.fideId || '');
     }
   }, [profile]);
 
@@ -334,13 +334,13 @@ export default function UserDashboardPage() {
               )}
             </div>
 
-            {profile?.uscfId && profile?.uscfRatings ? (
+            {profile?.uscfId && playerRatings?.uschessRatings && Object.keys(playerRatings.uschessRatings).length > 0 ? (
             <div>
               {/* Single Row: Ratings on Left, Rankings on Right */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 {/* Left: RATINGS Section (2 columns) */}
-                {(profile.uscfRatings.regular || profile.uscfRatings.quick || profile.uscfRatings.blitz || 
-                  profile.uscfRatings.onlineRegular || profile.uscfRatings.onlineQuick || profile.uscfRatings.onlineBlitz) && (
+                {(playerRatings?.uschessRatings?.regular || playerRatings?.uschessRatings?.quick || playerRatings?.uschessRatings?.blitz || 
+                  playerRatings?.uschessRatings?.onlineRegular || playerRatings?.uschessRatings?.onlineQuick || playerRatings?.uschessRatings?.onlineBlitz) && (
                   <div className="lg:col-span-2">
                     <div className="flex items-center gap-2 mb-3">
                       <h3 className="text-sm font-semibold text-gray-900">RATINGS</h3>
@@ -352,16 +352,16 @@ export default function UserDashboardPage() {
                       {/* Left Column: Standard Ratings */}
                       <div className="space-y-1.5">
                         {/* Regular Rating */}
-                        {profile.uscfRatings.regular ? (
+                        {playerRatings?.uschessRatings?.regular ? (
                           <div className="bg-white border border-gray-200 rounded p-2 relative overflow-hidden hover:shadow-sm transition-shadow">
                             <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-500"></div>
                             <div className="pl-2 flex items-center justify-between">
                               <div>
-                                <p className="text-lg font-bold text-gray-900">{profile.uscfRatings.regular}</p>
+                                <p className="text-lg font-bold text-gray-900">{playerRatings.uschessRatings.regular}</p>
                                 <p className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">REGULAR</p>
                               </div>
-                              {profile.uscfRatings.regularFloor && (
-                                <p className="text-[10px] text-gray-400">{profile.uscfRatings.regularFloor}</p>
+                              {playerRatings.uschessRatings.regularFloor && (
+                                <p className="text-[10px] text-gray-400">{playerRatings.uschessRatings.regularFloor}</p>
                               )}
                             </div>
                           </div>
@@ -376,16 +376,16 @@ export default function UserDashboardPage() {
                         )}
                         
                         {/* Quick Rating */}
-                        {profile.uscfRatings.quick ? (
+                        {playerRatings?.uschessRatings?.quick ? (
                           <div className="bg-white border border-gray-200 rounded p-2 relative overflow-hidden hover:shadow-sm transition-shadow">
                             <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-500"></div>
                             <div className="pl-2 flex items-center justify-between">
                               <div>
-                                <p className="text-lg font-bold text-gray-900">{profile.uscfRatings.quick}</p>
+                                <p className="text-lg font-bold text-gray-900">{playerRatings.uschessRatings.quick}</p>
                                 <p className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">QUICK</p>
                               </div>
-                              {profile.uscfRatings.quickFloor && (
-                                <p className="text-[10px] text-gray-400">{profile.uscfRatings.quickFloor}</p>
+                              {playerRatings.uschessRatings.quickFloor && (
+                                <p className="text-[10px] text-gray-400">{playerRatings.uschessRatings.quickFloor}</p>
                               )}
                             </div>
                           </div>
@@ -400,16 +400,16 @@ export default function UserDashboardPage() {
                         )}
                         
                         {/* Blitz Rating */}
-                        {profile.uscfRatings.blitz ? (
+                        {playerRatings?.uschessRatings?.blitz ? (
                           <div className="bg-white border border-gray-200 rounded p-2 relative overflow-hidden hover:shadow-sm transition-shadow">
                             <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-yellow-400"></div>
                             <div className="pl-2 flex items-center justify-between">
                               <div>
-                                <p className="text-lg font-bold text-gray-900">{profile.uscfRatings.blitz}</p>
+                                <p className="text-lg font-bold text-gray-900">{playerRatings.uschessRatings.blitz}</p>
                                 <p className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">BLITZ</p>
                               </div>
-                              {profile.uscfRatings.blitzFloor && (
-                                <p className="text-[10px] text-gray-400">{profile.uscfRatings.blitzFloor}</p>
+                              {playerRatings.uschessRatings.blitzFloor && (
+                                <p className="text-[10px] text-gray-400">{playerRatings.uschessRatings.blitzFloor}</p>
                               )}
                             </div>
                           </div>
@@ -427,21 +427,21 @@ export default function UserDashboardPage() {
                       {/* Right Column: Online Ratings */}
                       <div className="space-y-1.5">
                         {/* Online Regular */}
-                        {profile.uscfRatings.onlineRegular ? (
+                        {playerRatings?.uschessRatings?.onlineRegular ? (
                           <div className="bg-white border border-gray-200 rounded p-2 relative overflow-hidden hover:shadow-sm transition-shadow">
                             <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-500"></div>
                             <div className="pl-2 flex items-center justify-between">
                               <div>
                                 <p className="text-lg font-bold text-gray-900">
-                                  {profile.uscfRatings.onlineRegular}
-                                  {profile.uscfRatings.onlineRegularGames && (
-                                    <span className="text-xs font-normal text-gray-500 ml-1">/ {profile.uscfRatings.onlineRegularGames}</span>
+                                  {playerRatings.uschessRatings.onlineRegular}
+                                  {playerRatings.uschessRatings.onlineRegularGames && (
+                                    <span className="text-xs font-normal text-gray-500 ml-1">/ {playerRatings.uschessRatings.onlineRegularGames}</span>
                                   )}
                                 </p>
                                 <p className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">ONLINE-REGULAR</p>
                               </div>
-                              {profile.uscfRatings.onlineRegularFloor && (
-                                <p className="text-[10px] text-gray-400">{profile.uscfRatings.onlineRegularFloor}</p>
+                              {playerRatings.uschessRatings.onlineRegularFloor && (
+                                <p className="text-[10px] text-gray-400">{playerRatings.uschessRatings.onlineRegularFloor}</p>
                               )}
                             </div>
                           </div>
@@ -456,16 +456,16 @@ export default function UserDashboardPage() {
                         )}
                         
                         {/* Online Quick */}
-                        {profile.uscfRatings.onlineQuick ? (
+                        {playerRatings?.uschessRatings?.onlineQuick ? (
                           <div className="bg-white border border-gray-200 rounded p-2 relative overflow-hidden hover:shadow-sm transition-shadow">
                             <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-500"></div>
                             <div className="pl-2 flex items-center justify-between">
                               <div>
-                                <p className="text-lg font-bold text-gray-900">{profile.uscfRatings.onlineQuick}</p>
+                                <p className="text-lg font-bold text-gray-900">{playerRatings.uschessRatings.onlineQuick}</p>
                                 <p className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">ONLINE-QUICK</p>
                               </div>
-                              {profile.uscfRatings.onlineQuickFloor && (
-                                <p className="text-[10px] text-gray-400">{profile.uscfRatings.onlineQuickFloor}</p>
+                              {playerRatings.uschessRatings.onlineQuickFloor && (
+                                <p className="text-[10px] text-gray-400">{playerRatings.uschessRatings.onlineQuickFloor}</p>
                               )}
                             </div>
                           </div>
@@ -480,16 +480,16 @@ export default function UserDashboardPage() {
                         )}
                         
                         {/* Online Blitz */}
-                        {profile.uscfRatings.onlineBlitz ? (
+                        {playerRatings?.uschessRatings?.onlineBlitz ? (
                           <div className="bg-white border border-gray-200 rounded p-2 relative overflow-hidden hover:shadow-sm transition-shadow">
                             <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-yellow-400"></div>
                             <div className="pl-2 flex items-center justify-between">
                               <div>
-                                <p className="text-lg font-bold text-gray-900">{profile.uscfRatings.onlineBlitz}</p>
+                                <p className="text-lg font-bold text-gray-900">{playerRatings.uschessRatings.onlineBlitz}</p>
                                 <p className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">ONLINE-BLITZ</p>
                               </div>
-                              {profile.uscfRatings.onlineBlitzFloor && (
-                                <p className="text-[10px] text-gray-400">{profile.uscfRatings.onlineBlitzFloor}</p>
+                              {playerRatings.uschessRatings.onlineBlitzFloor && (
+                                <p className="text-[10px] text-gray-400">{playerRatings.uschessRatings.onlineBlitzFloor}</p>
                               )}
                             </div>
                           </div>
@@ -508,7 +508,7 @@ export default function UserDashboardPage() {
                 )}
 
                 {/* Right: RANKING Section */}
-                {(profile.uscfRatings.overallRank || profile.uscfRatings.stateRank) && (
+                {(playerRatings?.uschessRatings?.overallRank || playerRatings?.uschessRatings?.stateRank) && (
                   <div>
                     <div className="flex items-center gap-2 mb-3">
                       <h3 className="text-sm font-semibold text-gray-900">RANKING</h3>
@@ -517,40 +517,40 @@ export default function UserDashboardPage() {
                       </svg>
                     </div>
                     <div className="space-y-2">
-                      {profile.uscfRatings.overallRank && (
+                      {playerRatings?.uschessRatings?.overallRank && (
                         <div className="bg-white border border-gray-200 rounded p-3 hover:shadow-sm transition-shadow">
                           <p className="text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">OVERALL</p>
                           <p className="text-xl font-bold text-gray-900 mb-1">
-                            {parseInt(profile.uscfRatings.overallRank).toLocaleString()}
+                            {parseInt(playerRatings.uschessRatings.overallRank).toLocaleString()}
                           </p>
-                          {profile.uscfRatings.overallTotal && (
+                          {playerRatings.uschessRatings.overallTotal && (
                             <p className="text-xs text-gray-600 mb-0.5">
-                              out of {parseInt(profile.uscfRatings.overallTotal).toLocaleString()}
+                              out of {parseInt(playerRatings.uschessRatings.overallTotal).toLocaleString()}
                             </p>
                           )}
-                          {profile.uscfRatings.overallPercentile && (
+                          {playerRatings.uschessRatings.overallPercentile && (
                             <p className="text-[10px] text-gray-500 italic">
-                              {profile.uscfRatings.overallPercentile}th percentile
+                              {playerRatings.uschessRatings.overallPercentile}th percentile
                             </p>
                           )}
                         </div>
                       )}
-                      {profile.uscfRatings.stateRank && (
+                      {playerRatings?.uschessRatings?.stateRank && (
                         <div className="bg-white border border-gray-200 rounded p-3 hover:shadow-sm transition-shadow">
                           <p className="text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
-                            {profile.uscfRatings.stateName || 'STATE'}
+                            {playerRatings.uschessRatings.stateName || 'STATE'}
                           </p>
                           <p className="text-xl font-bold text-gray-900 mb-1">
-                            {parseInt(profile.uscfRatings.stateRank).toLocaleString()}
+                            {parseInt(playerRatings.uschessRatings.stateRank).toLocaleString()}
                           </p>
-                          {profile.uscfRatings.stateTotal && (
+                          {playerRatings.uschessRatings.stateTotal && (
                             <p className="text-xs text-gray-600 mb-0.5">
-                              out of {parseInt(profile.uscfRatings.stateTotal).toLocaleString()}
+                              out of {parseInt(playerRatings.uschessRatings.stateTotal).toLocaleString()}
                             </p>
                           )}
-                          {profile.uscfRatings.statePercentile && (
+                          {playerRatings.uschessRatings.statePercentile && (
                             <p className="text-[10px] text-gray-500 italic">
-                              {profile.uscfRatings.statePercentile}th percentile
+                              {playerRatings.uschessRatings.statePercentile}th percentile
                             </p>
                           )}
                         </div>
@@ -561,9 +561,9 @@ export default function UserDashboardPage() {
               </div>
 
               {/* Last Synced */}
-              {profile.uscfRatings.lastSynced && (
+              {playerRatings?.lastSynced?.uschess && (
                 <p className="text-xs text-gray-500 text-right mt-4">
-                  Last synced: {new Date(profile.uscfRatings.lastSynced).toLocaleString()}
+                  Last synced: {new Date(playerRatings.lastSynced.uschess).toLocaleString()}
                 </p>
               )}
             </div>
@@ -584,21 +584,21 @@ export default function UserDashboardPage() {
           <>
             {/* FIDE ID Display/Edit */}
             <div className="mb-4 pb-4 border-b border-gray-100">
-              {(profile?.fideId || profile?.uscfRatings?.fideId) && !editingFideId ? (
+              {(profile?.fideId || playerRatings?.uschessRatings?.fideId) && !editingFideId ? (
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-700">FIDE ID</p>
                     <p className="text-sm text-gray-500 mt-0.5">
-                      {profile.fideId || profile.uscfRatings?.fideId}
+                      {profile?.fideId || playerRatings?.uschessRatings?.fideId}
                     </p>
-                    {profile?.uscfRatings?.fideId && !profile?.fideId && (
+                    {playerRatings?.uschessRatings?.fideId && !profile?.fideId && (
                       <p className="text-xs text-gray-400 mt-0.5 italic">(Synced from USCF)</p>
                     )}
                   </div>
                   <button
                     onClick={() => {
                       setEditingFideId(true);
-                      setFideId(profile?.fideId || profile?.uscfRatings?.fideId || '');
+                      setFideId(profile?.fideId || playerRatings?.uschessRatings?.fideId || '');
                     }}
                     className="px-3 py-1.5 text-xs font-medium text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition"
                   >
@@ -645,7 +645,7 @@ export default function UserDashboardPage() {
                       onClick={() => {
                         setEditingFideId(false);
                         setIdsError(null);
-                        setFideId(profile?.fideId || profile?.uscfRatings?.fideId || '');
+                        setFideId(profile?.fideId || playerRatings?.uschessRatings?.fideId || '');
                       }}
                       disabled={savingIds}
                       className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm font-medium rounded-lg disabled:opacity-50 transition"
@@ -700,9 +700,166 @@ export default function UserDashboardPage() {
               )}
             </div>
 
-            <div className="text-center py-10 text-gray-500 text-sm">
-              <p>FIDE ratings coming soon.</p>
-            </div>
+            {/* FIDE Ratings Display */}
+            {(profile?.fideId || playerRatings?.uschessRatings?.fideId) && playerRatings?.fideRatings && Object.keys(playerRatings.fideRatings).length > 0 ? (
+              <div>
+                {/* Single Row: Ratings on Left, Rankings on Right */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  {/* Left: RATINGS Section (2 columns) */}
+                  {(playerRatings.fideRatings.standard || playerRatings.fideRatings.rapid || playerRatings.fideRatings.blitz) && (
+                    <div className="lg:col-span-2">
+                      <div className="flex items-center gap-2 mb-3">
+                        <h3 className="text-sm font-semibold text-gray-900">RATINGS</h3>
+                        <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {/* Standard Rating */}
+                        {playerRatings.fideRatings.standard ? (
+                          <div className="bg-white border border-gray-200 rounded p-2 relative overflow-hidden hover:shadow-sm transition-shadow">
+                            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-500"></div>
+                            <div className="pl-2">
+                              <p className="text-lg font-bold text-gray-900">{playerRatings.fideRatings.standard}</p>
+                              <p className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">STANDARD</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="bg-white border border-gray-200 rounded p-2 relative overflow-hidden opacity-50">
+                            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gray-300"></div>
+                            <div className="pl-2">
+                              <p className="text-lg font-bold text-gray-400">----</p>
+                              <p className="text-[10px] text-gray-400 uppercase tracking-wide font-medium">STANDARD</p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Rapid Rating */}
+                        {playerRatings.fideRatings.rapid ? (
+                          <div className="bg-white border border-gray-200 rounded p-2 relative overflow-hidden hover:shadow-sm transition-shadow">
+                            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-500"></div>
+                            <div className="pl-2">
+                              <p className="text-lg font-bold text-gray-900">{playerRatings.fideRatings.rapid}</p>
+                              <p className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">RAPID</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="bg-white border border-gray-200 rounded p-2 relative overflow-hidden opacity-50">
+                            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gray-300"></div>
+                            <div className="pl-2">
+                              <p className="text-lg font-bold text-gray-400">----</p>
+                              <p className="text-[10px] text-gray-400 uppercase tracking-wide font-medium">RAPID</p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Blitz Rating */}
+                        {playerRatings.fideRatings.blitz ? (
+                          <div className="bg-white border border-gray-200 rounded p-2 relative overflow-hidden hover:shadow-sm transition-shadow">
+                            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-yellow-400"></div>
+                            <div className="pl-2">
+                              <p className="text-lg font-bold text-gray-900">{playerRatings.fideRatings.blitz}</p>
+                              <p className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">BLITZ</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="bg-white border border-gray-200 rounded p-2 relative overflow-hidden opacity-50">
+                            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gray-300"></div>
+                            <div className="pl-2">
+                              <p className="text-lg font-bold text-gray-400">----</p>
+                              <p className="text-[10px] text-gray-400 uppercase tracking-wide font-medium">BLITZ</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Right: RANKING Section */}
+                  {(playerRatings.fideRatings.worldRankActive || playerRatings.fideRatings.nationalRankActive || playerRatings.fideRatings.continentRankActive) && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <h3 className="text-sm font-semibold text-gray-900">RANKING</h3>
+                        <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div className="space-y-2">
+                        {/* World Rank */}
+                        {playerRatings.fideRatings.worldRankActive && (
+                          <div className="bg-white border border-gray-200 rounded p-3 hover:shadow-sm transition-shadow">
+                            <p className="text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">WORLD RANK</p>
+                            {playerRatings.fideRatings.worldRankActive && (
+                              <p className="text-xs text-gray-600 mb-0.5">
+                                Active players: {parseInt(playerRatings.fideRatings.worldRankActive).toLocaleString()}
+                              </p>
+                            )}
+                            {playerRatings.fideRatings.worldRankAll && (
+                              <p className="text-xs text-gray-600 mb-0.5">
+                                All players: {parseInt(playerRatings.fideRatings.worldRankAll).toLocaleString()}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* National Rank */}
+                        {playerRatings.fideRatings.nationalRankActive && (
+                          <div className="bg-white border border-gray-200 rounded p-3 hover:shadow-sm transition-shadow">
+                            <p className="text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
+                              NATIONAL RANK {playerRatings.fideRatings.nationalRankName || ''}
+                            </p>
+                            {playerRatings.fideRatings.nationalRankActive && (
+                              <p className="text-xs text-gray-600 mb-0.5">
+                                Active players: {parseInt(playerRatings.fideRatings.nationalRankActive).toLocaleString()}
+                              </p>
+                            )}
+                            {playerRatings.fideRatings.nationalRankAll && (
+                              <p className="text-xs text-gray-600 mb-0.5">
+                                All players: {parseInt(playerRatings.fideRatings.nationalRankAll).toLocaleString()}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Continent Rank */}
+                        {playerRatings.fideRatings.continentRankActive && (
+                          <div className="bg-white border border-gray-200 rounded p-3 hover:shadow-sm transition-shadow">
+                            <p className="text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
+                              CONTINENT RANK {playerRatings.fideRatings.continentRankName || ''}
+                            </p>
+                            {playerRatings.fideRatings.continentRankActive && (
+                              <p className="text-xs text-gray-600 mb-0.5">
+                                Active players: {parseInt(playerRatings.fideRatings.continentRankActive).toLocaleString()}
+                              </p>
+                            )}
+                            {playerRatings.fideRatings.continentRankAll && (
+                              <p className="text-xs text-gray-600 mb-0.5">
+                                All players: {parseInt(playerRatings.fideRatings.continentRankAll).toLocaleString()}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Last Synced */}
+                {playerRatings?.lastSynced?.fide && (
+                  <p className="text-xs text-gray-500 text-right mt-4">
+                    Last synced: {new Date(playerRatings.lastSynced.fide).toLocaleString()}
+                  </p>
+                )}
+              </div>
+            ) : (profile?.fideId || playerRatings?.uschessRatings?.fideId) ? (
+              <div className="text-center py-10 text-gray-500 text-sm">
+                <p>No FIDE ratings data available.</p>
+              </div>
+            ) : (
+              <div className="text-center py-10 text-gray-500 text-sm">
+                <p>Enter your FIDE ID above to view ratings.</p>
+              </div>
+            )}
           </>
         )}
 
@@ -948,9 +1105,9 @@ export default function UserDashboardPage() {
                 <div>
                   <p className="text-sm font-medium text-gray-700">FIDE ID</p>
                   <p className="text-sm text-gray-500 mt-0.5">
-                    {profile?.fideId || profile?.uscfRatings?.fideId || 'Not set'}
+                    {profile?.fideId || playerRatings?.uschessRatings?.fideId || 'Not set'}
                   </p>
-                  {profile?.uscfRatings?.fideId && !profile?.fideId && (
+                  {playerRatings?.uschessRatings?.fideId && !profile?.fideId && (
                     <p className="text-xs text-gray-400 mt-0.5 italic">
                       (Synced from USCF)
                     </p>
