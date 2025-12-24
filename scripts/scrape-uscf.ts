@@ -78,15 +78,14 @@ const US_STATES = new Set([
 ]);
 
 /**
- * Extract rating from a specific section using DOM-aware extraction
+ * Extract rating from a specific section - simplified and more robust
  */
-function extractRatingFromSection(sectionText: string, ratingType: string, minRating: number = 100, maxRating: number = 3000): { rating?: string; floor?: string; games?: string } {
-  // Normalize the section text - remove extra whitespace
+function extractRatingFromSection(sectionText: string, minRating: number = 100, maxRating: number = 3000): { rating?: string; floor?: string; games?: string } {
+  // Normalize the section text
   const normalized = sectionText.replace(/\s+/g, ' ').trim();
   
-  // Pattern 1: Look for "RATING_TYPE ... number ... FLOOR ... number"
-  // This is the most reliable pattern - rating comes before FLOOR
-  const patternWithFloor = new RegExp(`${ratingType}[^\\d]*?(\\d{3,4})\\s*(?:/\\s*(\\d+))?[^\\d]*?FLOOR[^\\d]*?(\\d{1,3})`, 'i');
+  // Pattern 1: Look for "number ... FLOOR ... number" (rating before FLOOR, floor after)
+  const patternWithFloor = /(\d{3,4})\s*(?:\/\s*(\d+))?\s*[^\d]*?FLOOR[^\d]*?(\d{1,3})/i;
   const matchWithFloor = normalized.match(patternWithFloor);
   
   if (matchWithFloor) {
@@ -103,31 +102,37 @@ function extractRatingFromSection(sectionText: string, ratingType: string, minRa
     }
   }
   
-  // Pattern 2: Look for "RATING_TYPE ... number" (no floor mentioned)
-  // Must be a reasonable rating number
-  const patternNoFloor = new RegExp(`${ratingType}[^\\d]*?(\\d{3,4})(?:\\s*/\\s*(\\d+))?(?!\\s*FLOOR)`, 'i');
-  const matchNoFloor = normalized.match(patternNoFloor);
-  
-  if (matchNoFloor) {
-    const ratingNum = parseInt(matchNoFloor[1]);
-    
-    // Validate: must be a reasonable rating (not a floor value)
-    if (ratingNum >= minRating && ratingNum <= maxRating) {
-      // Additional check: if it's a 3-digit number starting with 1, it might be a floor
-      // Floors are typically 100-200, so if it's 100-299, be more cautious
-      if (ratingNum >= 100 && ratingNum < 300) {
-        // Check if there's a FLOOR mentioned nearby - if so, this might be the floor
-        const contextAfter = normalized.substring(normalized.indexOf(matchNoFloor[0]) + matchNoFloor[0].length, normalized.indexOf(matchNoFloor[0]) + matchNoFloor[0].length + 50);
-        if (contextAfter.match(/FLOOR/i)) {
-          // This is likely a floor, skip it
-          return {};
+  // Pattern 2: Look for "number" that's not followed by FLOOR (might be rating only)
+  // Find all numbers in the section
+  const allNumbers = normalized.match(/\b(\d{3,4})\b/g);
+  if (allNumbers) {
+    for (const numStr of allNumbers) {
+      const num = parseInt(numStr);
+      if (num >= minRating && num <= maxRating) {
+        // Check if this number is followed by FLOOR - if so, it's the rating
+        const numIndex = normalized.indexOf(numStr);
+        const afterNum = normalized.substring(numIndex + numStr.length, numIndex + numStr.length + 50);
+        
+        // If FLOOR appears after, this is the rating
+        if (afterNum.match(/FLOOR/i)) {
+          // Extract floor value
+          const floorMatch = afterNum.match(/FLOOR[^\d]*?(\d{1,3})/i);
+          return {
+            rating: numStr,
+            floor: floorMatch ? floorMatch[1] : undefined
+          };
+        }
+        
+        // If no FLOOR nearby and it's a reasonable rating, use it
+        if (!afterNum.match(/FLOOR/i) && num >= minRating) {
+          // Check for game count pattern "rating / games"
+          const gamesMatch = normalized.match(new RegExp(`${numStr}\\s*/\\s*(\\d+)`, 'i'));
+          return {
+            rating: numStr,
+            games: gamesMatch ? gamesMatch[1] : undefined
+          };
         }
       }
-      
-      return {
-        rating: matchNoFloor[1],
-        games: matchNoFloor[2] || undefined
-      };
     }
   }
   
@@ -188,64 +193,79 @@ async function scrapeUSCFPage(page: Page, uscfId: string): Promise<ScrapedUSCFDa
   // Extract each rating type from the ratings section only
   // This prevents Regular from matching Quick's number and vice versa
   
-  // Regular Rating - must be in the ratings section, must be 4 digits typically
-  const regularSection = ratingsSection.match(/REGULAR[\s\S]{0,200}?(?=(?:QUICK|BLITZ|ONLINE|RANKING|$))/i);
-  if (regularSection) {
-    const regularData = extractRatingFromSection(regularSection[0], 'REGULAR', 1000, 3000);
-    if (regularData.rating) {
-      result.regular = regularData.rating;
-      if (regularData.floor) result.regularFloor = regularData.floor;
+  // Extract ratings using simpler, more direct patterns
+  // Regular Rating - look for REGULAR followed by a 4-digit number
+  const regularMatch = ratingsSection.match(/REGULAR[^\d]*?(\d{4})(?![^\d]*FLOOR)[^\d]*?(?:FLOOR[^\d]*?(\d{1,3}))?/i);
+  if (regularMatch) {
+    const ratingNum = parseInt(regularMatch[1]);
+    if (ratingNum >= 1000 && ratingNum <= 3000) {
+      result.regular = regularMatch[1];
+      if (regularMatch[2] && parseInt(regularMatch[2]) <= 500) {
+        result.regularFloor = regularMatch[2];
+      }
     }
   }
   
-  // Quick Rating - must be after Regular, before Blitz
-  const quickSection = ratingsSection.match(/QUICK[\s\S]{0,200}?(?=(?:BLITZ|ONLINE|RANKING|$))/i);
-  if (quickSection) {
-    const quickData = extractRatingFromSection(quickSection[0], 'QUICK', 1000, 3000);
-    if (quickData.rating) {
-      result.quick = quickData.rating;
-      if (quickData.floor) result.quickFloor = quickData.floor;
+  // Quick Rating - look for QUICK followed by a 4-digit number
+  const quickMatch = ratingsSection.match(/QUICK[^\d]*?(\d{4})(?![^\d]*FLOOR)[^\d]*?(?:FLOOR[^\d]*?(\d{1,3}))?/i);
+  if (quickMatch) {
+    const ratingNum = parseInt(quickMatch[1]);
+    if (ratingNum >= 1000 && ratingNum <= 3000) {
+      result.quick = quickMatch[1];
+      if (quickMatch[2] && parseInt(quickMatch[2]) <= 500) {
+        result.quickFloor = quickMatch[2];
+      }
     }
   }
   
-  // Blitz Rating - can be 3 or 4 digits, lower threshold
-  const blitzSection = ratingsSection.match(/BLITZ[\s\S]{0,200}?(?=(?:ONLINE|RANKING|$))/i);
-  if (blitzSection) {
-    const blitzData = extractRatingFromSection(blitzSection[0], 'BLITZ', 500, 3000);
-    if (blitzData.rating) {
-      result.blitz = blitzData.rating;
-      if (blitzData.floor) result.blitzFloor = blitzData.floor;
+  // Blitz Rating - can be 3 or 4 digits
+  const blitzMatch = ratingsSection.match(/BLITZ[^\d]*?(\d{3,4})(?![^\d]*FLOOR)[^\d]*?(?:FLOOR[^\d]*?(\d{1,3}))?/i);
+  if (blitzMatch) {
+    const ratingNum = parseInt(blitzMatch[1]);
+    if (ratingNum >= 500 && ratingNum <= 3000) {
+      result.blitz = blitzMatch[1];
+      if (blitzMatch[2] && parseInt(blitzMatch[2]) <= 500) {
+        result.blitzFloor = blitzMatch[2];
+      }
     }
   }
   
   // Online Regular - format: "838 / 20" (rating / games)
-  const onlineRegularSection = ratingsSection.match(/ONLINE[\s-]?REGULAR[\s\S]{0,200}?(?=(?:ONLINE[\s-]?QUICK|ONLINE[\s-]?BLITZ|RANKING|$))/i);
-  if (onlineRegularSection) {
-    const onlineRegularData = extractRatingFromSection(onlineRegularSection[0], 'ONLINE[\s-]?REGULAR', 100, 3000);
-    if (onlineRegularData.rating) {
-      result.onlineRegular = onlineRegularData.rating;
-      if (onlineRegularData.games) result.onlineRegularGames = onlineRegularData.games;
-      if (onlineRegularData.floor) result.onlineRegularFloor = onlineRegularData.floor;
+  const onlineRegularMatch = ratingsSection.match(/ONLINE[\s-]?REGULAR[^\d]*?(\d{3,4})(?:\s*\/\s*(\d+))?[^\d]*?(?:FLOOR[^\d]*?(\d{1,3}))?/i);
+  if (onlineRegularMatch) {
+    const ratingNum = parseInt(onlineRegularMatch[1]);
+    if (ratingNum >= 100 && ratingNum <= 3000) {
+      result.onlineRegular = onlineRegularMatch[1];
+      if (onlineRegularMatch[2]) {
+        result.onlineRegularGames = onlineRegularMatch[2];
+      }
+      if (onlineRegularMatch[3] && parseInt(onlineRegularMatch[3]) <= 500) {
+        result.onlineRegularFloor = onlineRegularMatch[3];
+      }
     }
   }
   
   // Online Quick
-  const onlineQuickSection = ratingsSection.match(/ONLINE[\s-]?QUICK[\s\S]{0,200}?(?=(?:ONLINE[\s-]?BLITZ|RANKING|$))/i);
-  if (onlineQuickSection) {
-    const onlineQuickData = extractRatingFromSection(onlineQuickSection[0], 'ONLINE[\s-]?QUICK', 100, 3000);
-    if (onlineQuickData.rating) {
-      result.onlineQuick = onlineQuickData.rating;
-      if (onlineQuickData.floor) result.onlineQuickFloor = onlineQuickData.floor;
+  const onlineQuickMatch = ratingsSection.match(/ONLINE[\s-]?QUICK[^\d]*?(\d{3,4})[^\d]*?(?:FLOOR[^\d]*?(\d{1,3}))?/i);
+  if (onlineQuickMatch) {
+    const ratingNum = parseInt(onlineQuickMatch[1]);
+    if (ratingNum >= 100 && ratingNum <= 3000) {
+      result.onlineQuick = onlineQuickMatch[1];
+      if (onlineQuickMatch[2] && parseInt(onlineQuickMatch[2]) <= 500) {
+        result.onlineQuickFloor = onlineQuickMatch[2];
+      }
     }
   }
   
   // Online Blitz
-  const onlineBlitzSection = ratingsSection.match(/ONLINE[\s-]?BLITZ[\s\S]{0,200}?(?=(?:RANKING|$))/i);
-  if (onlineBlitzSection) {
-    const onlineBlitzData = extractRatingFromSection(onlineBlitzSection[0], 'ONLINE[\s-]?BLITZ', 100, 3000);
-    if (onlineBlitzData.rating) {
-      result.onlineBlitz = onlineBlitzData.rating;
-      if (onlineBlitzData.floor) result.onlineBlitzFloor = onlineBlitzData.floor;
+  const onlineBlitzMatch = ratingsSection.match(/ONLINE[\s-]?BLITZ[^\d]*?(\d{3,4})[^\d]*?(?:FLOOR[^\d]*?(\d{1,3}))?/i);
+  if (onlineBlitzMatch) {
+    const ratingNum = parseInt(onlineBlitzMatch[1]);
+    if (ratingNum >= 100 && ratingNum <= 3000) {
+      result.onlineBlitz = onlineBlitzMatch[1];
+      if (onlineBlitzMatch[2] && parseInt(onlineBlitzMatch[2]) <= 500) {
+        result.onlineBlitzFloor = onlineBlitzMatch[2];
+      }
     }
   }
   
@@ -339,115 +359,10 @@ async function scrapeUSCFPage(page: Page, uscfId: string): Promise<ScrapedUSCFDa
     }
   }
   
-  const data = result;
+  // Log what we extracted for debugging
+  console.log('Extracted data:', JSON.stringify(result, null, 2));
   
-  // If direct extraction didn't work well, use DeepSeek as fallback
-  if (!data.regular && !data.quick && !data.blitz) {
-    console.log('Direct extraction failed, using DeepSeek fallback...');
-    const html = await page.content();
-    const htmlSnippet = html.substring(0, 200000);
-    
-    const openRouterApiKey = process.env.OPENROUTER_API_KEY;
-    if (openRouterApiKey) {
-      try {
-        const prompt = `Extract ALL the following details from this HTML of a USCF player profile page:
-
-RATINGS (current rating numbers, not floors):
-- Regular Rating
-- Quick Rating  
-- Blitz Rating
-- Online-Regular Rating (format: "rating / games")
-- Online-Quick Rating
-- Online-Blitz Rating
-
-RANKINGS:
-- Overall rank (number)
-- Overall total (total players)
-- Overall percentile
-- State name
-- State rank (number)
-- State total (total players in state)
-- State percentile
-
-MEMBERSHIP:
-- Membership ID
-- Status (Active/Expired/Inactive)
-- Gender (M/F)
-- Expires date (YYYY-MM-DD)
-- Updated date (YYYY-MM-DD)
-- FIDE ID
-- FIDE Country code
-
-Return ONLY valid JSON in this exact format, no explanation or markdown:
-{
-  "regular": "1717",
-  "regularFloor": "1500",
-  "quick": "1695",
-  "quickFloor": "1500",
-  "blitz": "1260",
-  "blitzFloor": "1200",
-  "onlineRegular": "838",
-  "onlineRegularGames": "20",
-  "onlineRegularFloor": "100",
-  "onlineQuick": "",
-  "onlineQuickFloor": "",
-  "onlineBlitz": "",
-  "onlineBlitzFloor": "",
-  "overallRank": "6997",
-  "overallTotal": "83133",
-  "overallPercentile": "92",
-  "stateName": "SOUTH CAROLINA",
-  "stateRank": "56",
-  "stateTotal": "684",
-  "statePercentile": "92",
-  "membershipId": "30025270",
-  "status": "Active",
-  "gender": "M",
-  "expires": "2026-07-31",
-  "updated": "2025-10-01",
-  "fideId": "39974847",
-  "fideCountry": "USA"
-}
-
-If any field is not available, use empty string "" for strings.
-
-HTML:
-${htmlSnippet}`;
-
-        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${openRouterApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'deepseek/deepseek-chat',
-            messages: [{ role: 'user', content: prompt }],
-            temperature: 0.1,
-          }),
-        });
-        
-        if (response.ok) {
-          const deepseekData = await response.json();
-          const extractedContent = deepseekData.choices?.[0]?.message?.content;
-          
-          if (extractedContent) {
-            const jsonMatch = extractedContent.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/) || 
-                             extractedContent.match(/(\{[\s\S]*\})/);
-            
-            if (jsonMatch) {
-              const extractedJson = JSON.parse(jsonMatch[1]);
-              return { ...data, ...extractedJson };
-            }
-          }
-        }
-      } catch (error) {
-        console.error('DeepSeek fallback failed:', error);
-      }
-    }
-  }
-  
-  return data;
+  return result;
 }
 
 /**
