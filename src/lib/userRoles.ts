@@ -29,6 +29,8 @@ function fromFirestoreUser(data: any): UserData {
     firstName: data.firstName,
     lastName: data.lastName,
     uscfId: data.uscfId,
+    lichessUsername: data.lichessUsername,
+    fideId: data.fideId,
     uscfRatings: data.uscfRatings ? {
       ...data.uscfRatings,
       lastSynced: data.uscfRatings.lastSynced?.toDate?.() ?? undefined,
@@ -50,6 +52,7 @@ export async function createUserDocument(
     firstName?: string;
     lastName?: string;
     uscfId?: string;
+    lichessUsername?: string;
     franchiseId?: string | null;
   }
 ) {
@@ -74,6 +77,7 @@ export async function createUserDocument(
   if (options?.firstName) userData.firstName = options.firstName;
   if (options?.lastName) userData.lastName = options.lastName;
   if (options?.uscfId) userData.uscfId = options.uscfId;
+  if (options?.lichessUsername) userData.lichessUsername = options.lichessUsername;
   if (options?.franchiseId !== undefined) userData.franchiseId = options.franchiseId;
 
   await setDoc(userRef, userData);
@@ -154,7 +158,7 @@ export async function updateUserRole(
 }
 
 /**
- * Update user profile information (firstName, lastName, uscfId)
+ * Update user profile information (firstName, lastName, uscfId, lichessUsername, fideId)
  * Users can only update their own profile
  * @param uid - User's UID
  * @param updates - Profile fields to update
@@ -165,6 +169,8 @@ export async function updateUserProfile(
     firstName?: string;
     lastName?: string;
     uscfId?: string;
+    lichessUsername?: string;
+    fideId?: string;
   }
 ): Promise<void> {
   const userRef = doc(db, 'users', uid);
@@ -187,6 +193,12 @@ export async function updateUserProfile(
   }
   if (updates.uscfId !== undefined) {
     updateData.uscfId = updates.uscfId || null;
+  }
+  if (updates.lichessUsername !== undefined) {
+    updateData.lichessUsername = updates.lichessUsername || null;
+  }
+  if (updates.fideId !== undefined) {
+    updateData.fideId = updates.fideId || null;
   }
   
   await updateDoc(userRef, updateData);

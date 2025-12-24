@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { EventData } from '@/lib/types';
 import { getEventsByIds } from '@/lib/events';
+import { updateUserProfile } from '@/lib/userRoles';
 import MyCalendar from '@/components/dashboard/MyCalendar';
 
 function SectionWrapper({
@@ -67,6 +68,24 @@ export default function UserDashboardPage() {
   const [savedEvents, setSavedEvents] = useState<EventData[]>([]);
   const [registeredEvents, setRegisteredEvents] = useState<EventData[]>([]);
   const [fetchLoading, setFetchLoading] = useState(false);
+  const [editingIds, setEditingIds] = useState(false);
+  const [uscfId, setUscfId] = useState('');
+  const [lichessUsername, setLichessUsername] = useState('');
+  const [fideId, setFideId] = useState('');
+  const [savingIds, setSavingIds] = useState(false);
+  const [idsError, setIdsError] = useState<string | null>(null);
+  const [activeRatingTab, setActiveRatingTab] = useState<'uschess' | 'fide' | 'lichess'>('uschess');
+  const [editingUscfId, setEditingUscfId] = useState(false);
+  const [editingFideId, setEditingFideId] = useState(false);
+  const [editingLichessUsername, setEditingLichessUsername] = useState(false);
+
+  // Reset edit states when switching tabs
+  useEffect(() => {
+    setEditingUscfId(false);
+    setEditingFideId(false);
+    setEditingLichessUsername(false);
+    setIdsError(null);
+  }, [activeRatingTab]);
 
   const savedEventIds = useMemo(() => profile?.savedEvents ?? [], [profile]);
   const registeredEventIds = useMemo(() => profile?.registeredEvents ?? [], [profile]);
@@ -94,6 +113,37 @@ export default function UserDashboardPage() {
     loadEvents();
   }, [user, profile, savedEventIds, registeredEventIds, loading, router]);
 
+  // Initialize ID fields from profile
+  useEffect(() => {
+    if (profile) {
+      setUscfId(profile.uscfId || '');
+      setLichessUsername(profile.lichessUsername || '');
+      // FIDE ID can be in profile or synced from USCF ratings
+      setFideId(profile.fideId || profile.uscfRatings?.fideId || '');
+    }
+  }, [profile]);
+
+  const handleSaveIds = async () => {
+    if (!user) return;
+    
+    setSavingIds(true);
+    setIdsError(null);
+    
+    try {
+      await updateUserProfile(user.uid, {
+        uscfId: uscfId.trim() || undefined,
+        lichessUsername: lichessUsername.trim() || undefined,
+        fideId: fideId.trim() || undefined,
+      });
+      setEditingIds(false);
+          // Reload page to show updated data
+          window.location.reload();
+        } catch (error: any) {
+      setIdsError(error.message || 'Failed to update IDs');
+        } finally {
+      setSavingIds(false);
+        }
+      };
 
   if (!user || loading) {
     return (
@@ -130,26 +180,161 @@ export default function UserDashboardPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-white border border-gray-100 rounded-2xl p-6">
-          <p className="text-sm text-gray-500">Registered Events</p>
-          <p className="text-3xl font-bold text-slate-900 mt-2">{registeredEventIds.length}</p>
-          <p className="text-xs text-gray-400 mt-1">Events you have registered for</p>
+      {/* Player Ratings Section - Moved to top */}
+      <SectionWrapper title="Player Ratings" description="Your chess ratings across different platforms">
+        {/* Tabs */}
+        <div className="mb-6 border-b border-gray-200">
+          <div className="flex gap-1">
+            <button
+              onClick={() => setActiveRatingTab('uschess')}
+              className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+                activeRatingTab === 'uschess'
+                  ? 'text-orange-600 border-b-2 border-orange-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              USChess
+            </button>
+            <button
+              onClick={() => setActiveRatingTab('fide')}
+              className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+                activeRatingTab === 'fide'
+                  ? 'text-orange-600 border-b-2 border-orange-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              FIDE
+            </button>
+            <button
+              onClick={() => setActiveRatingTab('lichess')}
+              className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+                activeRatingTab === 'lichess'
+                  ? 'text-orange-600 border-b-2 border-orange-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              LiChess
+            </button>
+          </div>
         </div>
-        <div className="bg-white border border-gray-100 rounded-2xl p-6">
-          <p className="text-sm text-gray-500">Saved Events</p>
-          <p className="text-3xl font-bold text-slate-900 mt-2">{savedEventIds.length}</p>
-          <p className="text-xs text-gray-400 mt-1">Events bookmarked to revisit later</p>
-        </div>
-      </div>
 
-      {/* My Calendar Section */}
-      <MyCalendar events={registeredEvents} />
+        {/* Tab Content */}
+        {activeRatingTab === 'uschess' && (
+          <>
+            {/* USCF ID Display/Edit */}
+            <div className="mb-4 pb-4 border-b border-gray-100">
+              {profile?.uscfId && !editingUscfId ? (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">USCF ID</p>
+                    <p className="text-sm text-gray-500 mt-0.5">{profile.uscfId}</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setEditingUscfId(true);
+                      setUscfId(profile?.uscfId || '');
+                    }}
+                    className="px-3 py-1.5 text-xs font-medium text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition"
+                  >
+                    Edit
+                  </button>
+                </div>
+              ) : editingUscfId ? (
+                <div>
+                  <label htmlFor="editUscfId" className="block text-sm font-medium text-gray-700 mb-2">
+                    USCF ID
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      id="editUscfId"
+                      type="text"
+                      value={uscfId}
+                      onChange={(e) => setUscfId(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none text-sm"
+                      placeholder="Enter your USCF ID"
+                    />
+                    <button
+                      onClick={async () => {
+                        if (!user) return;
+                        setSavingIds(true);
+                        setIdsError(null);
+                        try {
+                          await updateUserProfile(user.uid, {
+                            uscfId: uscfId.trim() || undefined,
+                          });
+                          setEditingUscfId(false);
+                          window.location.reload();
+                        } catch (error: any) {
+                          setIdsError(error.message || 'Failed to update USCF ID');
+                        } finally {
+                          setSavingIds(false);
+                        }
+                      }}
+                      disabled={savingIds}
+                      className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    >
+                      {savingIds ? 'Saving...' : 'Save'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingUscfId(false);
+                        setIdsError(null);
+                        setUscfId(profile?.uscfId || '');
+                      }}
+                      disabled={savingIds}
+                      className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm font-medium rounded-lg disabled:opacity-50 transition"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  {idsError && (
+                    <p className="text-xs text-red-600 mt-2">{idsError}</p>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <label htmlFor="uscfIdInput" className="block text-sm font-medium text-gray-700 mb-2">
+                    Enter your USCF ID to view ratings
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      id="uscfIdInput"
+                      type="text"
+                      value={uscfId}
+                      onChange={(e) => setUscfId(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none text-sm"
+                      placeholder="Enter your USCF ID"
+                    />
+                    <button
+                      onClick={async () => {
+                        if (!user || !uscfId.trim()) return;
+                        setSavingIds(true);
+                        setIdsError(null);
+                        try {
+                          await updateUserProfile(user.uid, {
+                            uscfId: uscfId.trim() || undefined,
+                          });
+                          window.location.reload();
+                        } catch (error: any) {
+                          setIdsError(error.message || 'Failed to update USCF ID');
+                        } finally {
+                          setSavingIds(false);
+                        }
+                      }}
+                      disabled={savingIds || !uscfId.trim()}
+                      className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    >
+                      {savingIds ? 'Saving...' : 'Save'}
+                    </button>
+                  </div>
+                  {idsError && (
+                    <p className="text-xs text-red-600 mt-2">{idsError}</p>
+                  )}
+                </div>
+              )}
+            </div>
 
-      {/* USCF Ratings Section */}
-      {profile?.uscfId && (
-        <SectionWrapper title="USCF Ratings" description="Your official USCF ratings and statistics">
-          {profile.uscfRatings ? (
+            {profile?.uscfId && profile?.uscfRatings ? (
             <div>
               {/* Single Row: Ratings on Left, Rankings on Right */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -187,8 +372,8 @@ export default function UserDashboardPage() {
                               <p className="text-lg font-bold text-gray-400">----</p>
                               <p className="text-[10px] text-gray-400 uppercase tracking-wide font-medium">REGULAR</p>
                             </div>
-                  </div>
-                )}
+                          </div>
+                        )}
                         
                         {/* Quick Rating */}
                         {profile.uscfRatings.quick ? (
@@ -211,8 +396,8 @@ export default function UserDashboardPage() {
                               <p className="text-lg font-bold text-gray-400">----</p>
                               <p className="text-[10px] text-gray-400 uppercase tracking-wide font-medium">QUICK</p>
                             </div>
-                  </div>
-                )}
+                          </div>
+                        )}
                         
                         {/* Blitz Rating */}
                         {profile.uscfRatings.blitz ? (
@@ -235,10 +420,10 @@ export default function UserDashboardPage() {
                               <p className="text-lg font-bold text-gray-400">----</p>
                               <p className="text-[10px] text-gray-400 uppercase tracking-wide font-medium">BLITZ</p>
                             </div>
-                  </div>
-                )}
-              </div>
-
+                          </div>
+                        )}
+                      </div>
+                      
                       {/* Right Column: Online Ratings */}
                       <div className="space-y-1.5">
                         {/* Online Regular */}
@@ -361,18 +546,18 @@ export default function UserDashboardPage() {
                           {profile.uscfRatings.stateTotal && (
                             <p className="text-xs text-gray-600 mb-0.5">
                               out of {parseInt(profile.uscfRatings.stateTotal).toLocaleString()}
-                      </p>
-                    )}
+                            </p>
+                          )}
                           {profile.uscfRatings.statePercentile && (
                             <p className="text-[10px] text-gray-500 italic">
                               {profile.uscfRatings.statePercentile}th percentile
                             </p>
                           )}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                    )}
-                  </div>
-                </div>
-              )}
+                )}
               </div>
 
               {/* Last Synced */}
@@ -382,9 +567,403 @@ export default function UserDashboardPage() {
                 </p>
               )}
             </div>
-          ) : (
+            ) : (
+              <div className="text-center py-10 text-gray-500 text-sm">
+                <p>No USCF ratings data available.</p>
+              </div>
+            )}
+            {!profile?.uscfId && (
+              <div className="text-center py-10 text-gray-500 text-sm">
+                <p>Add your USCF ID in Player IDs section to view ratings.</p>
+              </div>
+            )}
+          </>
+        )}
+
+        {activeRatingTab === 'fide' && (
+          <>
+            {/* FIDE ID Display/Edit */}
+            <div className="mb-4 pb-4 border-b border-gray-100">
+              {(profile?.fideId || profile?.uscfRatings?.fideId) && !editingFideId ? (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">FIDE ID</p>
+                    <p className="text-sm text-gray-500 mt-0.5">
+                      {profile.fideId || profile.uscfRatings?.fideId}
+                    </p>
+                    {profile?.uscfRatings?.fideId && !profile?.fideId && (
+                      <p className="text-xs text-gray-400 mt-0.5 italic">(Synced from USCF)</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => {
+                      setEditingFideId(true);
+                      setFideId(profile?.fideId || profile?.uscfRatings?.fideId || '');
+                    }}
+                    className="px-3 py-1.5 text-xs font-medium text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition"
+                  >
+                    Edit
+                  </button>
+                </div>
+              ) : editingFideId ? (
+                <div>
+                  <label htmlFor="editFideId" className="block text-sm font-medium text-gray-700 mb-2">
+                    FIDE ID
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      id="editFideId"
+                      type="text"
+                      value={fideId}
+                      onChange={(e) => setFideId(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none text-sm"
+                      placeholder="Enter your FIDE ID"
+                    />
+                    <button
+                      onClick={async () => {
+                        if (!user) return;
+                        setSavingIds(true);
+                        setIdsError(null);
+                        try {
+                          await updateUserProfile(user.uid, {
+                            fideId: fideId.trim() || undefined,
+                          });
+                          setEditingFideId(false);
+                          window.location.reload();
+                        } catch (error: any) {
+                          setIdsError(error.message || 'Failed to update FIDE ID');
+                        } finally {
+                          setSavingIds(false);
+                        }
+                      }}
+                      disabled={savingIds}
+                      className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    >
+                      {savingIds ? 'Saving...' : 'Save'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingFideId(false);
+                        setIdsError(null);
+                        setFideId(profile?.fideId || profile?.uscfRatings?.fideId || '');
+                      }}
+                      disabled={savingIds}
+                      className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm font-medium rounded-lg disabled:opacity-50 transition"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  {idsError && (
+                    <p className="text-xs text-red-600 mt-2">{idsError}</p>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <label htmlFor="fideIdInput" className="block text-sm font-medium text-gray-700 mb-2">
+                    Enter your FIDE ID to view ratings
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      id="fideIdInput"
+                      type="text"
+                      value={fideId}
+                      onChange={(e) => setFideId(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none text-sm"
+                      placeholder="Enter your FIDE ID"
+                    />
+                    <button
+                      onClick={async () => {
+                        if (!user || !fideId.trim()) return;
+                        setSavingIds(true);
+                        setIdsError(null);
+                        try {
+                          await updateUserProfile(user.uid, {
+                            fideId: fideId.trim() || undefined,
+                          });
+                          window.location.reload();
+                        } catch (error: any) {
+                          setIdsError(error.message || 'Failed to update FIDE ID');
+                        } finally {
+                          setSavingIds(false);
+                        }
+                      }}
+                      disabled={savingIds || !fideId.trim()}
+                      className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    >
+                      {savingIds ? 'Saving...' : 'Save'}
+                    </button>
+                  </div>
+                  {idsError && (
+                    <p className="text-xs text-red-600 mt-2">{idsError}</p>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div className="text-center py-10 text-gray-500 text-sm">
-              <p>No USCF ratings data available.</p>
+              <p>FIDE ratings coming soon.</p>
+            </div>
+          </>
+        )}
+
+        {activeRatingTab === 'lichess' && (
+          <>
+            {/* LiChess Username Display/Edit */}
+            <div className="mb-4 pb-4 border-b border-gray-100">
+              {profile?.lichessUsername && !editingLichessUsername ? (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">LiChess Username</p>
+                    <p className="text-sm text-gray-500 mt-0.5">{profile.lichessUsername}</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setEditingLichessUsername(true);
+                      setLichessUsername(profile?.lichessUsername || '');
+                    }}
+                    className="px-3 py-1.5 text-xs font-medium text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition"
+                  >
+                    Edit
+                  </button>
+                </div>
+              ) : editingLichessUsername ? (
+                <div>
+                  <label htmlFor="editLichessUsername" className="block text-sm font-medium text-gray-700 mb-2">
+                    LiChess Username
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      id="editLichessUsername"
+                      type="text"
+                      value={lichessUsername}
+                      onChange={(e) => setLichessUsername(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none text-sm"
+                      placeholder="Enter your LiChess username"
+                    />
+                    <button
+                      onClick={async () => {
+                        if (!user) return;
+                        setSavingIds(true);
+                        setIdsError(null);
+                        try {
+                          await updateUserProfile(user.uid, {
+                            lichessUsername: lichessUsername.trim() || undefined,
+                          });
+                          setEditingLichessUsername(false);
+                          window.location.reload();
+                        } catch (error: any) {
+                          setIdsError(error.message || 'Failed to update LiChess username');
+                        } finally {
+                          setSavingIds(false);
+                        }
+                      }}
+                      disabled={savingIds}
+                      className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    >
+                      {savingIds ? 'Saving...' : 'Save'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingLichessUsername(false);
+                        setIdsError(null);
+                        setLichessUsername(profile?.lichessUsername || '');
+                      }}
+                      disabled={savingIds}
+                      className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm font-medium rounded-lg disabled:opacity-50 transition"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  {idsError && (
+                    <p className="text-xs text-red-600 mt-2">{idsError}</p>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <label htmlFor="lichessUsernameInput" className="block text-sm font-medium text-gray-700 mb-2">
+                    Enter your LiChess username to view ratings
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      id="lichessUsernameInput"
+                      type="text"
+                      value={lichessUsername}
+                      onChange={(e) => setLichessUsername(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none text-sm"
+                      placeholder="Enter your LiChess username"
+                    />
+                    <button
+                      onClick={async () => {
+                        if (!user || !lichessUsername.trim()) return;
+                        setSavingIds(true);
+                        setIdsError(null);
+                        try {
+                          await updateUserProfile(user.uid, {
+                            lichessUsername: lichessUsername.trim() || undefined,
+                          });
+                          window.location.reload();
+                        } catch (error: any) {
+                          setIdsError(error.message || 'Failed to update LiChess username');
+                        } finally {
+                          setSavingIds(false);
+                        }
+                      }}
+                      disabled={savingIds || !lichessUsername.trim()}
+                      className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    >
+                      {savingIds ? 'Saving...' : 'Save'}
+                    </button>
+                  </div>
+                  {idsError && (
+                    <p className="text-xs text-red-600 mt-2">{idsError}</p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="text-center py-10 text-gray-500 text-sm">
+              <p>LiChess ratings coming soon.</p>
+            </div>
+          </>
+        )}
+      </SectionWrapper>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white border border-gray-100 rounded-2xl p-6">
+          <p className="text-sm text-gray-500">Registered Events</p>
+          <p className="text-3xl font-bold text-slate-900 mt-2">{registeredEventIds.length}</p>
+          <p className="text-xs text-gray-400 mt-1">Events you have registered for</p>
+        </div>
+        <div className="bg-white border border-gray-100 rounded-2xl p-6">
+          <p className="text-sm text-gray-500">Saved Events</p>
+          <p className="text-3xl font-bold text-slate-900 mt-2">{savedEventIds.length}</p>
+          <p className="text-xs text-gray-400 mt-1">Events bookmarked to revisit later</p>
+        </div>
+      </div>
+
+      {/* My Calendar Section */}
+      <MyCalendar events={registeredEvents} />
+
+      {/* Player IDs Section - Only for players - HIDDEN: Now integrated into Player Ratings tabs */}
+      {false && (role === 'player' || role === null) && (
+        <SectionWrapper title="Player IDs" description="Manage your chess platform identifiers">
+          {editingIds ? (
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="uscfId" className="block text-sm font-medium text-gray-700 mb-2">
+                  USCF ID
+                </label>
+                <input
+                  id="uscfId"
+                  type="text"
+                  value={uscfId}
+                  onChange={(e) => setUscfId(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+                  placeholder="Enter your USCF ID"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="lichessUsername" className="block text-sm font-medium text-gray-700 mb-2">
+                  LiChess Username
+                </label>
+                <input
+                  id="lichessUsername"
+                  type="text"
+                  value={lichessUsername}
+                  onChange={(e) => setLichessUsername(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+                  placeholder="Enter your LiChess username"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="fideId" className="block text-sm font-medium text-gray-700 mb-2">
+                  FIDE ID
+                </label>
+                <input
+                  id="fideId"
+                  type="text"
+                  value={fideId}
+                  onChange={(e) => setFideId(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+                  placeholder="Enter your FIDE ID"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Note: FIDE ID may also be synced from USCF ratings
+                </p>
+              </div>
+              
+              {idsError && (
+                <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm">
+                  {idsError}
+                </div>
+              )}
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={handleSaveIds}
+                  disabled={savingIds}
+                  className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition"
+                >
+                  {savingIds ? 'Saving...' : 'Save'}
+                </button>
+                <button
+                  onClick={() => {
+                    setEditingIds(false);
+                    setIdsError(null);
+                    // Reset to original values
+                    setUscfId(profile?.uscfId || '');
+                    setLichessUsername(profile?.lichessUsername || '');
+                    setFideId(profile?.fideId || '');
+                  }}
+                  disabled={savingIds}
+                  className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-lg disabled:opacity-50 transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">USCF ID</p>
+                  <p className="text-sm text-gray-500 mt-0.5">
+                    {profile?.uscfId || 'Not set'}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">LiChess Username</p>
+                  <p className="text-sm text-gray-500 mt-0.5">
+                    {profile?.lichessUsername || 'Not set'}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">FIDE ID</p>
+                  <p className="text-sm text-gray-500 mt-0.5">
+                    {profile?.fideId || profile?.uscfRatings?.fideId || 'Not set'}
+                  </p>
+                  {profile?.uscfRatings?.fideId && !profile?.fideId && (
+                    <p className="text-xs text-gray-400 mt-0.5 italic">
+                      (Synced from USCF)
+                    </p>
+                  )}
+                </div>
+              </div>
+              
+              <button
+                onClick={() => setEditingIds(true)}
+                className="mt-4 w-full px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg transition"
+              >
+                Edit IDs
+              </button>
             </div>
           )}
         </SectionWrapper>

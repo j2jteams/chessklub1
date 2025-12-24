@@ -49,6 +49,8 @@ export interface UserData {
   firstName?: string;
   lastName?: string;
   uscfId?: string; // Optional USCF ID for players
+  lichessUsername?: string; // Optional LiChess username for players
+  fideId?: string; // Optional FIDE ID for players (can be synced from USCF or entered manually)
   uscfRatings?: USCFRatings; // USCF ratings and profile data
   franchiseId?: string | null; // Optional franchise ID for admins/franchisees
   savedEvents: string[];
