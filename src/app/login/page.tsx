@@ -22,6 +22,7 @@ export default function LoginPage() {
   const [playerFirstName, setPlayerFirstName] = useState('');
   const [playerLastName, setPlayerLastName] = useState('');
   const [playerUscfId, setPlayerUscfId] = useState('');
+  const [playerLichessUsername, setPlayerLichessUsername] = useState('');
   
   // Admin signup fields
   const [adminFirstName, setAdminFirstName] = useState('');
@@ -90,12 +91,14 @@ export default function LoginPage() {
         firstName: playerFirstName,
         lastName: playerLastName,
         uscfId: playerUscfId || undefined,
+        lichessUsername: playerLichessUsername || undefined,
       });
 
       // Reset form and close modal
       setPlayerFirstName('');
       setPlayerLastName('');
       setPlayerUscfId('');
+      setPlayerLichessUsername('');
       setEmail('');
       setPassword('');
       setShowCreateAccount(false);
@@ -360,6 +363,20 @@ export default function LoginPage() {
                       onChange={(e) => setPlayerUscfId(e.target.value)}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition"
                       placeholder="Enter your USCF ID (optional)"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="playerLichessUsername" className="block text-sm font-medium text-gray-700 mb-2">
+                      LiChess Username <span className="text-gray-500 text-xs">(Optional)</span>
+                    </label>
+                    <input
+                      id="playerLichessUsername"
+                      type="text"
+                      value={playerLichessUsername}
+                      onChange={(e) => setPlayerLichessUsername(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition"
+                      placeholder="Enter your LiChess username (optional)"
                     />
                   </div>
 

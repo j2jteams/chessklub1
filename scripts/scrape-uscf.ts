@@ -386,24 +386,38 @@ async function syncUserUSCFRatings(uid: string, uscfId: string, browser: Browser
     
     const scrapedData = await scrapeUSCFPage(page, uscfId);
     
-    // Convert to USCFRatings format
+    // Convert to USCFRatings format (without lastSynced - it's stored separately)
     const uscfRatings: USCFRatings = {
       ...scrapedData,
-      lastSynced: new Date(),
     };
     
-    // Remove undefined values before saving to Firestore
-    const cleanedRatings = removeUndefinedValues({
-      ...uscfRatings,
-      lastSynced: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    // Remove undefined values and lastSynced before saving to Firestore
+    const cleanedRatings = removeUndefinedValues(uscfRatings);
+    // Explicitly remove lastSynced if it exists
+    if (cleanedRatings.lastSynced) {
+      delete cleanedRatings.lastSynced;
+    }
     
-    // Update Firestore
-    const userRef = db.collection('users').doc(uid);
-    await userRef.update({
-      uscfRatings: cleanedRatings,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    // Update Firestore - Write to playerRatings collection
+    const playerRatingsRef = db.collection('playerRatings').doc(uid);
+    const playerRatingsDoc = await playerRatingsRef.get();
+    
+    if (playerRatingsDoc.exists) {
+      // Update existing document
+      await playerRatingsRef.update({
+        uschessRatings: cleanedRatings,
+        'lastSynced.uschess': admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } else {
+      // Create new document
+      await playerRatingsRef.set({
+        userId: uid,
+        uschessRatings: cleanedRatings,
+        lastSynced: {
+          uschess: admin.firestore.FieldValue.serverTimestamp(),
+        },
+      });
+    }
     
     console.log(`Successfully synced USCF ratings for user ${uid}`);
   } catch (error) {
@@ -431,21 +445,41 @@ async function main() {
     
     console.log(`Found ${usersSnapshot.size} users with USCF IDs`);
     
-    // Sync ALL users with USCF IDs (no filtering by lastSynced)
+    // Only sync users who don't have uschessRatings in playerRatings collection
     const usersToSync: Array<{ uid: string; uscfId: string }> = [];
     
-    usersSnapshot.forEach((doc) => {
-      const data = doc.data();
-      const uscfId = data.uscfId;
+    for (const userDoc of usersSnapshot.docs) {
+      const userId = userDoc.id;
+      const userData = userDoc.data();
+      const uscfId = userData.uscfId;
       
-      if (!uscfId) return;
+      if (!uscfId) continue;
       
-      // Add all users with USCF IDs to sync list
-      usersToSync.push({ uid: doc.id, uscfId });
-      console.log(`User ${doc.id} (USCF: ${uscfId}) - Added to sync list`);
-    });
+      // Check if playerRatings document exists and has uschessRatings
+      const playerRatingsRef = db.collection('playerRatings').doc(userId);
+      const playerRatingsDoc = await playerRatingsRef.get();
+      
+      if (playerRatingsDoc.exists) {
+        const playerRatingsData = playerRatingsDoc.data();
+        // Check if uschessRatings exists and has data
+        if (playerRatingsData?.uschessRatings && 
+            Object.keys(playerRatingsData.uschessRatings).length > 0) {
+          console.log(`User ${userId} (USCF: ${uscfId}) - Already has ratings, skipping`);
+          continue;
+        }
+      }
+      
+      // User doesn't have ratings yet, add to sync list
+      usersToSync.push({ uid: userId, uscfId });
+      console.log(`User ${userId} (USCF: ${uscfId}) - No ratings found, added to sync list`);
+    }
     
-    console.log(`Syncing ${usersToSync.length} users...`);
+    if (usersToSync.length === 0) {
+      console.log('All users already have USCF ratings. No sync needed.');
+      return;
+    }
+    
+    console.log(`Syncing ${usersToSync.length} users without ratings...`);
     
     // Sync each user with rate limiting
     for (const user of usersToSync) {

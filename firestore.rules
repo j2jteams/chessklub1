@@ -143,6 +143,22 @@ service cloud.firestore {
       allow delete: if request.auth != null && isSuperAdmin();
     }
     
+    // Player Ratings collection
+    // Users can read and update their own ratings
+    match /playerRatings/{userId} {
+      // Users can read their own ratings
+      allow read: if request.auth != null && request.auth.uid == userId;
+      
+      // Users can create their own ratings document
+      allow create: if request.auth != null && request.auth.uid == userId;
+      
+      // Users can update their own ratings
+      allow update: if request.auth != null && request.auth.uid == userId;
+      
+      // Users can delete their own ratings (optional, for cleanup)
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+    
     // Tournament Registrations collection
     // UPDATED: Tournament registration permissions
     match /tournamentRegistrations/{registrationId} {

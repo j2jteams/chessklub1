@@ -42,6 +42,50 @@ export interface USCFRatings {
   lastSynced?: Date;
 }
 
+// New: FIDE Ratings structure
+export interface FIDERatings {
+  // Ratings
+  standard?: string;
+  rapid?: string;
+  blitz?: string;
+  
+  // Rankings
+  worldRankActive?: string;
+  worldRankAll?: string;
+  nationalRankName?: string; // e.g., "IND", "FRA", "USA"
+  nationalRankActive?: string;
+  nationalRankAll?: string;
+  continentRankName?: string; // e.g., "Asia", "Europe", "Americas"
+  continentRankActive?: string;
+  continentRankAll?: string;
+  
+  // Metadata
+  lastSynced?: Date;
+}
+
+// New: LiChess Ratings structure (for future use)
+export interface LiChessRatings {
+  bullet?: string;
+  blitz?: string;
+  rapid?: string;
+  classical?: string;
+  lastSynced?: Date;
+  // Add more LiChess-specific fields as needed
+}
+
+// New: Player Ratings collection structure
+export interface PlayerRatings {
+  userId: string;
+  uschessRatings?: USCFRatings;
+  fideRatings?: FIDERatings;
+  lichessRatings?: LiChessRatings;
+  lastSynced?: {
+    uschess?: Date;
+    fide?: Date;
+    lichess?: Date;
+  };
+}
+
 export interface UserData {
   uid: string;
   email: string;
@@ -49,6 +93,8 @@ export interface UserData {
   firstName?: string;
   lastName?: string;
   uscfId?: string; // Optional USCF ID for players
+  lichessUsername?: string; // Optional LiChess username for players
+  fideId?: string; // Optional FIDE ID for players (can be synced from USCF or entered manually)
   uscfRatings?: USCFRatings; // USCF ratings and profile data
   franchiseId?: string | null; // Optional franchise ID for admins/franchisees
   savedEvents: string[];

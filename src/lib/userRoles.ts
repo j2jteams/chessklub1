@@ -8,7 +8,7 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { UserData, UserRole, USCFRatings } from './types';
+import { UserData, UserRole, USCFRatings, PlayerRatings, FIDERatings } from './types';
 
 // UPDATED: Chess Tourneys - New role system
 function fromFirestoreUser(data: any): UserData {
@@ -29,6 +29,8 @@ function fromFirestoreUser(data: any): UserData {
     firstName: data.firstName,
     lastName: data.lastName,
     uscfId: data.uscfId,
+    lichessUsername: data.lichessUsername,
+    fideId: data.fideId,
     uscfRatings: data.uscfRatings ? {
       ...data.uscfRatings,
       lastSynced: data.uscfRatings.lastSynced?.toDate?.() ?? undefined,
@@ -50,6 +52,7 @@ export async function createUserDocument(
     firstName?: string;
     lastName?: string;
     uscfId?: string;
+    lichessUsername?: string;
     franchiseId?: string | null;
   }
 ) {
@@ -74,6 +77,7 @@ export async function createUserDocument(
   if (options?.firstName) userData.firstName = options.firstName;
   if (options?.lastName) userData.lastName = options.lastName;
   if (options?.uscfId) userData.uscfId = options.uscfId;
+  if (options?.lichessUsername) userData.lichessUsername = options.lichessUsername;
   if (options?.franchiseId !== undefined) userData.franchiseId = options.franchiseId;
 
   await setDoc(userRef, userData);
@@ -154,7 +158,7 @@ export async function updateUserRole(
 }
 
 /**
- * Update user profile information (firstName, lastName, uscfId)
+ * Update user profile information (firstName, lastName, uscfId, lichessUsername, fideId)
  * Users can only update their own profile
  * @param uid - User's UID
  * @param updates - Profile fields to update
@@ -165,6 +169,8 @@ export async function updateUserProfile(
     firstName?: string;
     lastName?: string;
     uscfId?: string;
+    lichessUsername?: string;
+    fideId?: string;
   }
 ): Promise<void> {
   const userRef = doc(db, 'users', uid);
@@ -187,6 +193,12 @@ export async function updateUserProfile(
   }
   if (updates.uscfId !== undefined) {
     updateData.uscfId = updates.uscfId || null;
+  }
+  if (updates.lichessUsername !== undefined) {
+    updateData.lichessUsername = updates.lichessUsername || null;
+  }
+  if (updates.fideId !== undefined) {
+    updateData.fideId = updates.fideId || null;
   }
   
   await updateDoc(userRef, updateData);
@@ -259,4 +271,137 @@ export async function canAssignRoles(uid: string): Promise<boolean> {
 export async function canCreateEvents(uid: string): Promise<boolean> {
   const role = await getUserRole(uid);
   return role === 'superAdmin' || role === 'franchisee' || role === 'standaloneAdmin';
+}
+
+/**
+ * Get player ratings from the playerRatings collection
+ * @param uid - User's UID
+ */
+export async function getPlayerRatings(uid: string): Promise<PlayerRatings | null> {
+  const ratingsRef = doc(db, 'playerRatings', uid);
+  const snapshot = await getDoc(ratingsRef);
+
+  if (!snapshot.exists()) {
+    return null;
+  }
+
+  const data = snapshot.data();
+  
+  // Handle uschessRatings - Firestore returns nested maps as objects
+  let uschessRatings = undefined;
+  if (data.uschessRatings && typeof data.uschessRatings === 'object') {
+    // Remove lastSynced if it exists (it's stored separately in parent lastSynced)
+    const { lastSynced: _, ...uschessData } = data.uschessRatings;
+    // Convert to plain object and ensure all fields are properly extracted
+    uschessRatings = {
+      ...uschessData,
+    } as USCFRatings;
+  }
+  
+  // Handle fideRatings - Firestore returns nested maps as objects
+  let fideRatings = undefined;
+  if (data.fideRatings && typeof data.fideRatings === 'object') {
+    // Remove lastSynced if it exists (it's stored separately in parent lastSynced)
+    const { lastSynced: _, ...fideData } = data.fideRatings;
+    // Convert to plain object and ensure all fields are properly extracted
+    fideRatings = {
+      ...fideData,
+    } as FIDERatings;
+  }
+  
+  // Handle lichessRatings
+  let lichessRatings = undefined;
+  if (data.lichessRatings && typeof data.lichessRatings === 'object') {
+    const { lastSynced: _, ...lichessData } = data.lichessRatings;
+    lichessRatings = {
+      ...lichessData,
+    };
+  }
+  
+  // Handle lastSynced - Firestore returns nested maps
+  let lastSyncedObj: any = {};
+  if (data.lastSynced && typeof data.lastSynced === 'object') {
+    if (data.lastSynced.uschess) {
+      lastSyncedObj.uschess = data.lastSynced.uschess?.toDate?.() ?? 
+        (data.lastSynced.uschess instanceof Date ? data.lastSynced.uschess : undefined);
+    }
+    if (data.lastSynced.fide) {
+      lastSyncedObj.fide = data.lastSynced.fide?.toDate?.() ?? 
+        (data.lastSynced.fide instanceof Date ? data.lastSynced.fide : undefined);
+    }
+    if (data.lastSynced.lichess) {
+      lastSyncedObj.lichess = data.lastSynced.lichess?.toDate?.() ?? 
+        (data.lastSynced.lichess instanceof Date ? data.lastSynced.lichess : undefined);
+    }
+  }
+  
+  return {
+    userId: data.userId || uid,
+    uschessRatings,
+    fideRatings,
+    lichessRatings,
+    lastSynced: Object.keys(lastSyncedObj).length > 0 ? lastSyncedObj : undefined,
+  };
+}
+
+/**
+ * Update player ratings in the playerRatings collection
+ * @param uid - User's UID
+ * @param updates - Ratings data to update
+ */
+export async function updatePlayerRatings(
+  uid: string,
+  updates: {
+    uschessRatings?: USCFRatings;
+    fideRatings?: any;
+    lichessRatings?: any;
+  }
+): Promise<void> {
+  const ratingsRef = doc(db, 'playerRatings', uid);
+  const snapshot = await getDoc(ratingsRef);
+
+  const updateData: any = {};
+
+  if (updates.uschessRatings) {
+    // Remove lastSynced from uschessRatings as it's stored separately
+    const { lastSynced, ...uschessData } = updates.uschessRatings;
+    updateData.uschessRatings = uschessData;
+    updateData['lastSynced.uschess'] = serverTimestamp();
+  }
+
+  if (updates.fideRatings) {
+    const { lastSynced, ...fideData } = updates.fideRatings;
+    updateData.fideRatings = fideData;
+    updateData['lastSynced.fide'] = serverTimestamp();
+  }
+
+  if (updates.lichessRatings) {
+    const { lastSynced, ...lichessData } = updates.lichessRatings;
+    updateData.lichessRatings = lichessData;
+    updateData['lastSynced.lichess'] = serverTimestamp();
+  }
+
+  if (!snapshot.exists()) {
+    // Create new document
+    await setDoc(ratingsRef, {
+      userId: uid,
+      ...updateData,
+    });
+  } else {
+    // Update existing document - use dot notation for nested fields
+    const finalUpdate: any = {};
+    if (updates.uschessRatings) {
+      finalUpdate.uschessRatings = updateData.uschessRatings;
+      finalUpdate['lastSynced.uschess'] = updateData['lastSynced.uschess'];
+    }
+    if (updates.fideRatings) {
+      finalUpdate.fideRatings = updateData.fideRatings;
+      finalUpdate['lastSynced.fide'] = updateData['lastSynced.fide'];
+    }
+    if (updates.lichessRatings) {
+      finalUpdate.lichessRatings = updateData.lichessRatings;
+      finalUpdate['lastSynced.lichess'] = updateData['lastSynced.lichess'];
+    }
+    await updateDoc(ratingsRef, finalUpdate);
+  }
 }
