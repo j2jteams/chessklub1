@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { EventData } from '@/lib/types';
+import { getTournamentPrice, formatPrice } from '@/lib/tournamentHelpers';
 import AddToCalendarButton from './AddToCalendarButton';
 import SetReminderButton from './SetReminderButton';
 
@@ -34,35 +35,13 @@ export default function RegisterPanel({
 }: RegisterPanelProps) {
   const [copied, setCopied] = useState(false);
   const [showToast, setShowToast] = useState(false);
-  const formatPrice = (priceStr: string) => {
-    if (!priceStr) return 'Free';
-    if (!/^[\$£€¥₹]/.test(priceStr.trim())) {
-      const numPrice = parseFloat(priceStr.trim());
-      if (!isNaN(numPrice)) {
-        return `$${numPrice.toFixed(2)}`;
-      }
-    }
-    return priceStr;
-  };
-
-  const getDisplayPrice = () => {
-    if (event.category === 'tournament' && event.sections && event.sections.length > 0) {
-      const sectionsWithFee = event.sections.filter(s => s.entryFee !== null && s.entryFee !== undefined);
-      if (sectionsWithFee.length > 0) {
-        const fees = sectionsWithFee.map(s => s.entryFee!);
-        const minFee = Math.min(...fees);
-        const maxFee = Math.max(...fees);
-        if (minFee === maxFee) {
-          return `$${minFee.toFixed(2)}`;
-        } else {
-          return `$${minFee.toFixed(2)} - $${maxFee.toFixed(2)}`;
-        }
-      }
-    }
-    return formatPrice(event.price || '');
-  };
-
-  const price = getDisplayPrice();
+  
+  // Get country-specific pricing (if available) or global pricing
+  const eventCountryCode = event.structuredLocation?.countryCode || event.country;
+  const priceInfo = getTournamentPrice(event, eventCountryCode);
+  
+  // Format price for display
+  const price = priceInfo ? formatPrice(priceInfo.price, priceInfo.currency) : 'Free';
   const registeredCount = registrationsCount || event.registeredUsers?.length || 0;
   const maxPlayers = event.maxPlayers;
   const spotsRemaining = maxPlayers ? maxPlayers - registeredCount : null;
@@ -95,7 +74,7 @@ export default function RegisterPanel({
     <div className="bg-white rounded-xl shadow-sm p-6">
       {/* Price Badge */}
       <div className="text-center mb-6">
-        {price === 'Free' || price === '$0.00' ? (
+        {!priceInfo || priceInfo.price === 0 || price === 'Free' ? (
           <span className="inline-block px-6 py-3 bg-[#FF7A00] text-white rounded-full text-xl font-bold">
             Free entry
           </span>

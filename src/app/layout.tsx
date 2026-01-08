@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Poppins, Roboto } from "next/font/google";
 import "./globals.css";
+import { BRAND_NAME, BRAND_TAGLINE } from "@/config/brand";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,8 +26,8 @@ const roboto = Roboto({
 });
 
 export const metadata: Metadata = {
-  title: "Chess Tourneys - Find Chess Tournaments Around the World",
-  description: "Discover and register for chess tournaments worldwide. Join Chess Tourneys to compete, learn, and connect with chess enthusiasts globally.",
+  title: `${BRAND_NAME} - ${BRAND_TAGLINE}`,
+  description: `Discover and register for chess tournaments worldwide. Join ${BRAND_NAME} to compete, learn, and connect with chess enthusiasts globally.`,
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },

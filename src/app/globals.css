@@ -1,5 +1,6 @@
 @import "tailwindcss";
-@import "leaflet/dist/leaflet.css";
+/* Leaflet CSS removed - using Google Maps instead */
+/* @import "leaflet/dist/leaflet.css"; */
 
 :root {
   /* Colors */

@@ -16,8 +16,10 @@ import {
   where,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { EventData, EventStatus, EventCategory, TournamentSection, EventAddOn, ChessEvent, TournamentRegistration, TimeControl } from './types';
+import { EventData, EventStatus, EventCategory, TournamentSection, EventAddOn, ChessEvent, TournamentRegistration, TimeControl, PricingTier } from './types';
 import { Timestamp } from 'firebase/firestore';
+import { normalizeCountryCode } from './locationNormalizer';
+import { resolveCountryCode } from './countryResolver';
 
 const EVENTS_COLLECTION = 'events';
 const USERS_COLLECTION = 'users';
@@ -83,9 +85,39 @@ function fromFirestoreEvent(docId: string, data: any): EventData {
     }));
   }
   
+  // Parse pricing tiers array if present
+  let pricingTiers: PricingTier[] | undefined = undefined;
+  if (data.pricingTiers && Array.isArray(data.pricingTiers)) {
+    const parsedTiers = data.pricingTiers.map((tier: any) => ({
+      id: tier.id || '',
+      name: tier.name || '',
+      price: typeof tier.price === 'number' ? tier.price : (typeof tier.price === 'string' ? parseFloat(tier.price) || 0 : 0),
+      description: tier.description || '',
+      countryCode: tier.countryCode || undefined,
+      currency: tier.currency || 'USD',
+    }));
+    // Only include if non-empty
+    if (parsedTiers.length > 0) {
+      pricingTiers = parsedTiers;
+    }
+  }
+
   // NEW: Franchise tracking
   const franchiseId = data.franchiseId ?? null;
   const isStandalone = franchiseId === null || franchiseId === undefined;
+  
+  // PERMANENT: Remove tags field if it exists in the database (migration)
+  // This ensures tags are automatically removed when events are read
+  if (data.tags !== undefined) {
+    // Asynchronously remove tags from database (don't block the read)
+    const eventRef = doc(db, EVENTS_COLLECTION, docId);
+    updateDoc(eventRef, { tags: deleteField() }).catch((error) => {
+      console.warn(`Failed to remove tags from event ${docId}:`, error);
+      // Non-critical error - continue with event read
+    });
+    // Also remove from data object so it's not included in the returned EventData
+    delete data.tags;
+  }
   
   return {
     id: docId,
@@ -131,11 +163,33 @@ function fromFirestoreEvent(docId: string, data: any): EventData {
     sections: sections.length > 0 ? sections : undefined,
     // Add-ons (new unified model)
     addOns: addOns.length > 0 ? addOns : undefined,
+    // Pricing tiers (new system)
+    pricingTiers: pricingTiers,
+    // Structured location (new system) - preserve as-is from Firestore
+    structuredLocation: data.structuredLocation || undefined,
     // Unified type field (maps from category or type)
     type: data.type || (data.category === 'tournament' ? 'tournament' : 'other'),
     // NEW: Franchise tracking
     franchiseId: franchiseId,
     isStandalone: isStandalone,
+    // Global tournament search fields
+    country: data.country,
+    countryCode: data.structuredLocation?.countryCode || resolveCountryCode(data.country),
+    city: data.city,
+    region: data.region,
+    coordinates: data.coordinates,
+    tournamentLevel: data.tournamentLevel,
+    fideRated: data.fideRated,
+    ratingType: data.ratingType,
+    maxPlayers: data.maxPlayers,
+    registrationDeadline: data.registrationDeadline,
+    minRating: data.minRating,
+    maxRating: data.maxRating,
+    prizeFund: data.prizeFund,
+    prizeCurrency: data.prizeCurrency,
+    heroImageUrl: data.heroImageUrl,
+    venueType: data.venueType,
+    address: data.address,
   };
 }
 
@@ -147,16 +201,50 @@ export async function createEvent(
   try {
     // Import getUserRole to determine creator role if not provided
     const { getUserRole } = await import('./userRoles');
-    const role = creatorRole || await getUserRole(event.createdBy);
+    let role: 'superAdmin' | 'franchisee' | 'standaloneAdmin' | undefined = creatorRole;
+    
+    // If role not provided, fetch from Firestore
+    if (!role) {
+      const firestoreRole = await getUserRole(event.createdBy);
+      console.log(`[createEvent] Role not provided, fetched from Firestore: ${firestoreRole} for user ${event.createdBy}`);
+      // Only use valid admin roles (filter out 'player' and null)
+      if (firestoreRole === 'superAdmin' || firestoreRole === 'franchisee' || firestoreRole === 'standaloneAdmin') {
+        role = firestoreRole;
+      } else {
+        console.warn(`[createEvent] User ${event.createdBy} does not have a valid admin role. Role: ${firestoreRole}`);
+      }
+    } else {
+      // Defensive check: Verify role from Firestore matches passed role
+      const firestoreRole = await getUserRole(event.createdBy);
+      console.log(`[createEvent] Role provided: ${role}, Firestore role: ${firestoreRole} for user ${event.createdBy}`);
+      
+      // Special case: If passed role is superAdmin, trust it (might be from client-side auth)
+      // Only override if Firestore has a different valid admin role
+      if (role === 'superAdmin') {
+        if (firestoreRole !== 'superAdmin' && (firestoreRole === 'franchisee' || firestoreRole === 'standaloneAdmin')) {
+          console.warn(`[createEvent] Role mismatch: passed=superAdmin, Firestore=${firestoreRole}. Using passed superAdmin role.`);
+          // Keep superAdmin role - don't override
+        } else if (firestoreRole === 'superAdmin') {
+          console.log(`[createEvent] Role confirmed: superAdmin matches Firestore`);
+        }
+      } else if (firestoreRole !== role && (firestoreRole === 'superAdmin' || firestoreRole === 'franchisee' || firestoreRole === 'standaloneAdmin')) {
+        console.warn(`[createEvent] Role mismatch: passed=${role}, Firestore=${firestoreRole}. Using Firestore role.`);
+        // Use Firestore role as source of truth
+        role = firestoreRole;
+      }
+    }
     
     // Determine franchiseId and status based on role
     let finalFranchiseId: string | null | undefined = franchiseId;
     let finalStatus: EventStatus = event.status;
     
+    console.log(`[createEvent] Final role determined: ${role}, initial status: ${finalStatus}`);
+    
     if (role === 'superAdmin') {
       // Super Admin can create with or without franchise
-      // Status is always approved
+      // Status is always approved (override any passed status)
       finalStatus = 'approved';
+      console.log(`[createEvent] Super Admin detected - setting status to 'approved'`);
       // Use provided franchiseId (can be null for standalone)
     } else if (role === 'franchisee') {
       // Franchisee: if franchiseId is explicitly null (standalone event), needs approval
@@ -165,11 +253,13 @@ export async function createEvent(
         // Explicitly set to null/undefined - standalone event - needs approval
         finalStatus = 'pendingApproval';
         finalFranchiseId = null;
+        console.log(`[createEvent] Franchisee creating standalone event - status: ${finalStatus}`);
       } else {
         // Franchise event - auto-approve
         finalStatus = 'approved';
         // Use provided franchiseId or default to creator's UID
         finalFranchiseId = finalFranchiseId || event.createdBy;
+        console.log(`[createEvent] Franchisee creating franchise event - status: ${finalStatus}`);
       }
     } else if (role === 'standaloneAdmin') {
       // Standalone Admin: if franchiseId is provided (franchise event), needs approval
@@ -177,14 +267,40 @@ export async function createEvent(
       if (finalFranchiseId !== null && finalFranchiseId !== undefined) {
         // Standalone admin creating franchise event - needs approval
         finalStatus = 'pendingApproval';
+        console.log(`[createEvent] Standalone Admin creating franchise event - status: ${finalStatus}`);
         // Keep the provided franchiseId
       } else {
         // Standalone admin creating standalone event - auto-approve
         finalFranchiseId = null;
         finalStatus = 'approved';
+        console.log(`[createEvent] Standalone Admin creating standalone event - status: ${finalStatus}`);
       }
     } else {
+      console.error(`[createEvent] Invalid role: ${role}. User: ${event.createdBy}`);
       throw new Error('Only Super Admin, Franchisee, or Standalone Admin can create events');
+    }
+    
+    console.log(`[createEvent] Final status before saving: ${finalStatus}, role: ${role}`);
+    
+    // SAFETY CHECK: If role is still undefined but we have a createdBy, try one more time to get role
+    // This handles edge cases where role detection might have failed
+    if (!role && event.createdBy) {
+      console.warn(`[createEvent] Role is still undefined after all checks. Attempting final role fetch for user: ${event.createdBy}`);
+      const { getUserRole } = await import('./userRoles');
+      const finalRoleCheck = await getUserRole(event.createdBy);
+      console.log(`[createEvent] Final role check result: ${finalRoleCheck}`);
+      if (finalRoleCheck === 'superAdmin') {
+        role = 'superAdmin';
+        finalStatus = 'approved';
+        console.log(`[createEvent] Final check: Super Admin detected - forcing status to 'approved'`);
+      }
+    }
+    
+    // FINAL SAFETY CHECK: If status is still pendingApproval but we have a role, ensure Super Admin events are approved
+    // This is a last-ditch safety net to prevent Super Admin events from being created as pending
+    if (finalStatus === 'pendingApproval' && role === 'superAdmin') {
+      console.warn(`[createEvent] CRITICAL: Status is pendingApproval but role is superAdmin - forcing to approved!`);
+      finalStatus = 'approved';
     }
     
     // Filter out undefined values (Firestore doesn't accept undefined)
@@ -272,6 +388,11 @@ export async function createEvent(
         }
       }
 
+      // Structured location (new system)
+      if (event.structuredLocation !== undefined && event.structuredLocation !== null) {
+        eventData.structuredLocation = event.structuredLocation;
+      }
+
       // Time fields
       if (event.startTime !== undefined && event.startTime !== null) {
         const startTimeStr = typeof event.startTime === 'string' ? event.startTime.trim() : String(event.startTime).trim();
@@ -310,6 +431,52 @@ export async function createEvent(
       }));
     }
 
+    // Pricing tiers (for all event types)
+    if (event.pricingTiers && Array.isArray(event.pricingTiers) && event.pricingTiers.length > 0) {
+      eventData.pricingTiers = event.pricingTiers
+        .map(tier => {
+          // Sanitize tier fields
+          let price = typeof tier.price === 'number' ? tier.price : (typeof tier.price === 'string' ? parseFloat(tier.price) : 0);
+          
+          // Skip invalid tiers (price must be a valid number)
+          if (isNaN(price) || price < 0) {
+            return null;
+          }
+          
+          // Round to 2 decimal places to avoid floating point precision issues
+          // Use a more precise rounding method to avoid 500 becoming 499.99
+          price = Math.round(price * 100 + Number.EPSILON) / 100;
+          
+          // If the value is very close to a whole number (within 0.001), round to whole number
+          // This prevents 499.99999999999994 from being stored as 499.99
+          const nearestWhole = Math.round(price);
+          if (Math.abs(price - nearestWhole) < 0.001) {
+            price = nearestWhole;
+          }
+          
+          const normalizedCountryCode = normalizeCountryCode(tier.countryCode);
+          const tierObj: PricingTier = {
+            id: tier.id || `tier-${Date.now()}-${Math.random()}`,
+            name: tier.name || '',
+            price: price,
+            // Normalize country code
+            countryCode: normalizedCountryCode,
+            // Default currency to USD if missing
+            currency: tier.currency || 'USD',
+          };
+          // Only include description if it exists
+          if (tier.description) {
+            tierObj.description = tier.description;
+          }
+          return tierObj;
+        })
+        .filter((tier): tier is PricingTier => tier !== null);
+      // Only include if we have valid tiers
+      if (eventData.pricingTiers.length === 0) {
+        delete eventData.pricingTiers;
+      }
+    }
+
     // Unified type field
     if (event.type) {
       eventData.type = event.type;
@@ -317,7 +484,30 @@ export async function createEvent(
       eventData.type = 'tournament';
     }
     
-    const docRef = await addDoc(collection(db, EVENTS_COLLECTION), eventData);
+    // Final cleanup: Remove any undefined values (Firestore doesn't accept undefined)
+    const cleanEventData = (obj: any): any => {
+      if (obj === null || obj === undefined) return null;
+      if (Array.isArray(obj)) {
+        return obj.map(cleanEventData).filter(item => item !== undefined);
+      }
+      if (typeof obj === 'object' && obj.constructor === Object) {
+        const cleaned: any = {};
+        for (const [key, value] of Object.entries(obj)) {
+          if (value !== undefined) {
+            const cleanedValue = cleanEventData(value);
+            if (cleanedValue !== undefined) {
+              cleaned[key] = cleanedValue;
+            }
+          }
+        }
+        return cleaned;
+      }
+      return obj;
+    };
+    
+    const finalEventData = cleanEventData(eventData);
+    
+    const docRef = await addDoc(collection(db, EVENTS_COLLECTION), finalEventData);
     return docRef.id;
   } catch (error: any) {
     console.error('Error creating event:', error);
@@ -341,11 +531,12 @@ export async function updateEvent(
   editorUid?: string
 ) {
   // Check permissions if editorUid is provided
+  let editorRole: 'superAdmin' | 'franchisee' | 'standaloneAdmin' | null = null;
   if (editorUid) {
     const { getUserRole } = await import('./userRoles');
     const { getEvent } = await import('./events');
     
-    const editorRole = await getUserRole(editorUid);
+    editorRole = await getUserRole(editorUid);
     const event = await getEvent(eventId);
     
     if (!event) {
@@ -355,6 +546,7 @@ export async function updateEvent(
     // Permission checks
     if (editorRole === 'superAdmin') {
       // Super Admin can edit all events
+      console.log(`[updateEvent] Super Admin detected - will auto-approve event`);
     } else if (editorRole === 'franchisee') {
       // Franchisee can only edit events where franchiseId === their UID
       if (event.franchiseId !== editorUid) {
@@ -371,8 +563,10 @@ export async function updateEvent(
   }
   
   // Filter out undefined values (Firestore doesn't accept undefined)
+  // PERMANENT: Always remove tags field when updating events
   const updateData: any = {
     updatedAt: serverTimestamp(),
+    tags: deleteField(), // Permanently remove tags field on every update
   };
   
   // Only include required fields that are defined
@@ -381,7 +575,52 @@ export async function updateEvent(
   if (updates.location !== undefined) updateData.location = updates.location;
   if (updates.price !== undefined) updateData.price = updates.price;
   if (updates.category !== undefined) updateData.category = updates.category;
-  if (updates.status !== undefined) updateData.status = updates.status;
+  
+  // Handle status: Super Admin always auto-approves (unless explicitly setting to something else)
+  if (updates.status !== undefined) {
+    // If status is explicitly provided, use it (but Super Admin should auto-approve)
+    if (editorRole === 'superAdmin' && updates.status === 'pendingApproval') {
+      // Super Admin tried to set to pending - auto-approve instead
+      console.log(`[updateEvent] Super Admin attempted to set status to pendingApproval - auto-approving instead`);
+      updateData.status = 'approved';
+    } else {
+      updateData.status = updates.status;
+    }
+  } else if (editorRole === 'superAdmin') {
+    // Super Admin updating event but status not provided - auto-approve
+    console.log(`[updateEvent] Super Admin updating event - auto-setting status to 'approved'`);
+    updateData.status = 'approved';
+  }
+  // For other roles, don't change status if not provided
+  
+  // Structured location (new system)
+  if (updates.structuredLocation !== undefined) {
+    if (updates.structuredLocation !== null) {
+      // Clean undefined values from structuredLocation
+      const cleanLocation = (obj: any): any => {
+        if (obj === null || obj === undefined) return null;
+        if (Array.isArray(obj)) {
+          return obj.map(cleanLocation).filter(item => item !== undefined);
+        }
+        if (typeof obj === 'object' && obj.constructor === Object) {
+          const cleaned: any = {};
+          for (const [key, value] of Object.entries(obj)) {
+            if (value !== undefined) {
+              const cleanedValue = cleanLocation(value);
+              if (cleanedValue !== undefined) {
+                cleaned[key] = cleanedValue;
+              }
+            }
+          }
+          return cleaned;
+        }
+        return obj;
+      };
+      updateData.structuredLocation = cleanLocation(updates.structuredLocation);
+    } else {
+      updateData.structuredLocation = deleteField();
+    }
+  }
   
   // Tournament-specific fields
   if (updates.venue !== undefined) {
@@ -484,6 +723,44 @@ export async function updateEvent(
     }
   }
 
+  // Pricing tiers
+  if (updates.pricingTiers !== undefined) {
+    if (updates.pricingTiers && Array.isArray(updates.pricingTiers) && updates.pricingTiers.length > 0) {
+      const sanitizedTiers = updates.pricingTiers
+        .map(tier => {
+          const price = typeof tier.price === 'number' ? tier.price : (typeof tier.price === 'string' ? parseFloat(tier.price) : 0);
+          // Skip invalid tiers
+          if (isNaN(price) || price < 0) {
+            return null;
+          }
+          const normalizedCountryCode = normalizeCountryCode(tier.countryCode);
+          const tierObj: PricingTier = {
+            id: tier.id || `tier-${Date.now()}-${Math.random()}`,
+            name: tier.name || '',
+            price: price,
+            // Normalize country code
+            countryCode: normalizedCountryCode,
+            // Default currency to USD if missing
+            currency: tier.currency || 'USD',
+          };
+          // Only include description if it exists
+          if (tier.description) {
+            tierObj.description = tier.description;
+          }
+          return tierObj;
+        })
+        .filter((tier): tier is PricingTier => tier !== null);
+      
+      if (sanitizedTiers.length > 0) {
+        updateData.pricingTiers = sanitizedTiers;
+      } else {
+        updateData.pricingTiers = deleteField();
+      }
+    } else {
+      updateData.pricingTiers = deleteField();
+    }
+  }
+
   // Unified type field
   if (updates.type !== undefined) {
     updateData.type = updates.type;
@@ -537,7 +814,30 @@ export async function updateEvent(
     }
   }
   
-  await updateDoc(doc(db, EVENTS_COLLECTION, eventId), updateData);
+  // Final cleanup: Remove any undefined values (Firestore doesn't accept undefined)
+  const cleanUpdateData = (obj: any): any => {
+    if (obj === null || obj === undefined) return null;
+    if (Array.isArray(obj)) {
+      return obj.map(cleanUpdateData).filter(item => item !== undefined);
+    }
+    if (typeof obj === 'object' && obj.constructor === Object) {
+      const cleaned: any = {};
+      for (const [key, value] of Object.entries(obj)) {
+        if (value !== undefined) {
+          const cleanedValue = cleanUpdateData(value);
+          if (cleanedValue !== undefined) {
+            cleaned[key] = cleanedValue;
+          }
+        }
+      }
+      return cleaned;
+    }
+    return obj;
+  };
+  
+  const finalUpdateData = cleanUpdateData(updateData);
+  
+  await updateDoc(doc(db, EVENTS_COLLECTION, eventId), finalUpdateData);
 }
 
 export async function deleteEvent(eventId: string) {
@@ -566,6 +866,9 @@ export function eventDataToChessEvent(eventData: EventData): ChessEvent {
     status: eventData.status,
     sections: eventData.sections || [],
     addOns: eventData.addOns || [],
+    // Prevent data loss: preserve pricingTiers and structuredLocation
+    pricingTiers: eventData.pricingTiers || [],
+    structuredLocation: eventData.structuredLocation,
     createdBy: eventData.createdBy,
     createdByEmail: eventData.createdByEmail,
     createdAt: eventData.createdAt,

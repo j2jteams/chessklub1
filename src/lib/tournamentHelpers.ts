@@ -1,4 +1,5 @@
-import { EventData } from './types';
+import { EventData, PricingTier } from './types';
+import { normalizeCountryCode } from './locationNormalizer';
 
 /**
  * Format date for display (e.g., "Dec 5, 2025")
@@ -62,33 +63,109 @@ export function isOnline(tournament: EventData): boolean {
 }
 
 /**
- * Format price for display
+ * Format price for display with currency symbol using Intl.NumberFormat
  */
 export function formatPrice(price: number | null | undefined, currency: string = 'USD'): string {
   if (price === null || price === undefined || price === 0) {
     return 'Free';
   }
-  const symbol = currency === 'USD' ? '$' : currency;
-  return `${symbol}${price.toFixed(0)}`;
+  
+  // Normalize currency code (uppercase)
+  const normalizedCurrency = currency.toUpperCase();
+  
+  // Round to 2 decimal places to avoid floating point precision issues
+  const roundedPrice = Math.round(price * 100) / 100;
+  
+  // Check if price is a whole number (no decimal part)
+  const isWholeNumber = roundedPrice % 1 === 0;
+  
+  try {
+    // Use Intl.NumberFormat for proper currency formatting
+    // If it's a whole number, don't show decimals
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: normalizedCurrency,
+      minimumFractionDigits: isWholeNumber ? 0 : 2,
+      maximumFractionDigits: 2,
+    }).format(roundedPrice);
+  } catch (error) {
+    // Fallback if currency code is invalid or not supported
+    // Format with decimals only if needed
+    if (isWholeNumber) {
+      return `${normalizedCurrency} ${roundedPrice.toFixed(0)}`;
+    }
+    return `${normalizedCurrency} ${roundedPrice.toFixed(2)}`;
+  }
 }
 
 /**
- * Get price value from tournament
+ * Get price value from tournament, considering location-based pricing
+ * @param tournament - The tournament/event data
+ * @param countryCode - Optional country code to match location-specific pricing (e.g., "IN" for India)
+ * @returns Object with price, currency, and tier info, or null if free
  */
-export function getTournamentPrice(tournament: EventData): number | null {
+export function getTournamentPrice(
+  tournament: EventData, 
+  countryCode?: string
+): { price: number; currency: string; tier?: PricingTier } | null {
+  // Check pricing tiers first (new system)
+  if (tournament.pricingTiers && Array.isArray(tournament.pricingTiers) && tournament.pricingTiers.length > 0) {
+    // Normalize input country code
+    const normalizedInputCode = countryCode ? normalizeCountryCode(countryCode) : undefined;
+    
+    // If normalized country code is provided, try to find a matching country-specific tier
+    if (normalizedInputCode) {
+      const countryTier = tournament.pricingTiers.find(tier => {
+        if (!tier.countryCode) return false;
+        // Normalize tier's country code for comparison
+        const normalizedTierCode = normalizeCountryCode(tier.countryCode);
+        return normalizedTierCode === normalizedInputCode;
+      });
+      
+      if (countryTier && typeof countryTier.price === 'number' && countryTier.price > 0) {
+        return {
+          price: countryTier.price,
+          currency: countryTier.currency || 'USD',
+          tier: countryTier
+        };
+      }
+    }
+    
+    // Fallback to global tier (no countryCode) or first tier
+    const globalTier = tournament.pricingTiers.find(tier => !tier.countryCode) || tournament.pricingTiers[0];
+    if (globalTier && typeof globalTier.price === 'number' && globalTier.price > 0) {
+      return {
+        price: globalTier.price,
+        currency: globalTier.currency || 'USD',
+        tier: globalTier
+      };
+    }
+  }
+  
+  // Check sections (for tournaments with multiple rating sections)
   if (tournament.category === 'tournament' && tournament.sections && tournament.sections.length > 0) {
     const sectionsWithFee = tournament.sections.filter((s: any) => s.entryFee !== null && s.entryFee !== undefined);
     if (sectionsWithFee.length > 0) {
       const fees = sectionsWithFee.map((s: any) => s.entryFee!);
-      return Math.min(...fees);
-    }
-  } else if (tournament.price) {
-    const priceStr = tournament.price.trim().replace('$', '');
-    const numPrice = parseFloat(priceStr);
-    if (!isNaN(numPrice)) {
-      return numPrice;
+      return {
+        price: Math.min(...fees),
+        currency: 'USD' // Default for legacy sections
+      };
     }
   }
+  
+  // Legacy price field
+  if (tournament.price) {
+    const priceStr = tournament.price.trim().replace(/[$₹€£]/, '');
+    const numPrice = parseFloat(priceStr);
+    if (!isNaN(numPrice) && numPrice > 0) {
+      return {
+        price: numPrice,
+        currency: 'USD' // Default for legacy price
+      };
+    }
+  }
+  
   return null;
 }
 

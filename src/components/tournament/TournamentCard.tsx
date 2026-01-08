@@ -7,6 +7,7 @@ import { EventData, TimeControl } from '@/lib/types';
 import Badge from './Badge';
 import TournamentInfoRow from './TournamentInfoRow';
 import { formatDisplayDate, getUrgencyLabel, isOnline, formatPrice, getTournamentPrice } from '@/lib/tournamentHelpers';
+import { getCountryFlagFromTournament, getCountryCodeFromTournament } from '@/lib/getCountryFlag';
 
 interface TournamentCardProps {
   tournament: EventData;
@@ -70,9 +71,9 @@ export default function TournamentCard({
     return daysSinceCreation <= 7;
   })();
 
-  const priceValue = getTournamentPrice(tournament);
-  const isFree = priceValue === null || priceValue === 0;
-  const priceDisplay = formatPrice(priceValue);
+  const priceInfo = getTournamentPrice(tournament, tournament.structuredLocation?.countryCode);
+  const isFree = priceInfo === null || priceInfo.price === 0;
+  const priceDisplay = priceInfo ? formatPrice(priceInfo.price, priceInfo.currency) : 'Free';
 
   // Determine mode of play
   const tournamentIsOnline = isOnline(tournament);
@@ -107,6 +108,10 @@ export default function TournamentCard({
 
   const dateDisplay = getDateDisplay();
   const locationDisplay = getLocationDisplay();
+  
+  // Get country code using the unified utility
+  const countryCode = getCountryCodeFromTournament(tournament);
+  
   // Compute time control label with priority: customLabel > format > category
   const tc = tournament.timeControl;
   const formatDisplay = (() => {
@@ -127,6 +132,8 @@ export default function TournamentCard({
   })();
   const title = getTitle();
   const descriptionPreview = getDescriptionPreview();
+  
+  // Tags are not displayed - removed to prevent incorrect country badges from showing
 
   // Handle card click (excluding admin tools and register button)
   const handleCardClick = (e: React.MouseEvent) => {
@@ -147,15 +154,15 @@ export default function TournamentCard({
 
   return (
     <div 
-      className={`bg-white rounded-xl shadow-md border transition-all duration-200 overflow-hidden flex flex-col h-full cursor-pointer ${
+      className={`bg-white rounded-xl shadow-md border transition-all duration-300 overflow-hidden flex flex-col h-full cursor-pointer ${
         tournamentIsOnline 
           ? 'border-violet-200 border-t-4 border-t-violet-300' 
           : 'border-gray-100'
-      } hover:shadow-xl hover:-translate-y-1`}
+      } hover:shadow-2xl hover:-translate-y-2 hover:border-gray-200`}
       onClick={handleCardClick}
     >
       {/* Banner Section with Badges */}
-      <div className="relative h-32 overflow-hidden rounded-t-xl">
+      <div className="relative h-40 sm:h-44 overflow-hidden rounded-t-xl">
         {tournament.image || tournament.heroImageUrl ? (
           <>
             <img 
@@ -211,6 +218,7 @@ export default function TournamentCard({
             format={formatDisplay}
             price={priceDisplay}
             isOnline={tournamentIsOnline}
+            countryCode={countryCode}
           />
         </div>
 
@@ -241,9 +249,12 @@ export default function TournamentCard({
             <Link
               href={`/events/${tournament.id}`}
               onClick={(e) => e.stopPropagation()}
-              className="flex-1 inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+              className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100 hover:border-orange-300 transition-all group"
             >
               Learn More
+              <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
             </Link>
             <Link
               href={`/events/${tournament.id}`}

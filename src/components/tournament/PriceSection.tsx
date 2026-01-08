@@ -1,42 +1,21 @@
 'use client';
 
 import { EventData, PricingTier } from '@/lib/types';
+import { getTournamentPrice, formatPrice } from '@/lib/tournamentHelpers';
+import { normalizeCountryCode } from '@/lib/locationNormalizer';
 
 interface PriceSectionProps {
   event: EventData;
 }
 
 export default function PriceSection({ event }: PriceSectionProps) {
-  const formatPrice = (priceStr: string) => {
-    if (!priceStr) return 'Free';
-    if (!/^[\$£€¥₹]/.test(priceStr.trim())) {
-      const numPrice = parseFloat(priceStr.trim());
-      if (!isNaN(numPrice)) {
-        return `$${numPrice.toFixed(2)}`;
-      }
-    }
-    return priceStr;
-  };
-
-  const getDisplayPrice = () => {
-    if (event.category === 'tournament' && event.sections && event.sections.length > 0) {
-      const sectionsWithFee = event.sections.filter(s => s.entryFee !== null && s.entryFee !== undefined);
-      if (sectionsWithFee.length > 0) {
-        const fees = sectionsWithFee.map(s => s.entryFee!);
-        const minFee = Math.min(...fees);
-        const maxFee = Math.max(...fees);
-        if (minFee === maxFee) {
-          return `$${minFee.toFixed(2)}`;
-        } else {
-          return `$${minFee.toFixed(2)} - $${maxFee.toFixed(2)}`;
-        }
-      }
-    }
-    return formatPrice(event.price || '');
-  };
-
-  const price = getDisplayPrice();
-  const isFree = price === 'Free' || price === '$0.00';
+  // Get country-specific pricing (if available) or global pricing
+  const eventCountryCode = event.structuredLocation?.countryCode || event.country;
+  const normalizedEventCountry = normalizeCountryCode(eventCountryCode);
+  const priceInfo = getTournamentPrice(event, normalizedEventCountry);
+  
+  // Determine if free
+  const isFree = !priceInfo || priceInfo.price === 0;
 
   return (
     <div className="bg-white rounded-xl shadow-sm p-6">
@@ -54,24 +33,70 @@ export default function PriceSection({ event }: PriceSectionProps) {
       {/* Price Display */}
       {event.pricingTiers && event.pricingTiers.length > 0 ? (
         <div className="space-y-4">
-          {event.pricingTiers.map((tier, index) => (
-            <div key={tier.id || index} className="border border-[#E2E2E2] rounded-lg p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-base font-semibold text-gray-900">{tier.name}</span>
-                <span className="text-2xl font-bold text-[#FF7A00]">${tier.price.toFixed(2)}</span>
-              </div>
-              {tier.description && (
-                <p className="text-sm text-[#6A6A6A]">{tier.description}</p>
-              )}
-            </div>
-          ))}
+          {(() => {
+            // Prioritize: country-specific tiers first, then global tiers if no country match
+            const countrySpecificTiers = normalizedEventCountry
+              ? event.pricingTiers.filter(tier => {
+                  if (!tier.countryCode) return false;
+                  const normalizedTierCountry = normalizeCountryCode(tier.countryCode);
+                  return normalizedTierCountry === normalizedEventCountry;
+                })
+              : [];
+            
+            const globalTiers = event.pricingTiers.filter(tier => !tier.countryCode);
+            
+            // Show country-specific tiers if available, otherwise show global tiers
+            const tiersToShow = countrySpecificTiers.length > 0 ? countrySpecificTiers : globalTiers;
+            
+            if (tiersToShow.length === 0) {
+              // No matching tiers - show fallback from getTournamentPrice
+              return (
+                <div>
+                  {isFree ? (
+                    <p className="text-4xl font-bold text-[#FF7A00] mb-2">Free</p>
+                  ) : priceInfo ? (
+                    <p className="text-4xl font-bold text-[#FF7A00] mb-2">{formatPrice(priceInfo.price, priceInfo.currency)}</p>
+                  ) : (
+                    <p className="text-4xl font-bold text-[#FF7A00] mb-2">Free</p>
+                  )}
+                  <p className="text-sm text-[#6A6A6A]">
+                    {event.category === 'tournament' && event.sections && event.sections.length > 0
+                      ? 'per section'
+                      : `per ${event.category === 'tournament' ? 'tournament' : 'event'}`}
+                  </p>
+                </div>
+              );
+            }
+            
+            return tiersToShow.map((tier, index) => {
+              // Format price with proper currency
+              const displayPrice = formatPrice(tier.price, tier.currency || 'USD');
+              
+              return (
+                <div key={tier.id || index} className="border border-[#E2E2E2] rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-base font-semibold text-gray-900">{tier.name}</span>
+                    <span className="text-2xl font-bold text-[#FF7A00]">{displayPrice}</span>
+                  </div>
+                  {tier.description && (
+                    <p className="text-sm text-[#6A6A6A]">{tier.description}</p>
+                  )}
+                  {tier.countryCode && (
+                    <p className="text-xs text-[#6A6A6A] mt-1 italic">Price for {tier.countryCode}</p>
+                  )}
+                </div>
+              );
+            });
+          })()}
         </div>
       ) : (
         <div>
           {isFree ? (
             <p className="text-4xl font-bold text-[#FF7A00] mb-2">Free</p>
+          ) : priceInfo ? (
+            <p className="text-4xl font-bold text-[#FF7A00] mb-2">{formatPrice(priceInfo.price, priceInfo.currency)}</p>
           ) : (
-            <p className="text-4xl font-bold text-[#FF7A00] mb-2">{price}</p>
+            <p className="text-4xl font-bold text-[#FF7A00] mb-2">Free</p>
           )}
           <p className="text-sm text-[#6A6A6A]">
             {event.category === 'tournament' && event.sections && event.sections.length > 0

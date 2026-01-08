@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { getApprovedEvents, getAllEvents, deleteEvent } from '@/lib/events';
 import { EventData } from '@/lib/types';
@@ -8,13 +8,40 @@ import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useAuth } from '@/hooks/useAuth';
+import TournamentSearchBar from '@/components/tournaments/TournamentSearchBar';
+import TournamentFilters from '@/components/tournaments/TournamentFilters';
+import { TournamentFilters as FilterType } from '@/components/tournaments/FilterPanel';
+import { filterTournaments } from '@/lib/tournamentSearch';
+import { getAllChessCountries, getAllChessCities } from '@/lib/chessCountries';
+import { progressiveRadiusExpansion, calculateDistanceMiles } from '@/lib/locationHelpers';
+import { getLocationContext, type LocationContext } from '@/lib/locationContext';
+import LocationPermissionPrompt from '@/components/tournaments/LocationPermissionPrompt';
+import UnifiedLocationControl from '@/components/tournaments/UnifiedLocationControl';
 
 function EventsContent() {
   const searchParams = useSearchParams();
   const filter = searchParams.get('filter') || 'all';
+  const searchQuery = searchParams.get('search') || '';
   const { user, role } = useAuth();
   const [events, setEvents] = useState<EventData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQueryState, setSearchQueryState] = useState(searchQuery);
+  const [filters, setFilters] = useState<FilterType>({
+    countries: [],
+    cities: [],
+    dateRange: { start: '', end: '' },
+    minRating: null,
+    maxRating: null,
+    ratingTypes: [],
+    timeControls: [],
+    tournamentLevels: [],
+    priceRange: { min: null, max: null },
+    fideRatedOnly: false,
+    hasPrizeFund: false,
+    registrationOpen: false,
+  });
+  const [locationContext, setLocationContext] = useState<LocationContext | null>(null);
+  const [radiusExpansionInfo, setRadiusExpansionInfo] = useState<{ expanded: boolean; message?: string } | null>(null);
   const isSuperAdmin = role === 'superAdmin';
 
   useEffect(() => {
@@ -33,33 +60,168 @@ function EventsContent() {
     fetchEvents();
   }, [isSuperAdmin]);
 
+  // Get countries and cities from comprehensive lists
+  const availableCountries = useMemo(() => getAllChessCountries(), []);
+  const availableCities = useMemo(() => getAllChessCities(), []);
+
+  // Load location context on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const context = getLocationContext();
+      setLocationContext(context);
+    }
+  }, []);
+
+  // Handle location context change
+  const handleLocationChange = useCallback((newContext: LocationContext) => {
+    setLocationContext(newContext);
+  }, []);
+
+  // Handle location permission
+  const handleLocationAllow = () => {
+    // Location will be requested when user clicks "Use my location" in UnifiedLocationControl
+  };
+
+  const handleLocationDeny = () => {
+    // User denied location permission
+  };
+
   // Filter events - show ONLY events (category === 'event')
   const now = new Date();
+  now.setHours(0, 0, 0, 0);
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-  const filteredEvents = events.filter((event) => {
-    // Events page shows ONLY events (not tournaments)
-    const isEvent = event.category === 'event' || (!event.category && !event.title.toLowerCase().includes('tournament'));
-    
-    if (!isEvent) return false; // Only show events on events page
-    
-    if (filter === 'new') {
-      const createdDate = event.createdAt ? new Date(event.createdAt) : null;
-      return createdDate && createdDate >= sevenDaysAgo;
-    } else if (filter === 'upcoming') {
-      try {
-        const eventDate = new Date(event.date);
-        return !isNaN(eventDate.getTime()) && eventDate >= now;
-      } catch {
-        return true; // Include if date parsing fails
+  // Apply basic filter tabs (new, upcoming, all)
+  const basicFiltered = useMemo(() => {
+    return events.filter((event) => {
+      // Events page shows ONLY events (not tournaments)
+      const isEvent = event.category === 'event' || (!event.category && !event.title.toLowerCase().includes('tournament'));
+      
+      if (!isEvent) return false; // Only show events on events page
+      
+      if (filter === 'new') {
+        const createdDate = event.createdAt ? new Date(event.createdAt) : null;
+        if (createdDate) {
+          createdDate.setHours(0, 0, 0, 0);
+        }
+        return createdDate && createdDate >= sevenDaysAgo;
+      } else if (filter === 'upcoming') {
+        try {
+          const eventDate = event.startDate 
+            ? new Date(event.startDate)
+            : event.date 
+            ? new Date(event.date)
+            : null;
+          if (eventDate) {
+            eventDate.setHours(0, 0, 0, 0);
+          }
+          return eventDate && !isNaN(eventDate.getTime()) && eventDate >= now;
+        } catch {
+          return false;
+        }
       }
+      return true; // 'all'
+    });
+  }, [events, filter, now, sevenDaysAgo]);
+
+  // Apply location-based filtering with progressive radius expansion
+  const locationFiltered = useMemo(() => {
+    const activeContext = locationContext && locationContext.mode !== 'anywhere' 
+      ? locationContext 
+      : null;
+
+    if (!activeContext || !activeContext.center) {
+      // No location context - return all items
+      return { items: basicFiltered.map(t => ({ ...t, _distanceMiles: null })), expansionResult: null };
     }
-    return true; // 'all'
-  });
+
+    // Use progressive radius expansion
+    const expansionResult = progressiveRadiusExpansion(
+      basicFiltered,
+      activeContext.center,
+      activeContext.radiusMiles,
+      20, // minResults
+      activeContext.countryCode
+    );
+
+    // Calculate distance for each item and add metadata
+    const items = expansionResult.tournaments.map((item: any) => {
+      const coords = item.structuredLocation?.geo
+        ? { lat: item.structuredLocation.geo.latitude, lng: item.structuredLocation.geo.longitude }
+        : (item as any).coordinates;
+      
+      let distanceMiles: number | null = null;
+      if (coords) {
+        distanceMiles = calculateDistanceMiles(
+          activeContext.center!.lat,
+          activeContext.center!.lng,
+          coords.lat,
+          coords.lng
+        );
+      }
+
+      return {
+        ...item,
+        _distanceMiles: distanceMiles,
+        _finalRadius: expansionResult.finalRadiusMiles
+      };
+    });
+
+    return { items, expansionResult };
+  }, [basicFiltered, locationContext]);
+
+  // Update expansion info
+  useEffect(() => {
+    const expansionResult = locationFiltered.expansionResult;
+    if (expansionResult?.expanded && expansionResult?.expansionMessage) {
+      setRadiusExpansionInfo({
+        expanded: true,
+        message: expansionResult.expansionMessage
+      });
+    } else {
+      setRadiusExpansionInfo(null);
+    }
+  }, [
+    locationFiltered.expansionResult?.expanded,
+    locationFiltered.expansionResult?.expansionMessage,
+    locationFiltered.expansionResult?.finalRadiusMiles
+  ]);
+
+  // Apply search and advanced filters
+  const filteredEvents = useMemo(() => {
+    const items = locationFiltered.items || locationFiltered;
+    const filtered = filterTournaments(Array.isArray(items) ? items : [], searchQueryState, filters);
+    
+    // Sort by distance if location context is active
+    if (locationContext && locationContext.mode !== 'anywhere' && locationContext.center) {
+      return [...filtered].sort((a: any, b: any) => {
+        const distanceA = a._distanceMiles;
+        const distanceB = b._distanceMiles;
+        
+        // Both have distance - sort by distance first
+        if (distanceA !== null && distanceB !== null) {
+          return distanceA - distanceB;
+        }
+        
+        // One has distance, one doesn't - prioritize the one with distance
+        if (distanceA !== null && distanceB === null) return -1;
+        if (distanceA === null && distanceB !== null) return 1;
+        
+        // Neither has distance - maintain original order
+        return 0;
+      });
+    }
+    
+    return filtered;
+  }, [locationFiltered, searchQueryState, filters, locationContext]);
 
   return (
     <>
       <Header />
+      <LocationPermissionPrompt
+        onAllow={handleLocationAllow}
+        onDeny={handleLocationDeny}
+      />
       <div className="min-h-screen bg-gray-50 chess-themed-bg">
         {/* Hero Section */}
         <div 
@@ -93,8 +255,66 @@ function EventsContent() {
           </div>
         </div>
 
-        {/* Filter Tabs */}
+        {/* Search and Filters Section */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Tournament Search Bar */}
+          <div className="mb-6">
+            <TournamentSearchBar
+              redirectOnSearch={false}
+              currentPath="/events"
+              initialQuery={searchQuery}
+              onSearch={setSearchQueryState}
+            />
+          </div>
+
+          {/* Location Status Banner */}
+          {locationContext && locationContext.mode !== 'anywhere' && locationContext.center && (
+            <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg flex items-center gap-2">
+              <svg className="w-5 h-5 text-orange-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <div className="flex-1">
+                <span className="text-sm font-semibold text-orange-900">
+                  {radiusExpansionInfo?.expanded && radiusExpansionInfo.message ? (
+                    radiusExpansionInfo.message
+                  ) : (
+                    `Showing events within ${locationContext.radiusMiles} miles`
+                  )}
+                </span>
+                {locationContext.label && (
+                  <span className="text-xs text-orange-700 ml-2">
+                    ({locationContext.label})
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Unified Filters Bar (Location + Time Control + Date + Rating) */}
+          <div className="mb-6">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              {/* Unified Location Control */}
+              <UnifiedLocationControl
+                filters={filters}
+                onFiltersChange={setFilters}
+                onLocationContextChange={handleLocationChange}
+                availableCountries={availableCountries}
+                availableCities={availableCities}
+              />
+              
+              {/* Other filters (Time Control, Date, Rating) - Location filter hidden */}
+              <TournamentFilters
+                filters={filters}
+                onFiltersChange={setFilters}
+                availableCountries={availableCountries}
+                availableCities={availableCities}
+                hideLocationFilter={true}
+              />
+            </div>
+          </div>
+
+          {/* Filter Tabs */}
           <div className="flex space-x-4 mb-8 border-b border-gray-200">
             <Link
               href="/events?filter=all"
