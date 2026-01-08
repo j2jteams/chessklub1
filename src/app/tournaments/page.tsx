@@ -380,19 +380,17 @@ function TournamentsContent() {
   // Update radius expansion info - use primitive values in dependency array to prevent infinite loops
   const distanceInfoExpanded = filterResult.distanceInfo?.expanded;
   const distanceInfoMessage = filterResult.distanceInfo?.message;
-  const distanceInfoRadius = filterResult.distanceInfo?.finalRadiusMiles;
   
   useEffect(() => {
     if (distanceInfoExpanded && distanceInfoMessage) {
       setRadiusExpansionInfo({
         expanded: distanceInfoExpanded,
         message: distanceInfoMessage,
-        finalRadiusMiles: distanceInfoRadius
       });
     } else {
       setRadiusExpansionInfo(null);
     }
-  }, [distanceInfoExpanded, distanceInfoMessage, distanceInfoRadius]);
+  }, [distanceInfoExpanded, distanceInfoMessage]);
 
   // Apply sorting - use distance when location context is active, otherwise use selected sort
   const sortedTournaments = useMemo(() => {
