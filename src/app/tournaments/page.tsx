@@ -345,15 +345,16 @@ function TournamentsContent() {
   // Create stable location context for unified filter
   const stableLocationContext = useMemo(() => {
     if (!locationContext) return null;
+    // Use locationContext directly to ensure all required fields are present
     return {
-      mode: locationMode,
-      center: locationCenter,
-      radiusMiles: locationRadius,
-      label: locationLabel,
-      countryCode: locationCountryCode,
+      mode: locationContext.mode,
+      center: locationContext.center,
+      radiusMiles: locationContext.radiusMiles,
+      label: locationContext.label,
+      countryCode: locationContext.countryCode,
       source: locationContext.source,
     };
-  }, [locationMode, locationCenter?.lat, locationCenter?.lng, locationRadius, locationLabel, locationCountryCode, locationContext?.source]);
+  }, [locationContext]);
 
   // Unified filtering pipeline - single source of truth for all filtering
   const filterResult = useMemo(() => {
