@@ -497,7 +497,7 @@ function applySearchQuery(tournaments: EventData[], searchQuery: string): EventD
       const { getAllChessCities } = require('./chessCountries');
       const allCities = getAllChessCities();
       // Check if query matches any city (case-insensitive, exact or partial match)
-      isCitySearch = allCities.some(city => {
+      isCitySearch = allCities.some((city: string) => {
         const cityLower = city.toLowerCase();
         return cityLower === query || 
                cityLower.includes(query) ||
@@ -578,7 +578,7 @@ function applyLocationFiltering(
   }
   
   // Calculate distance for each tournament
-  const tournamentsWithDistance = filteredTournaments.map(tournament => {
+  const tournamentsWithDistance = filteredTournaments.map((tournament: EventData) => {
     const coords = tournament.structuredLocation?.geo
       ? { lat: tournament.structuredLocation.geo.latitude, lng: tournament.structuredLocation.geo.longitude }
       : tournament.coordinates;
@@ -843,7 +843,7 @@ export function filterTournamentsUnified(
       
       // Check if query matches any city (case-insensitive, exact or partial match)
       const normalizedQuery = cityAliases[query] || query;
-      const matchingCity = allCities.find(city => {
+      const matchingCity = allCities.find((city: string) => {
         const cityLower = city.toLowerCase();
         return cityLower === normalizedQuery || 
                cityLower === query ||

@@ -536,7 +536,11 @@ export async function updateEvent(
     const { getUserRole } = await import('./userRoles');
     const { getEvent } = await import('./events');
     
-    editorRole = await getUserRole(editorUid);
+    const role = await getUserRole(editorUid);
+    // Only allow admin roles, filter out 'player'
+    if (role === 'superAdmin' || role === 'franchisee' || role === 'standaloneAdmin') {
+      editorRole = role;
+    }
     const event = await getEvent(eventId);
     
     if (!event) {

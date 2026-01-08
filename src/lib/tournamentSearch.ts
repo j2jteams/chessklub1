@@ -335,7 +335,7 @@ export function filterTournaments(
         // Check structuredLocation.countryCode (primary)
         countryMatch = 
           normalizedStructuredCode === normalizedQueryCode ||
-          (structuredCountryCodeLower && structuredCountryCodeLower === queryCountryCode.toLowerCase());
+          (!!structuredCountryCodeLower && structuredCountryCodeLower === queryCountryCode.toLowerCase());
         
         // Check country field (secondary)
         if (!countryMatch && country) {
@@ -402,8 +402,8 @@ export function filterTournaments(
         countryMatch = 
           country.includes(query) ||
           structuredCountryCodeLower.includes(query) ||
-          (location && location.includes(query)) ||
-          (venue && venue.includes(query));
+          (!!location && location.includes(query)) ||
+          (!!venue && venue.includes(query));
       }
 
       // If this is a country search, ONLY include tournaments that match the country
