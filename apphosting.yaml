@@ -30,6 +30,8 @@ runConfig:
 # --- Environment Variables ---
 # Map Firebase Secrets to environment variables
 # These secrets must be set in Firebase Console before deployment
+# IMPORTANT: Secret names in Secret Manager should match the 'secret:' values below
+# If your secrets are named differently, update the 'secret:' values to match
 env:
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
     secret: NEXT_PUBLIC_FIREBASE_API_KEY
