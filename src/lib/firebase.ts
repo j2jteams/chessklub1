@@ -15,7 +15,7 @@ const firebaseConfig = {
 
 // Initialize Firebase
 // During build, if env vars aren't available, we'll use a placeholder config
-// This allows the build to complete; runtime will validate and throw if config is invalid
+// This allows the build to complete; at runtime, the real config should be available
 const hasValidConfig = firebaseConfig.apiKey && 
                        firebaseConfig.apiKey !== '' && 
                        firebaseConfig.projectId && 
@@ -23,23 +23,25 @@ const hasValidConfig = firebaseConfig.apiKey &&
 
 let app: ReturnType<typeof initializeApp>;
 if (hasValidConfig) {
+  // Use real config if available
   app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 } else {
-  // During build, use placeholder to allow compilation
-  // At runtime, Firebase operations will fail with clear errors
-  const placeholderConfig = {
-    apiKey: 'build-placeholder',
-    authDomain: 'placeholder.firebaseapp.com',
-    projectId: 'placeholder-project',
-    storageBucket: 'placeholder-project.appspot.com',
-    messagingSenderId: '000000000',
-    appId: '1:000000000:web:placeholder',
-  };
-  // Only use placeholder if no app exists yet
-  if (getApps().length === 0) {
-    app = initializeApp(placeholderConfig, 'placeholder');
-  } else {
+  // Check if we already have an app initialized (might be from a previous import)
+  const existingApps = getApps();
+  if (existingApps.length > 0) {
     app = getApp();
+  } else {
+    // During build, use placeholder to allow compilation
+    // At runtime with real env vars, this won't be reached
+    const placeholderConfig = {
+      apiKey: 'build-placeholder',
+      authDomain: 'placeholder.firebaseapp.com',
+      projectId: 'placeholder-project',
+      storageBucket: 'placeholder-project.appspot.com',
+      messagingSenderId: '000000000',
+      appId: '1:000000000:web:placeholder',
+    };
+    app = initializeApp(placeholderConfig, 'placeholder');
   }
 }
 
