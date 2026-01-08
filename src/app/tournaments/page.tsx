@@ -448,15 +448,15 @@ function TournamentsContent() {
         break;
       case 'price-low':
         sorted.sort((a, b) => sortWithDistance(a, b, (a, b) => {
-          const priceA = getTournamentPrice(a) ?? 0;
-          const priceB = getTournamentPrice(b) ?? 0;
+          const priceA: number = getTournamentPrice(a)?.price ?? 0;
+          const priceB: number = getTournamentPrice(b)?.price ?? 0;
           return priceA - priceB;
         }));
         break;
       case 'price-high':
         sorted.sort((a, b) => sortWithDistance(a, b, (a, b) => {
-          const priceA = getTournamentPrice(a) ?? 0;
-          const priceB = getTournamentPrice(b) ?? 0;
+          const priceA: number = getTournamentPrice(a)?.price ?? 0;
+          const priceB: number = getTournamentPrice(b)?.price ?? 0;
           return priceB - priceA;
         }));
         break;
