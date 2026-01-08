@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 
-// Dynamically import all Leaflet components to avoid SSR issues
-const MapComponent = dynamic(
-  () => import('./MapComponent'),
+// Dynamically import Google Maps component to avoid SSR issues
+const GoogleMapComponent = dynamic(
+  () => import('./GoogleMapComponent'),
   { 
     ssr: false,
     loading: () => (
@@ -37,38 +37,65 @@ export default function LocationMap({ location, venue, coordinates, className = 
   useEffect(() => {
     const geocodeAddress = async (address: string) => {
       try {
-        // Use Nominatim (OpenStreetMap geocoding service) - free, no API key required
-        // Add User-Agent header as required by Nominatim usage policy
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&addressdetails=1`,
-          {
-            headers: {
-              'User-Agent': 'ChessTourneys/1.0 (https://chessklub.com)',
-            },
-          }
-        );
+        // Use Google Geocoding Service from Maps JavaScript API (works with referer restrictions)
+        const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY;
         
-        if (!response.ok) {
-          throw new Error(`Geocoding failed: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        if (data && data.length > 0) {
-          const lat = parseFloat(data[0].lat);
-          const lon = parseFloat(data[0].lon);
-          if (!isNaN(lat) && !isNaN(lon)) {
-            setMapCenter([lat, lon]);
-            setGeocodingError('');
-            return;
-          }
-        }
-        
-        // If geocoding failed, try with a simplified address (just city/state)
-        const simplifiedAddress = address.split(',').slice(-2).join(',').trim();
-        if (simplifiedAddress && simplifiedAddress !== address) {
-          const retryResponse = await fetch(
-            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(simplifiedAddress)}&limit=1`,
+        if (apiKey && (window as any).google?.maps) {
+          // Use Geocoder service from Maps JavaScript API (works with website restrictions)
+          const geocoder = new (window as any).google.maps.Geocoder();
+          
+          geocoder.geocode({ address: address }, (results: any[], status: string) => {
+            if (status === 'OK' && results && results.length > 0) {
+              const location = results[0].geometry.location;
+              const lat = location.lat();
+              const lng = location.lng();
+              if (!isNaN(lat) && !isNaN(lng)) {
+                setMapCenter([lat, lng]);
+                setGeocodingError('');
+                return;
+              }
+            } else if (status === 'ZERO_RESULTS') {
+              // Try with simplified address (just city/state)
+              const simplifiedAddress = address.split(',').slice(-2).join(',').trim();
+              if (simplifiedAddress && simplifiedAddress !== address) {
+                geocoder.geocode({ address: simplifiedAddress }, (retryResults: any[], retryStatus: string) => {
+                  if (retryStatus === 'OK' && retryResults && retryResults.length > 0) {
+                    const retryLocation = retryResults[0].geometry.location;
+                    const lat = retryLocation.lat();
+                    const lng = retryLocation.lng();
+                    if (!isNaN(lat) && !isNaN(lng)) {
+                      setMapCenter([lat, lng]);
+                      setGeocodingError('');
+                    } else {
+                      setGeocodingError('Map preview unavailable');
+                    }
+                  } else {
+                    setGeocodingError('Map preview unavailable');
+                  }
+                });
+              } else {
+                setGeocodingError('Map preview unavailable');
+              }
+            } else {
+              console.warn('Geocoding failed:', status);
+              setGeocodingError('Map preview unavailable');
+            }
+          });
+          return; // Exit early since we're using async callback
+        } else if (apiKey) {
+          // API key exists but Google Maps not loaded yet - wait for it
+          const checkGoogleLoaded = setInterval(() => {
+            if ((window as any).google?.maps) {
+              clearInterval(checkGoogleLoaded);
+              geocodeAddress(address); // Retry once loaded
+            }
+          }, 500);
+          setTimeout(() => clearInterval(checkGoogleLoaded), 10000);
+          return;
+        } else {
+          // No API key - use Nominatim as fallback
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&addressdetails=1`,
             {
               headers: {
                 'User-Agent': 'ChessTourneys/1.0 (https://chessklub.com)',
@@ -76,11 +103,11 @@ export default function LocationMap({ location, venue, coordinates, className = 
             }
           );
           
-          if (retryResponse.ok) {
-            const retryData = await retryResponse.json();
-            if (retryData && retryData.length > 0) {
-              const lat = parseFloat(retryData[0].lat);
-              const lon = parseFloat(retryData[0].lon);
+          if (response.ok) {
+            const data = await response.json();
+            if (data && data.length > 0) {
+              const lat = parseFloat(data[0].lat);
+              const lon = parseFloat(data[0].lon);
               if (!isNaN(lat) && !isNaN(lon)) {
                 setMapCenter([lat, lon]);
                 setGeocodingError('');
@@ -91,6 +118,7 @@ export default function LocationMap({ location, venue, coordinates, className = 
         }
         
         // If all geocoding attempts failed, show error but still allow Google Maps link
+        console.warn('Geocoding failed for address:', address);
         setGeocodingError('Map preview unavailable');
       } catch (err) {
         console.error('Geocoding error:', err);
@@ -148,7 +176,7 @@ export default function LocationMap({ location, venue, coordinates, className = 
   return (
     <div className={`rounded-lg overflow-hidden border border-gray-200 shadow-sm ${className}`}>
       <div className="relative w-full" style={{ height: '300px' }}>
-        <MapComponent
+        <GoogleMapComponent
           center={mapCenter}
           zoom={coordinates ? 15 : 13}
           location={displayLocation}
@@ -165,16 +193,6 @@ export default function LocationMap({ location, venue, coordinates, className = 
           >
             Open in Google Maps →
           </a>
-          {coordinates && (
-            <a
-              href={`https://www.openstreetmap.org/?mlat=${coordinates.lat}&mlon=${coordinates.lng}&zoom=15`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-gray-600 hover:text-gray-700"
-            >
-              Open in OpenStreetMap →
-            </a>
-          )}
         </div>
       </div>
     </div>

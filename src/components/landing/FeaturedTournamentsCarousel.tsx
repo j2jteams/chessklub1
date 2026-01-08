@@ -3,13 +3,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { EventData } from '@/lib/types';
 import TournamentCard from '@/components/TournamentCard';
+import TournamentCardSkeleton from '@/components/TournamentCardSkeleton';
 
 interface FeaturedTournamentsCarouselProps {
   tournaments: EventData[];
   loading?: boolean;
+  error?: Error | null;
+  onRetry?: () => void;
 }
 
-export default function FeaturedTournamentsCarousel({ tournaments, loading }: FeaturedTournamentsCarouselProps) {
+export default function FeaturedTournamentsCarousel({ tournaments, loading, error, onRetry }: FeaturedTournamentsCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [itemsPerView, setItemsPerView] = useState(3);
   const carouselRef = useRef<HTMLDivElement>(null);
@@ -62,13 +65,71 @@ export default function FeaturedTournamentsCarousel({ tournaments, loading }: Fe
         </div>
 
         {loading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading tournaments...</p>
+          <div className="relative">
+            <div className="overflow-hidden rounded-xl">
+              <div className="flex gap-6">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <div
+                    key={index}
+                    className="flex-shrink-0"
+                    style={{
+                      width: `${100 / itemsPerView}%`,
+                      minWidth: `${100 / itemsPerView}%`,
+                    }}
+                  >
+                    <TournamentCardSkeleton />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="text-center py-16 px-4">
+            <div className="max-w-md mx-auto">
+              <div className="mb-4">
+                <svg className="mx-auto h-12 w-12 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Couldn't load tournaments
+              </h3>
+              <p className="text-sm text-gray-600 mb-6">
+                {error.message || 'Something went wrong while fetching tournaments. Please try again.'}
+              </p>
+              {onRetry && (
+                <button
+                  onClick={onRetry}
+                  className="inline-flex items-center px-6 py-3 bg-orange-500 text-white font-semibold rounded-full hover:bg-orange-600 transition-all shadow-lg hover:shadow-xl"
+                >
+                  Retry
+                </button>
+              )}
+            </div>
           </div>
         ) : featuredTournaments.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
-            No featured tournaments available.
+          <div className="text-center py-16 px-4">
+            <div className="max-w-md mx-auto">
+              <div className="mb-4">
+                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                No tournaments found
+              </h3>
+              <p className="text-sm text-gray-600 mb-6">
+                Try adjusting filters or check back soon.
+              </p>
+              {onRetry && (
+                <button
+                  onClick={onRetry}
+                  className="inline-flex items-center px-6 py-3 bg-orange-500 text-white font-semibold rounded-full hover:bg-orange-600 transition-all shadow-lg hover:shadow-xl"
+                >
+                  Refresh
+                </button>
+              )}
+            </div>
           </div>
         ) : (
           <div className="relative">

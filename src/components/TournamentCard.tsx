@@ -2,8 +2,10 @@
 
 import { CalendarDays, MapPin, Trophy } from "lucide-react";
 import Link from "next/link";
+import ReactCountryFlag from "react-country-flag";
 import { EventData, TimeControl } from '@/lib/types';
 import { formatDisplayDate, isOnline, formatPrice, getTournamentPrice } from '@/lib/tournamentHelpers';
+import { getCountryCodeFromTournament } from '@/lib/getCountryFlag';
 
 type TournamentCardProps = {
   tournament: EventData;
@@ -14,11 +16,16 @@ export default function TournamentCard({
   tournament,
   isFeatured = false,
 }: TournamentCardProps) {
-  const priceValue = getTournamentPrice(tournament);
-  const priceDisplay = formatPrice(priceValue);
+  const priceInfo = getTournamentPrice(tournament, tournament.structuredLocation?.countryCode);
+  const priceDisplay = priceInfo ? formatPrice(priceInfo.price, priceInfo.currency) : 'Free';
   const dateToFormat = tournament.startDate || tournament.date;
   const dateDisplay = formatDisplayDate(dateToFormat);
   const locationDisplay = tournament.venue || tournament.location || 'Location TBD';
+  
+  const tournamentIsOnline = isOnline(tournament);
+  
+  // Get country code using the unified utility
+  const countryCode = getCountryCodeFromTournament(tournament);
   
   // Determine badge from ratingType
   let badge: string | undefined;
@@ -50,20 +57,7 @@ export default function TournamentCard({
     return null;
   })();
 
-  // Build tags array
-  const tags: string[] = [];
-  if (isOnline(tournament)) {
-    tags.push('Online');
-  } else {
-    tags.push('In-person');
-  }
-  // Add time control label to tags if available
-  if (timeControlLabel) {
-    tags.push(timeControlLabel);
-  }
-  if (tournament.tags && tournament.tags.length > 0) {
-    tags.push(...tournament.tags);
-  }
+  // Tags are not displayed - removed to prevent incorrect country badges from showing
 
   const name = tournament.title || tournament.name || 'Untitled Tournament';
 
@@ -138,21 +132,22 @@ export default function TournamentCard({
             </div>
           )}
         </div>
-        {tags.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {tags.slice(0, 3).map((tag) => (
-              <span
-                key={tag}
-                className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
+        {/* Tags removed - no longer displaying tournament tags */}
         <div className="h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-sm font-semibold">
+            {!tournamentIsOnline && countryCode && (
+              <ReactCountryFlag
+                countryCode={countryCode}
+                svg
+                style={{
+                  width: '1.4em',
+                  height: '1.4em',
+                  marginRight: '0.375rem',
+                }}
+                title={countryCode}
+              />
+            )}
             <span className="text-[14px]">💰</span>
             {priceDisplay.toLowerCase() === "free" ? (
               <span className="text-green-600 text-sm">Free</span>

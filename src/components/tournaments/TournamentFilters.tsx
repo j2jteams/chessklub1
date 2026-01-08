@@ -8,6 +8,7 @@ interface TournamentFiltersProps {
   onFiltersChange: (filters: FilterType) => void;
   availableCountries: string[];
   availableCities: string[];
+  hideLocationFilter?: boolean;
 }
 
 const TIME_CONTROLS = ['Classical', 'Rapid', 'Blitz', 'Bullet'];
@@ -18,13 +19,13 @@ export default function TournamentFilters({
   onFiltersChange,
   availableCountries,
   availableCities,
+  hideLocationFilter = false,
 }: TournamentFiltersProps) {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const dropdownRefs = {
     type: useRef<HTMLDivElement>(null),
     location: useRef<HTMLDivElement>(null),
     timeControl: useRef<HTMLDivElement>(null),
-    level: useRef<HTMLDivElement>(null),
     date: useRef<HTMLDivElement>(null),
     rating: useRef<HTMLDivElement>(null),
   };
@@ -101,6 +102,7 @@ export default function TournamentFilters({
     (filters.dateRange.end ? 1 : 0) +
     filters.timeControls.length +
     filters.tournamentLevels.length +
+    (filters.ratingTypes?.length ?? 0) +
     (filters.minRating !== null ? 1 : 0) +
     (filters.maxRating !== null ? 1 : 0) +
     (filters.priceRange.min !== null ? 1 : 0) +
@@ -124,19 +126,13 @@ export default function TournamentFilters({
         if (filters.cities.length > 0) {
           return filters.cities.length === 1 ? filters.cities[0] : `${filters.cities.length} cities`;
         }
-        return 'Worldwide';
+        return 'All locations';
       case 'timeControl':
         return filters.timeControls.length > 0
           ? filters.timeControls.length === 1
             ? filters.timeControls[0]
             : `${filters.timeControls.length} selected`
           : 'All controls';
-      case 'level':
-        return filters.tournamentLevels.length > 0
-          ? filters.tournamentLevels.length === 1
-            ? filters.tournamentLevels[0]
-            : `${filters.tournamentLevels.length} selected`
-          : 'All levels';
       case 'date':
         if (filters.dateRange.start && filters.dateRange.end) {
           return `${filters.dateRange.start} - ${filters.dateRange.end}`;
@@ -158,61 +154,21 @@ export default function TournamentFilters({
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      {/* Tournament Type/Level Dropdown */}
-      <div className="relative" ref={dropdownRefs.level}>
-        <button
-          onClick={(e) => toggleDropdown('level', e)}
-          className={`flex items-center gap-2 px-4 py-2.5 bg-white border-2 rounded-lg font-medium text-gray-700 hover:border-orange-400 transition-colors ${
-            filters.tournamentLevels.length > 0 ? 'border-orange-500 bg-orange-50' : 'border-gray-200'
-          }`}
-        >
-          <span>{getDisplayText('level')}</span>
-          <svg
-            className={`w-4 h-4 transition-transform ${openDropdown === 'level' ? 'rotate-180' : ''}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-        {openDropdown === 'level' && (
-          <div 
-            className="absolute top-full left-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-200 z-50 py-2 max-h-64 overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {TOURNAMENT_LEVELS.map((level) => (
-              <label
-                key={level}
-                className="flex items-center px-4 py-2 hover:bg-gray-50 cursor-pointer"
-              >
-                <input
-                  type="checkbox"
-                  checked={filters.tournamentLevels.includes(level)}
-                  onChange={() => toggleArrayFilter('tournamentLevels', level)}
-                  className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
-                />
-                <span className="ml-3 text-sm text-gray-700">{level}</span>
-              </label>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Location Dropdown */}
+    <div className="flex flex-wrap items-center gap-2 sm:gap-3 -mx-1 sm:mx-0">
+      {/* Location Dropdown - Hidden if using UnifiedLocationControl */}
+      {!hideLocationFilter && (
       <div className="relative" ref={dropdownRefs.location}>
         <button
           onClick={(e) => toggleDropdown('location', e)}
-          className={`flex items-center gap-2 px-4 py-2.5 bg-white border-2 rounded-lg font-medium text-gray-700 hover:border-orange-400 transition-colors ${
+          className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-white border rounded-full font-medium text-xs sm:text-sm text-gray-700 hover:border-orange-300 hover:bg-orange-50 transition-all ${
             filters.countries.length > 0 || filters.cities.length > 0
-              ? 'border-orange-500 bg-orange-50'
+              ? 'border-orange-400 bg-orange-50 shadow-sm'
               : 'border-gray-200'
           }`}
         >
-          <span>{getDisplayText('location')}</span>
+          <span className="whitespace-nowrap">{getDisplayText('location')}</span>
           <svg
-            className={`w-4 h-4 transition-transform ${openDropdown === 'location' ? 'rotate-180' : ''}`}
+            className={`w-3 h-3 sm:w-4 sm:h-4 transition-transform flex-shrink-0 ${openDropdown === 'location' ? 'rotate-180' : ''}`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -264,18 +220,19 @@ export default function TournamentFilters({
           </div>
         )}
       </div>
+      )}
 
       {/* Time Control Dropdown */}
       <div className="relative" ref={dropdownRefs.timeControl}>
         <button
           onClick={(e) => toggleDropdown('timeControl', e)}
-          className={`flex items-center gap-2 px-4 py-2.5 bg-white border-2 rounded-lg font-medium text-gray-700 hover:border-orange-400 transition-colors ${
-            filters.timeControls.length > 0 ? 'border-orange-500 bg-orange-50' : 'border-gray-200'
+          className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-white border rounded-full font-medium text-xs sm:text-sm text-gray-700 hover:border-orange-300 hover:bg-orange-50 transition-all ${
+            filters.timeControls.length > 0 ? 'border-orange-400 bg-orange-50 shadow-sm' : 'border-gray-200'
           }`}
         >
-          <span>{getDisplayText('timeControl')}</span>
+          <span className="whitespace-nowrap">{getDisplayText('timeControl')}</span>
           <svg
-            className={`w-4 h-4 transition-transform ${openDropdown === 'timeControl' ? 'rotate-180' : ''}`}
+            className={`w-3 h-3 sm:w-4 sm:h-4 transition-transform flex-shrink-0 ${openDropdown === 'timeControl' ? 'rotate-180' : ''}`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -310,18 +267,18 @@ export default function TournamentFilters({
       <div className="relative" ref={dropdownRefs.date}>
         <button
           onClick={(e) => toggleDropdown('date', e)}
-          className={`flex items-center gap-2 px-4 py-2.5 bg-white border-2 rounded-lg font-medium text-gray-700 hover:border-orange-400 transition-colors ${
+          className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-white border rounded-full font-medium text-xs sm:text-sm text-gray-700 hover:border-orange-300 hover:bg-orange-50 transition-all ${
             filters.dateRange.start || filters.dateRange.end
-              ? 'border-orange-500 bg-orange-50'
+              ? 'border-orange-400 bg-orange-50 shadow-sm'
               : 'border-gray-200'
           }`}
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
-          <span>{getDisplayText('date')}</span>
+          <span className="whitespace-nowrap">{getDisplayText('date')}</span>
           <svg
-            className={`w-4 h-4 transition-transform ${openDropdown === 'date' ? 'rotate-180' : ''}`}
+            className={`w-3 h-3 sm:w-4 sm:h-4 transition-transform flex-shrink-0 ${openDropdown === 'date' ? 'rotate-180' : ''}`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -439,18 +396,18 @@ export default function TournamentFilters({
       <div className="relative" ref={dropdownRefs.rating}>
         <button
           onClick={(e) => toggleDropdown('rating', e)}
-          className={`flex items-center gap-2 px-4 py-2.5 bg-white border-2 rounded-lg font-medium text-gray-700 hover:border-orange-400 transition-colors ${
+          className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-white border rounded-full font-medium text-xs sm:text-sm text-gray-700 hover:border-orange-300 hover:bg-orange-50 transition-all ${
             (filters.ratingTypes && filters.ratingTypes.length > 0) || filters.fideRatedOnly
-              ? 'border-orange-500 bg-orange-50'
+              ? 'border-orange-400 bg-orange-50 shadow-sm'
               : 'border-gray-200'
           }`}
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
           </svg>
-          <span>{getDisplayText('rating')}</span>
+          <span className="whitespace-nowrap">{getDisplayText('rating')}</span>
           <svg
-            className={`w-4 h-4 transition-transform ${openDropdown === 'rating' ? 'rotate-180' : ''}`}
+            className={`w-3 h-3 sm:w-4 sm:h-4 transition-transform flex-shrink-0 ${openDropdown === 'rating' ? 'rotate-180' : ''}`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -492,9 +449,12 @@ export default function TournamentFilters({
               <div className="pt-3 border-t border-gray-200">
                 <button
                   onClick={() => {
-                    updateFilter('ratingTypes', []);
-                    // Also clear legacy fields
-                    updateFilter('fideRatedOnly', false);
+                    // Clear rating-related filters in a single update to avoid stale state issues
+                    onFiltersChange({
+                      ...filters,
+                      ratingTypes: [],
+                      fideRatedOnly: false,
+                    });
                   }}
                   className="w-full px-3 py-1.5 text-xs font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors"
                 >
@@ -510,7 +470,7 @@ export default function TournamentFilters({
       {activeFilterCount > 0 && (
         <button
           onClick={clearAllFilters}
-          className="flex items-center gap-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 border-2 border-gray-200 rounded-lg font-medium text-gray-700 transition-colors"
+          className="flex items-center gap-1 px-3 sm:px-4 py-1.5 sm:py-2 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-full font-medium text-xs sm:text-sm text-gray-700 transition-all"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

@@ -121,8 +121,8 @@ export default function LocationsPage() {
               <div>
                 <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Contact</h3>
                 <p className="text-gray-800">
-                  <a href="mailto:hello@chessklub.com" className="text-orange-500 hover:text-orange-600">
-                    hello@chessklub.com
+                  <a href="mailto:support@chesstourneys.com" className="text-orange-500 hover:text-orange-600">
+                    support@chesstourneys.com
                   </a>
                 </p>
                 <p className="text-gray-800">

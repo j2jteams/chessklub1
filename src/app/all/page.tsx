@@ -11,8 +11,15 @@ import { useAuth } from '@/hooks/useAuth';
 import TournamentSearchBar from '@/components/tournaments/TournamentSearchBar';
 import TournamentFilters from '@/components/tournaments/TournamentFilters';
 import { TournamentFilters as FilterType } from '@/components/tournaments/FilterPanel';
-import { filterTournaments, getUniqueCountries, getUniqueCities } from '@/lib/tournamentSearch';
+import { getUniqueCountries, getUniqueCities } from '@/lib/tournamentSearch';
+import { filterTournamentsUnified } from '@/lib/unifiedTournamentFilter';
 import { getAllChessCountries, getAllChessCities } from '@/lib/chessCountries';
+import { filterByRadius, calculateDistanceMiles } from '@/lib/locationHelpers';
+import { getLocationContext, type LocationContext } from '@/lib/locationContext';
+import LocationPermissionPrompt from '@/components/tournaments/LocationPermissionPrompt';
+import UnifiedLocationControl from '@/components/tournaments/UnifiedLocationControl';
+import TournamentCard from '@/components/tournament/TournamentCard';
+import { useCallback } from 'react';
 
 function AllContent() {
   const searchParams = useSearchParams();
@@ -36,6 +43,8 @@ function AllContent() {
     hasPrizeFund: false,
     registrationOpen: false,
   });
+  const [locationContext, setLocationContext] = useState<LocationContext | null>(null);
+  const [radiusExpansionInfo, setRadiusExpansionInfo] = useState<{ expanded: boolean; message?: string } | null>(null);
   const isSuperAdmin = role === 'superAdmin';
 
   useEffect(() => {
@@ -44,6 +53,7 @@ function AllContent() {
       try {
         // Super admins can see all events (including pending), others see only approved
         const fetchedEvents = isSuperAdmin ? await getAllEvents() : await getApprovedEvents();
+        console.log(`📥 [All Page] Fetched ${fetchedEvents.length} events`);
         setEvents(fetchedEvents);
       } catch (error) {
         console.error('Error fetching events:', error);
@@ -71,12 +81,35 @@ function AllContent() {
   const availableCountries = useMemo(() => getAllChessCountries(), []);
   const availableCities = useMemo(() => getAllChessCities(), []);
 
+  // Load location context on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const context = getLocationContext();
+      setLocationContext(context);
+    }
+  }, []);
+
+  // Handle location context change
+  const handleLocationChange = useCallback((newContext: LocationContext) => {
+    setLocationContext(newContext);
+  }, []);
+
+  // Handle location permission
+  const handleLocationAllow = () => {
+    // Location will be requested when user clicks "Use my location" in UnifiedLocationControl
+  };
+
+  const handleLocationDeny = () => {
+    // User denied location permission
+  };
+
   // Apply basic filter tabs (new, upcoming, all)
   const basicFiltered = useMemo(() => {
-    return allItems.filter((item) => {
+    const filtered = allItems.filter((item) => {
       if (filter === 'new') {
         const createdDate = item.createdAt ? new Date(item.createdAt) : null;
-        return createdDate && createdDate >= sevenDaysAgo;
+        const isNew = createdDate && createdDate >= sevenDaysAgo;
+        return isNew;
       } else if (filter === 'upcoming') {
         try {
           const eventDate = item.startDate 
@@ -91,12 +124,161 @@ function AllContent() {
       }
       return true; // 'all'
     });
+    console.log(`📊 [All Page] Basic filter "${filter}": ${allItems.length} → ${filtered.length} items`);
+    return filtered;
   }, [allItems, filter, now, sevenDaysAgo]);
 
-  // Apply search and advanced filters
+  // Apply location-based filtering - respect the user's selected radius exactly
+  // BUT: Skip distance filtering if country/city filters are active (let unified filter handle it)
+  const locationFiltered = useMemo(() => {
+    // If country or city filters are active, skip distance filtering
+    // The unified filter will handle geographic filtering
+    if (filters.countries.length > 0 || filters.cities.length > 0) {
+      return { items: basicFiltered.map(t => ({ ...t, _distanceMiles: null })), expansionResult: null };
+    }
+    
+    const activeContext = locationContext && locationContext.mode !== 'anywhere' 
+      ? locationContext 
+      : null;
+
+    if (!activeContext || !activeContext.center) {
+      // No location context - return all items
+      return { items: basicFiltered.map(t => ({ ...t, _distanceMiles: null })), expansionResult: null };
+    }
+
+    // Filter tournaments within the exact radius (no automatic expansion - respect user's choice)
+    const radiusMiles = activeContext.radiusMiles || 25;
+    console.log(`📍 [All Page] Filtering with radius: ${radiusMiles}mi around ${activeContext.center.lat},${activeContext.center.lng}`);
+    
+    // Separate tournaments with and without coordinates
+    const tournamentsWithCoords: any[] = [];
+    const tournamentsWithoutCoords: any[] = [];
+    
+    basicFiltered.forEach((item: any) => {
+      const coords = item.structuredLocation?.geo
+        ? { lat: item.structuredLocation.geo.latitude, lng: item.structuredLocation.geo.longitude }
+        : item.coordinates;
+      
+      if (coords && typeof coords.lat === 'number' && typeof coords.lng === 'number') {
+        tournamentsWithCoords.push(item);
+      } else {
+        tournamentsWithoutCoords.push(item);
+      }
+    });
+    
+    // Filter tournaments with coordinates by distance
+    const filteredWithCoords = filterByRadius(
+      tournamentsWithCoords,
+      activeContext.center,
+      radiusMiles
+    );
+    
+    // For tournaments without coordinates, include them if they're in the same country
+    // This is a fallback to ensure tournaments without coordinates still show up
+    let filteredWithoutCoords: any[] = [];
+    if (activeContext.countryCode) {
+      const { filterByCountry } = require('@/lib/locationHelpers');
+      filteredWithoutCoords = filterByCountry(tournamentsWithoutCoords, activeContext.countryCode);
+    }
+    
+    // Combine both sets
+    const filteredItems = [...filteredWithCoords, ...filteredWithoutCoords];
+    
+    console.log(`📍 [All Page] Found ${filteredItems.length} tournaments within ${radiusMiles}mi:`);
+    console.log(`  - ${filteredWithCoords.length} with coordinates (distance filtered)`);
+    console.log(`  - ${filteredWithoutCoords.length} without coordinates (country matched: ${activeContext.countryCode || 'N/A'})`);
+    console.log(`  - Total before filtering: ${basicFiltered.length} (${tournamentsWithCoords.length} with coords, ${tournamentsWithoutCoords.length} without coords)`);
+
+    // Calculate distance for each item and add metadata
+    const items = filteredItems.map((item: any) => {
+      const coords = item.structuredLocation?.geo
+        ? { lat: item.structuredLocation.geo.latitude, lng: item.structuredLocation.geo.longitude }
+        : (item as any).coordinates;
+      
+      let distanceMiles: number | null = null;
+      if (coords) {
+        distanceMiles = calculateDistanceMiles(
+          activeContext.center!.lat,
+          activeContext.center!.lng,
+          coords.lat,
+          coords.lng
+        );
+      }
+
+      return {
+        ...item,
+        _distanceMiles: distanceMiles,
+        _finalRadius: radiusMiles
+      };
+    });
+
+    // No expansion result since we're using exact radius
+    return { items, expansionResult: null };
+  }, [basicFiltered, locationContext, filters.countries, filters.cities]);
+
+  // Clear expansion info (no longer using progressive expansion)
+  // Use stable dependencies to avoid React warnings
+  const locationFilteredItemsLength = locationFiltered.items?.length ?? 0;
+  const locationContextRadius = locationContext?.radiusMiles;
+  
+  useEffect(() => {
+    setRadiusExpansionInfo(null);
+  }, [locationFilteredItemsLength, locationContextRadius]);
+
+  // Apply search and advanced filters using unified filter
   const filteredItems = useMemo(() => {
-    return filterTournaments(basicFiltered, searchQueryState, filters);
-  }, [basicFiltered, searchQueryState, filters]);
+    const items = locationFiltered.items || locationFiltered;
+    const itemsArray = Array.isArray(items) ? items : [];
+    console.log(`🔍 [All Page] Before search/filter: ${itemsArray.length} items`);
+    console.log(`🔍 [All Page] Search query: "${searchQueryState}"`);
+    console.log(`🔍 [All Page] Active filters:`, {
+      countries: filters.countries,
+      cities: filters.cities,
+      dateRange: filters.dateRange,
+      minRating: filters.minRating,
+      maxRating: filters.maxRating,
+      ratingTypes: filters.ratingTypes,
+      timeControls: filters.timeControls,
+      tournamentLevels: filters.tournamentLevels,
+      priceRange: filters.priceRange,
+      fideRatedOnly: filters.fideRatedOnly,
+      hasPrizeFund: filters.hasPrizeFund,
+      registrationOpen: filters.registrationOpen,
+    });
+    
+    // Use unified filter (same as tournaments page)
+    // Note: We skip location filtering here since it's already done in locationFiltered
+    // But we need to pass locationContext as null to skip distance filtering in unified filter
+    const filterResult = filterTournamentsUnified(itemsArray, {
+      searchQuery: searchQueryState,
+      filters: filters,
+      locationContext: null // Location filtering already done above
+    });
+    const filtered = filterResult.tournaments;
+    console.log(`🔍 [All Page] After search/filter: ${filtered.length} items`);
+    
+    // Sort by distance if location context is active
+    if (locationContext && locationContext.mode !== 'anywhere' && locationContext.center) {
+      return [...filtered].sort((a: any, b: any) => {
+        const distanceA = a._distanceMiles;
+        const distanceB = b._distanceMiles;
+        
+        // Both have distance - sort by distance first
+        if (distanceA !== null && distanceB !== null) {
+          return distanceA - distanceB;
+        }
+        
+        // One has distance, one doesn't - prioritize the one with distance
+        if (distanceA !== null && distanceB === null) return -1;
+        if (distanceA === null && distanceB !== null) return 1;
+        
+        // Neither has distance - maintain original order
+        return 0;
+      });
+    }
+    
+    return filtered;
+  }, [locationFiltered, searchQueryState, filters, locationContext]);
 
   // Separate tournaments and events for display
   const tournaments = filteredItems.filter(item => item.category === 'tournament' || (!item.category && item.title.toLowerCase().includes('tournament')));
@@ -105,6 +287,10 @@ function AllContent() {
   return (
     <>
       <Header />
+      <LocationPermissionPrompt
+        onAllow={handleLocationAllow}
+        onDeny={handleLocationDeny}
+      />
       <div className="min-h-screen bg-gray-50 chess-themed-bg">
         {/* Hero Section */}
         <div 
@@ -150,14 +336,51 @@ function AllContent() {
             />
           </div>
 
-          {/* Dropdown Filters Bar */}
+          {/* Location Status Banner */}
+          {locationContext && locationContext.mode !== 'anywhere' && locationContext.center && (
+            <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg flex items-center gap-2">
+              <svg className="w-5 h-5 text-orange-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <div className="flex-1">
+                <span className="text-sm font-semibold text-orange-900">
+                  {radiusExpansionInfo?.expanded && radiusExpansionInfo.message ? (
+                    radiusExpansionInfo.message
+                  ) : (
+                    `Showing tournaments within ${locationContext.radiusMiles} miles`
+                  )}
+                </span>
+                {locationContext.label && (
+                  <span className="text-xs text-orange-700 ml-2">
+                    ({locationContext.label})
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Unified Filters Bar (Location + Time Control + Date + Rating) */}
           <div className="mb-6">
-            <TournamentFilters
-              filters={filters}
-              onFiltersChange={setFilters}
-              availableCountries={availableCountries}
-              availableCities={availableCities}
-            />
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              {/* Unified Location Control */}
+              <UnifiedLocationControl
+                filters={filters}
+                onFiltersChange={setFilters}
+                onLocationContextChange={handleLocationChange}
+                availableCountries={availableCountries}
+                availableCities={availableCities}
+              />
+              
+              {/* Other filters (Time Control, Date, Rating) - Location filter hidden */}
+              <TournamentFilters
+                filters={filters}
+                onFiltersChange={setFilters}
+                availableCountries={availableCountries}
+                availableCities={availableCities}
+                hideLocationFilter={true}
+              />
+            </div>
           </div>
 
           {/* Filter Tabs */}
@@ -226,92 +449,22 @@ function AllContent() {
                   <h2 className="text-2xl font-bold text-slate-900 mb-6">Tournaments</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {tournaments.map((tournament) => (
-                      <div
+                      <TournamentCard
                         key={tournament.id}
-                        className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow flex flex-col"
-                      >
-                        {/* Tournament Image */}
-                        {tournament.image ? (
-                          <div className="w-full h-48 overflow-hidden">
-                            <img 
-                              src={tournament.image} 
-                              alt={tournament.title}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                              }}
-                            />
-                          </div>
-                        ) : (
-                          <div className="w-full h-48 bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center">
-                            <span className="text-white text-xl font-bold text-center px-4">{tournament.title}</span>
-                          </div>
-                        )}
-                        
-                        <div className="p-6 flex-grow flex flex-col">
-                          <h3 className="text-xl font-bold text-slate-900 mb-2">{tournament.title}</h3>
-                          <div className="space-y-2 mb-4">
-                            <p className="text-gray-600 flex items-center">
-                              <svg className="w-5 h-5 mr-2 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                              </svg>
-                              {tournament.date}
-                            </p>
-                            <p className="text-gray-600 flex items-center">
-                              <svg className="w-5 h-5 mr-2 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                              </svg>
-                              {tournament.location}
-                            </p>
-                            <p className="text-gray-600 flex items-center">
-                              <svg className="w-5 h-5 mr-2 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                              {tournament.price && !tournament.price.startsWith('$') && !tournament.price.toLowerCase().includes('free') 
-                                ? `$${tournament.price}` 
-                                : tournament.price}
-                            </p>
-                          </div>
-                          {tournament.description && (
-                            <p className="text-gray-700 text-sm mb-4 line-clamp-3">{tournament.description}</p>
-                          )}
-                          <div className="mt-auto flex flex-col gap-2">
-                            <Link
-                              href={`/events/${tournament.id}`}
-                              className="inline-flex items-center text-orange-500 font-semibold hover:text-orange-600 transition"
-                            >
-                              Learn More →
-                            </Link>
-                            {isSuperAdmin && tournament.id && (
-                              <div className="flex gap-2 pt-2 border-t border-gray-200">
-                                <Link
-                                  href={`/admin/events/edit/${tournament.id}`}
-                                  className="flex-1 text-center px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded transition"
-                                >
-                                  Edit
-                                </Link>
-                                <button
-                                  onClick={async () => {
-                                    if (!confirm(`Are you sure you want to delete "${tournament.title}"?`)) return;
-                                    try {
-                                      await deleteEvent(tournament.id!);
-                                      setEvents(prev => prev.filter(e => e.id !== tournament.id));
-                                      alert('Event deleted successfully');
-                                    } catch (error: any) {
-                                      console.error('Error deleting event:', error);
-                                      alert('Failed to delete event: ' + (error.message || 'Unknown error'));
-                                    }
-                                  }}
-                                  className="flex-1 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded transition"
-                                >
-                                  Delete
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
+                        tournament={tournament}
+                        isSuperAdmin={isSuperAdmin}
+                        onDelete={async (id) => {
+                          try {
+                            await deleteEvent(id);
+                            setEvents(prev => prev.filter(e => e.id !== id));
+                            alert('Event deleted successfully');
+                          } catch (error: any) {
+                            console.error('Error deleting event:', error);
+                            alert('Failed to delete event: ' + (error.message || 'Unknown error'));
+                          }
+                        }}
+                        registrationCount={tournament.registeredUsers?.length}
+                      />
                     ))}
                   </div>
                 </div>
@@ -323,92 +476,22 @@ function AllContent() {
                   <h2 className="text-2xl font-bold text-slate-900 mb-6">Events</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {eventsOnly.map((event) => (
-                      <div
+                      <TournamentCard
                         key={event.id}
-                        className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow flex flex-col"
-                      >
-                        {/* Event Image */}
-                        {event.image ? (
-                          <div className="w-full h-48 overflow-hidden">
-                            <img 
-                              src={event.image} 
-                              alt={event.title}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                              }}
-                            />
-                          </div>
-                        ) : (
-                          <div className="w-full h-48 bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center">
-                            <span className="text-white text-xl font-bold text-center px-4">{event.title}</span>
-                          </div>
-                        )}
-                        
-                        <div className="p-6 flex-grow flex flex-col">
-                          <h3 className="text-xl font-bold text-slate-900 mb-2">{event.title}</h3>
-                          <div className="space-y-2 mb-4">
-                            <p className="text-gray-600 flex items-center">
-                              <svg className="w-5 h-5 mr-2 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                              </svg>
-                              {event.date}
-                            </p>
-                            <p className="text-gray-600 flex items-center">
-                              <svg className="w-5 h-5 mr-2 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                              </svg>
-                              {event.location}
-                            </p>
-                            <p className="text-gray-600 flex items-center">
-                              <svg className="w-5 h-5 mr-2 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                              {event.price && !event.price.startsWith('$') && !event.price.toLowerCase().includes('free') 
-                                ? `$${event.price}` 
-                                : event.price}
-                            </p>
-                          </div>
-                          {event.description && (
-                            <p className="text-gray-700 text-sm mb-4 line-clamp-3">{event.description}</p>
-                          )}
-                          <div className="mt-auto flex flex-col gap-2">
-                            <Link
-                              href={`/events/${event.id}`}
-                              className="inline-flex items-center text-orange-500 font-semibold hover:text-orange-600 transition"
-                            >
-                              Learn More →
-                            </Link>
-                            {isSuperAdmin && event.id && (
-                              <div className="flex gap-2 pt-2 border-t border-gray-200">
-                                <Link
-                                  href={`/admin/events/edit/${event.id}`}
-                                  className="flex-1 text-center px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded transition"
-                                >
-                                  Edit
-                                </Link>
-                                <button
-                                  onClick={async () => {
-                                    if (!confirm(`Are you sure you want to delete "${event.title}"?`)) return;
-                                    try {
-                                      await deleteEvent(event.id!);
-                                      setEvents(prev => prev.filter(e => e.id !== event.id));
-                                      alert('Event deleted successfully');
-                                    } catch (error: any) {
-                                      console.error('Error deleting event:', error);
-                                      alert('Failed to delete event: ' + (error.message || 'Unknown error'));
-                                    }
-                                  }}
-                                  className="flex-1 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded transition"
-                                >
-                                  Delete
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
+                        tournament={event}
+                        isSuperAdmin={isSuperAdmin}
+                        onDelete={async (id) => {
+                          try {
+                            await deleteEvent(id);
+                            setEvents(prev => prev.filter(e => e.id !== id));
+                            alert('Event deleted successfully');
+                          } catch (error: any) {
+                            console.error('Error deleting event:', error);
+                            alert('Failed to delete event: ' + (error.message || 'Unknown error'));
+                          }
+                        }}
+                        registrationCount={event.registeredUsers?.length}
+                      />
                     ))}
                   </div>
                 </div>

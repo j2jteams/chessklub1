@@ -128,8 +128,8 @@ export default function MerchandisePage() {
           <div className="mt-12 bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
             <p className="text-blue-800">
               <strong>Note:</strong> Online store coming soon! For now, please contact us at{' '}
-              <a href="mailto:hello@chessklub.com" className="text-orange-500 hover:underline">
-                hello@chessklub.com
+              <a href="mailto:support@chesstourneys.com" className="text-orange-500 hover:underline">
+                support@chesstourneys.com
               </a>{' '}
               or call (704) 248-6999 to place an order.
             </p>

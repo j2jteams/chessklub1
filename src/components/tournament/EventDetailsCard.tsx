@@ -2,6 +2,7 @@
 
 import { EventData, TimeControl } from '@/lib/types';
 import LocationMap from '@/components/events/LocationMap';
+import { extractCoordinatesFromEvent } from '@/lib/locationNormalizer';
 
 interface EventDetailsCardProps {
   event: EventData;
@@ -57,8 +58,12 @@ export default function EventDetailsCard({ event }: EventDetailsCardProps) {
   };
 
   const venue = event.category === 'tournament' && event.venue ? event.venue : event.location;
+  
+  // Extract coordinates from structuredLocation or legacy coordinates field
+  const eventCoordinates = extractCoordinatesFromEvent(event);
+  
   // Default to In-person if coordinates or venue exists, otherwise Online
-  const hasLocation = event.coordinates || event.venue || (event.location && !event.location.toLowerCase().includes('online'));
+  const hasLocation = eventCoordinates || event.venue || (event.location && !event.location.toLowerCase().includes('online'));
   const venueType = event.venueType || (hasLocation ? 'In-person' : 'Online');
   const isOnline = venueType === 'Online' || !hasLocation;
 
@@ -169,12 +174,12 @@ export default function EventDetailsCard({ event }: EventDetailsCardProps) {
 
                 {/* Map - Show for in-person events if we have location data (coordinates or venue/location) */}
                 {/* Note: LocationMap component already includes "Open in Google Maps" link */}
-                {(event.coordinates || venue || event.location || event.address) && (
+                {(eventCoordinates || venue || event.location || event.address) && (
                   <div className="rounded-lg overflow-hidden border border-[#E2E2E2]">
                     <LocationMap
-                      location={event.address || event.location || ''}
-                      venue={event.venue}
-                      coordinates={event.coordinates}
+                      location={event.address || event.location || event.structuredLocation?.addressLine1 || ''}
+                      venue={event.venue || event.structuredLocation?.venueName}
+                      coordinates={eventCoordinates || undefined}
                     />
                   </div>
                 )}

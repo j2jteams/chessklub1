@@ -156,14 +156,53 @@ export interface TournamentRegistration {
 export interface PricingTier {
   id: string;
   name: string;              // e.g., "Early Bird", "Standard", "Late Registration"
-  price: number;              // required price in dollars
+  price: number;              // required price in dollars (or local currency)
   description?: string;       // optional description
+  countryCode?: string;       // optional: if set, this price applies only to this country (e.g., "IN" for India)
+  currency?: string;          // optional: currency code (e.g., "USD", "INR", "EUR"). Defaults to "USD"
 }
 
 export interface TimeControl {
   category: "Classical" | "Rapid" | "Blitz" | "Other";
   format?: string;            // e.g. "60+5", "25+5", "G/30; d5"
   customLabel?: string;        // e.g. "Club Rapid", "Holiday Blitz"
+}
+
+/**
+ * Structured location object for events/tournaments
+ * Replaces city-based logic with geo-aware discovery
+ * 
+ * NOTE: Keep existing location, venue, address, city, country fields for backward compatibility
+ * This new structured location is computed during create/edit, not during listing fetch
+ */
+export interface EventLocation {
+  type: 'in_person' | 'online' | 'hybrid';
+
+  // Display-oriented fields (user-entered or from autocomplete)
+  venueName?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  admin1?: string;              // State / Province / Region
+  postalCode?: string;
+  countryCode?: string;         // ISO-2 (US, IN, GB, etc.)
+
+  // Geo & discovery fields (computed during create/edit, not during listing)
+  geo?: {
+    latitude: number;
+    longitude: number;
+  };
+  geohash?: string;
+  timezone?: string;            // IANA format (America/New_York)
+  regionTag?: string;           // e.g. "US-Southeast", "Europe-West"
+
+  // Privacy & visibility controls
+  publicPrecision?: 'exact' | 'venue_city' | 'city_only';
+
+  // Online / hybrid specific
+  onlinePlatform?: 'Zoom' | 'Chess.com' | 'Lichess' | 'Custom';
+  onlineAccessType?: 'public' | 'registered_only';
+  onlineUrl?: string;
 }
 
 export interface EventData {
@@ -207,6 +246,7 @@ export interface EventData {
   isStandalone?: boolean;        // Computed: true if franchiseId is null/undefined
   // NEW: Global tournament search fields
   country?: string;              // e.g., "USA", "India", "Germany"
+  countryCode?: string;          // ISO-3166-1 alpha-2 code (e.g., "US", "IN", "DE")
   city?: string;                 // e.g., "New York", "Mumbai", "Berlin"
   region?: string;               // e.g., "North America", "Europe", "Asia"
   coordinates?: {                // For map integration
@@ -226,7 +266,11 @@ export interface EventData {
   heroImageUrl?: string;        // Hero image URL for tournament detail page
   venueType?: 'Online' | 'In-person' | string; // Venue type for display
   address?: string;             // Full address for in-person events
-  tags?: string[];               // Tags for badges (e.g., 'rated', 'scholastic')
+  // tags field removed - no longer used
+  
+  // NEW: Structured location object (computed during create/edit)
+  // Legacy fields (location, venue, address, city, country, coordinates) remain for backward compatibility
+  structuredLocation?: EventLocation;
 }
 
 // UPDATED: Unified ChessEvent interface - the new standard model
@@ -278,6 +322,7 @@ export interface ChessEvent {
   isStandalone?: boolean;        // Computed: true if franchiseId is null/undefined
   // NEW: Global tournament search fields
   country?: string;              // e.g., "USA", "India", "Germany"
+  countryCode?: string;          // ISO-3166-1 alpha-2 code (e.g., "US", "IN", "DE")
   city?: string;                 // e.g., "New York", "Mumbai", "Berlin"
   region?: string;               // e.g., "North America", "Europe", "Asia"
   coordinates?: {                // For map integration
@@ -299,5 +344,9 @@ export interface ChessEvent {
   address?: string;             // Full address for in-person events
   ageLimit?: string;            // Age limit (e.g., "All ages", "18+")
   equipmentProvided?: string;   // Equipment information (e.g., "All chess sets provided")
+  
+  // NEW: Structured location object (computed during create/edit)
+  // Legacy fields (location, venue, address, city, country, coordinates) remain for backward compatibility
+  structuredLocation?: EventLocation;
 }
 

@@ -9,6 +9,8 @@ import { uploadImage } from '@/lib/storage';
 import { EventType, EventStatus, EventAddOn, TournamentSection, ChessEvent, PricingTier, UserData, TimeControl } from '@/lib/types';
 import { getAllUsers, getFranchisees } from '@/lib/userRoles';
 import { Timestamp } from 'firebase/firestore';
+import LocationAutocomplete from './LocationAutocomplete';
+import { normalizeLocation } from '@/lib/locationNormalizer';
 
 interface ChessEventFormProps {
   initialData?: ChessEvent | null; // for edit mode
@@ -38,7 +40,7 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
     type: 'tournament' as EventType,
     name: '',
     description: '',
-    venue: '',
+    venue: '', // Legacy field - kept for backward compatibility
     venueType: 'In-person' as 'Online' | 'In-person',
     startDate: '',
     endDate: '',
@@ -58,6 +60,16 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
     ageLimit: '',
     equipmentProvided: '',
     coordinates: { lat: '', lng: '' },
+    // Structured location fields
+    locationVenueName: '',
+    locationAddressLine1: '',
+    locationAddressLine2: '',
+    locationCity: '',
+    locationAdmin1: '', // State/Province
+    locationPostalCode: '',
+    locationCountryCode: '',
+    locationAutocompleteResult: null as any,
+    locationSearchQuery: '', // Track the search input separately
   });
   
 
@@ -219,6 +231,16 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
         coordinates: initialData.coordinates 
           ? { lat: String(initialData.coordinates.lat), lng: String(initialData.coordinates.lng) }
           : { lat: '', lng: '' },
+        // Structured location fields
+        locationVenueName: initialData.structuredLocation?.venueName || '',
+        locationAddressLine1: initialData.structuredLocation?.addressLine1 || '',
+        locationAddressLine2: initialData.structuredLocation?.addressLine2 || '',
+        locationCity: initialData.structuredLocation?.city || '',
+        locationAdmin1: initialData.structuredLocation?.admin1 || '',
+        locationPostalCode: initialData.structuredLocation?.postalCode || '',
+        locationCountryCode: initialData.structuredLocation?.countryCode || '',
+        locationAutocompleteResult: null,
+        locationSearchQuery: initialData.venue || initialData.location || '',
       });
 
       if (initialData.image) {
@@ -280,6 +302,8 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
       name: '',
       price: 0,
       description: '',
+      countryCode: '', // Optional: leave empty for global pricing, or set to specific country (e.g., "IN" for India)
+      currency: 'USD', // Default to USD
     };
     setFormData({ ...formData, pricingTiers: [...formData.pricingTiers, newTier] });
   };
@@ -293,17 +317,45 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
 
   const updatePricingTier = (index: number, field: keyof PricingTier, value: string | number) => {
     const updatedTiers = [...formData.pricingTiers];
-    const currentTier = updatedTiers[index] || { id: '', name: '', price: 0, description: '' };
+    const currentTier = updatedTiers[index] || { id: '', name: '', price: 0, description: '', currency: 'USD' };
     
-    if (field === 'name' || field === 'description') {
+    if (field === 'name' || field === 'description' || field === 'countryCode' || field === 'currency') {
       updatedTiers[index] = {
         ...currentTier,
         [field]: typeof value === 'string' ? value : String(value || ''),
       };
     } else if (field === 'price') {
+      // Parse and validate price - ensure it's a valid number
+      let priceValue: number;
+      if (typeof value === 'number') {
+        priceValue = value;
+      } else if (typeof value === 'string') {
+        // Trim and parse - handle empty strings
+        const trimmed = value.trim();
+        if (trimmed === '') {
+          priceValue = 0;
+        } else {
+          const parsed = parseFloat(trimmed);
+          priceValue = isNaN(parsed) ? 0 : parsed;
+        }
+      } else {
+        priceValue = 0;
+      }
+      
+      // Round to 2 decimal places to avoid floating point precision issues
+      // Use a more precise rounding method to avoid 500 becoming 499.99
+      priceValue = Math.round(priceValue * 100 + Number.EPSILON) / 100;
+      
+      // If the value is very close to a whole number (within 0.001), round to whole number
+      // This prevents 499.99999999999994 from being stored as 499.99
+      const nearestWhole = Math.round(priceValue);
+      if (Math.abs(priceValue - nearestWhole) < 0.001) {
+        priceValue = nearestWhole;
+      }
+      
       updatedTiers[index] = {
         ...currentTier,
-        price: typeof value === 'number' ? value : (typeof value === 'string' ? parseFloat(value) || 0 : 0),
+        price: priceValue,
       };
     } else if (field === 'id') {
       updatedTiers[index] = {
@@ -598,6 +650,56 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
         franchiseId = null;
       }
       
+      // Normalize structured location
+      let structuredLocation = null;
+      if (formData.venueType === 'In-person' && formData.locationAutocompleteResult) {
+        try {
+          structuredLocation = await normalizeLocation({
+            locationType: 'in_person',
+            venueName: formData.locationVenueName || undefined,
+            addressLine1: formData.locationAddressLine1 || undefined,
+            addressLine2: formData.locationAddressLine2 || undefined,
+            city: formData.locationCity || undefined,
+            admin1: formData.locationAdmin1 || undefined,
+            postalCode: formData.locationPostalCode || undefined,
+            countryCode: formData.locationCountryCode || undefined,
+            autocompleteResult: formData.locationAutocompleteResult,
+          });
+        } catch (err) {
+          console.warn('Failed to normalize location:', err);
+          // Continue without structured location
+        }
+      } else if (formData.venueType === 'Online') {
+        structuredLocation = await normalizeLocation({
+          locationType: 'online',
+          onlinePlatform: 'Custom',
+          onlineAccessType: 'public',
+          onlineUrl: formData.venue || undefined,
+        });
+      }
+
+      // Helper function to remove undefined values from an object (Firestore doesn't accept undefined)
+      const removeUndefined = (obj: any): any => {
+        if (obj === null) return null;
+        if (obj === undefined) return null; // Convert undefined to null
+        if (Array.isArray(obj)) {
+          return obj.map(removeUndefined).filter(item => item !== undefined && item !== null || item === null);
+        }
+        if (typeof obj === 'object' && obj.constructor === Object) {
+          const cleaned: any = {};
+          for (const [key, value] of Object.entries(obj)) {
+            if (value !== undefined) {
+              const cleanedValue = removeUndefined(value);
+              if (cleanedValue !== undefined) {
+                cleaned[key] = cleanedValue;
+              }
+            }
+          }
+          return cleaned;
+        }
+        return obj;
+      };
+
       // Prepare event data for Firestore
       // Note: Status will be set by createEvent based on role and franchiseId
       const eventData: any = {
@@ -621,6 +723,15 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
           ? `$${formData.pricingTiers[0].price.toFixed(2)}`
           : '',
       };
+
+      // Add structuredLocation only if it exists and has data (remove undefined values)
+      if (structuredLocation) {
+        const cleanedLocation = removeUndefined(structuredLocation);
+        // Only add if it has at least the type field
+        if (cleanedLocation && cleanedLocation.type) {
+          eventData.structuredLocation = cleanedLocation;
+        }
+      }
 
       // Time fields
       if (formData.startTime) {
@@ -696,12 +807,22 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
 
       // Pricing tiers
       if (formData.pricingTiers.length > 0) {
-        eventData.pricingTiers = formData.pricingTiers.map(tier => ({
-          id: tier.id,
-          name: tier.name || '',
-          price: tier.price || 0,
-          description: tier.description || '',
-        }));
+        eventData.pricingTiers = formData.pricingTiers
+          .map(tier => {
+            const tierObj: any = {
+              id: tier.id,
+              name: tier.name || '',
+              price: tier.price || 0,
+              description: tier.description || '',
+              currency: tier.currency || 'USD',
+            };
+            // Only include countryCode if it has a value
+            if (tier.countryCode && tier.countryCode.trim()) {
+              tierObj.countryCode = tier.countryCode.trim();
+            }
+            return tierObj;
+          })
+          .map(removeUndefined); // Remove any undefined values
       }
 
       // Sections (for tournaments) - entryFee removed from UI but kept for backward compatibility
@@ -730,7 +851,12 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
       if (mode === 'create') {
         // Pass role and franchiseId to createEvent
         // createEvent will handle status and franchiseId logic
-        const creatorRole = userRole as 'superAdmin' | 'franchisee' | 'standaloneAdmin' | undefined;
+        // Ensure we only pass valid roles (not 'player')
+        let creatorRole: 'superAdmin' | 'franchisee' | 'standaloneAdmin' | undefined = undefined;
+        if (userRole === 'superAdmin' || userRole === 'franchisee' || userRole === 'standaloneAdmin') {
+          creatorRole = userRole;
+        }
+        // If role is not set, createEvent will fetch it from Firestore
         const eventId = await createEvent(eventData, creatorRole, franchiseId);
         if (onSaveSuccess) {
           onSaveSuccess(eventId);
@@ -738,8 +864,10 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
           router.push('/dashboard/admin');
         }
       } else if (mode === 'edit' && initialData?.id) {
+        // Clean eventData before sending to updateEvent (remove undefined values)
+        const cleanedEventData = removeUndefined(eventData);
         // Pass editorUid for permission check
-        await updateEvent(initialData.id, eventData, user.uid);
+        await updateEvent(initialData.id, cleanedEventData, user.uid);
         if (onSaveSuccess) {
           onSaveSuccess(initialData.id);
         } else {
@@ -830,29 +958,99 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
         </p>
       </div>
 
-      {/* Venue/Location - Single field that can contain venue name or full address */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          {formData.venueType === 'Online' ? 'Platform/Details' : 'Venue/Location'} *
-        </label>
-        <input
-          type="text"
-          value={formData.venue}
-          onChange={(e) => setFormData({ ...formData, venue: e.target.value })}
-          required
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
-          placeholder={
-            formData.venueType === 'Online' 
-              ? 'e.g., Chess.com, Lichess.org, Zoom link'
-              : 'e.g., ABC Center, 123 Main St, City, State'
-          }
-        />
-        {formData.venueType === 'In-person' && (
-          <p className="text-xs text-gray-500 mt-1">
-            You can enter just the venue name or include the full address
-          </p>
-        )}
-      </div>
+      {/* Structured Location Fields */}
+      {formData.venueType === 'Online' ? (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Platform/Details *
+          </label>
+          <input
+            type="text"
+            value={formData.venue}
+            onChange={(e) => setFormData({ ...formData, venue: e.target.value })}
+            required
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+            placeholder="e.g., Chess.com, Lichess.org, Zoom link"
+          />
+        </div>
+      ) : (
+        <>
+          {/* Location Autocomplete */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Search Location *
+            </label>
+            <LocationAutocomplete
+              value={formData.locationSearchQuery || formData.locationAddressLine1 || formData.venue}
+              onInputChange={(query) => {
+                // Track what user is typing
+                setFormData({ ...formData, locationSearchQuery: query });
+              }}
+              onPlaceSelect={(place) => {
+                // Extract address components
+                const components = place.addressComponents || [];
+                const getComponent = (type: string) => 
+                  components.find(c => c.types.includes(type))?.longName || '';
+                
+                setFormData({
+                  ...formData,
+                  locationAutocompleteResult: place,
+                  locationSearchQuery: place.formattedAddress, // Store the selected place
+                  locationAddressLine1: getComponent('street_number') 
+                    ? `${getComponent('street_number')} ${getComponent('route')}`.trim()
+                    : getComponent('route') || place.formattedAddress.split(',')[0],
+                  locationCity: getComponent('locality') || getComponent('administrative_area_level_2') || '',
+                  locationAdmin1: getComponent('administrative_area_level_1') || '',
+                  locationPostalCode: getComponent('postal_code') || '',
+                  locationCountryCode: getComponent('country')?.toUpperCase() || '',
+                  locationVenueName: formData.locationVenueName || place.formattedAddress.split(',')[0],
+                  venue: place.formattedAddress, // Legacy field
+                  coordinates: {
+                    lat: place.coordinates.lat.toString(),
+                    lng: place.coordinates.lng.toString()
+                  }
+                });
+              }}
+              placeholder="Search for venue or address..."
+              required
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Keep typing to see location suggestions...
+            </p>
+          </div>
+
+          {/* Additional Location Fields (Optional) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Venue Name (Optional)
+              </label>
+              <input
+                type="text"
+                value={formData.locationVenueName}
+                onChange={(e) => setFormData({ ...formData, locationVenueName: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+                placeholder="e.g., ABC Chess Center"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Address Line 2 (Optional)
+              </label>
+              <input
+                type="text"
+                value={formData.locationAddressLine2}
+                onChange={(e) => setFormData({ ...formData, locationAddressLine2: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+                placeholder="Suite, Floor, etc."
+              />
+            </div>
+          </div>
+
+          {/* Legacy venue field (hidden, auto-populated) */}
+          <input type="hidden" value={formData.venue} />
+        </>
+      )}
 
       {/* Age Limit and Equipment (for tournaments) */}
       {formData.type === 'tournament' && (
@@ -1241,18 +1439,130 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
 
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Price ($) *
+                  Price *
                 </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={tier.price || ''}
-                  onChange={(e) => updatePricingTier(index, 'price', e.target.value ? parseFloat(e.target.value) : 0)}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition text-sm"
-                  placeholder="e.g., 50.00"
-                />
+                <div className="flex gap-2">
+                  <select
+                    value={tier.currency || 'USD'}
+                    onChange={(e) => updatePricingTier(index, 'currency', e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition text-sm bg-white"
+                  >
+                    <option value="USD">USD ($)</option>
+                    <option value="INR">INR (₹)</option>
+                    <option value="EUR">EUR (€)</option>
+                    <option value="GBP">GBP (£)</option>
+                    <option value="CAD">CAD (C$)</option>
+                    <option value="AUD">AUD (A$)</option>
+                    <option value="JPY">JPY (¥)</option>
+                    <option value="CNY">CNY (¥)</option>
+                    <option value="KRW">KRW (₩)</option>
+                    <option value="BRL">BRL (R$)</option>
+                    <option value="MXN">MXN ($)</option>
+                    <option value="ARS">ARS ($)</option>
+                    <option value="ZAR">ZAR (R)</option>
+                    <option value="TRY">TRY (₺)</option>
+                    <option value="RUB">RUB (₽)</option>
+                    <option value="SGD">SGD (S$)</option>
+                    <option value="HKD">HKD (HK$)</option>
+                    <option value="NZD">NZD (NZ$)</option>
+                    <option value="CHF">CHF (CHF)</option>
+                    <option value="SEK">SEK (kr)</option>
+                    <option value="NOK">NOK (kr)</option>
+                    <option value="DKK">DKK (kr)</option>
+                    <option value="PLN">PLN (zł)</option>
+                    <option value="CZK">CZK (Kč)</option>
+                    <option value="HUF">HUF (Ft)</option>
+                    <option value="THB">THB (฿)</option>
+                    <option value="MYR">MYR (RM)</option>
+                    <option value="IDR">IDR (Rp)</option>
+                    <option value="PHP">PHP (₱)</option>
+                    <option value="VND">VND (₫)</option>
+                    <option value="PKR">PKR (₨)</option>
+                    <option value="BDT">BDT (৳)</option>
+                    <option value="AED">AED (د.إ)</option>
+                    <option value="SAR">SAR (﷼)</option>
+                    <option value="EGP">EGP (E£)</option>
+                    <option value="NGN">NGN (₦)</option>
+                  </select>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={tier.price || ''}
+                    onChange={(e) => updatePricingTier(index, 'price', e.target.value ? parseFloat(e.target.value) : 0)}
+                    required
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition text-sm"
+                    placeholder="e.g., 50.00"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Country (Optional)
+                </label>
+                <div className="flex gap-2">
+                  <select
+                    value={tier.countryCode || ''}
+                    onChange={(e) => updatePricingTier(index, 'countryCode', e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition text-sm bg-white"
+                  >
+                    <option value="">Global (All Countries)</option>
+                    <option value="US">United States</option>
+                    <option value="IN">India</option>
+                    <option value="GB">United Kingdom</option>
+                    <option value="CA">Canada</option>
+                    <option value="AU">Australia</option>
+                    <option value="DE">Germany</option>
+                    <option value="FR">France</option>
+                    <option value="ES">Spain</option>
+                    <option value="IT">Italy</option>
+                    <option value="BR">Brazil</option>
+                    <option value="MX">Mexico</option>
+                    <option value="JP">Japan</option>
+                    <option value="CN">China</option>
+                    <option value="RU">Russia</option>
+                    <option value="KR">South Korea</option>
+                    <option value="NL">Netherlands</option>
+                    <option value="PL">Poland</option>
+                    <option value="UA">Ukraine</option>
+                    <option value="AR">Argentina</option>
+                    <option value="CL">Chile</option>
+                    <option value="CO">Colombia</option>
+                    <option value="PE">Peru</option>
+                    <option value="PH">Philippines</option>
+                    <option value="ID">Indonesia</option>
+                    <option value="VN">Vietnam</option>
+                    <option value="TH">Thailand</option>
+                    <option value="MY">Malaysia</option>
+                    <option value="SG">Singapore</option>
+                    <option value="BD">Bangladesh</option>
+                    <option value="PK">Pakistan</option>
+                    <option value="EG">Egypt</option>
+                    <option value="ZA">South Africa</option>
+                    <option value="NG">Nigeria</option>
+                    <option value="TR">Turkey</option>
+                    <option value="GR">Greece</option>
+                    <option value="PT">Portugal</option>
+                    <option value="IE">Ireland</option>
+                    <option value="NZ">New Zealand</option>
+                    <option value="SA">Saudi Arabia</option>
+                    <option value="AE">United Arab Emirates</option>
+                  </select>
+                  <input
+                    type="text"
+                    value={tier.countryCode || ''}
+                    onChange={(e) => updatePricingTier(index, 'countryCode', e.target.value.toUpperCase())}
+                    placeholder="Or enter ISO code (e.g., IN, US, GB)"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition text-sm"
+                    maxLength={2}
+                    pattern="[A-Z]{2}"
+                    title="Enter 2-letter ISO country code (e.g., IN, US, GB)"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Leave empty for global pricing, select from dropdown, or enter any 2-letter ISO country code (e.g., IN, US, GB, FR, DE, etc.)
+                </p>
               </div>
 
               <div className="md:col-span-2">
