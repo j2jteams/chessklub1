@@ -312,6 +312,7 @@ export async function createEvent(
       category: event.category || 'event', // Default to 'event' if not specified
       createdBy: event.createdBy,
       createdByEmail: event.createdByEmail,
+      ...(event.createdByName && { createdByName: event.createdByName }),
       status: finalStatus,
       registeredUsers: event.registeredUsers ?? [],
       savedByUsers: event.savedByUsers ?? [],

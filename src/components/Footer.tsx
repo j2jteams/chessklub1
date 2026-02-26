@@ -103,7 +103,7 @@ export default function Footer() {
         <div className="pt-8 border-t border-slate-800">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-slate-400">
             <p>&copy; {new Date().getFullYear()} {BRAND_NAME}. All rights reserved.</p>
-            <p className="text-xs text-orange-400">by Chess Klub</p>
+            <p className="text-xs text-orange-400">by Chess Tourneys</p>
           </div>
         </div>
       </div>

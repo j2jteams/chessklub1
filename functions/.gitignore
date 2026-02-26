@@ -1,0 +1,10 @@
+node_modules/
+lib/
+.env
+*.log
+.DS_Store
+template-ids.json
+
+
+
+
