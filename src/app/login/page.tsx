@@ -192,8 +192,8 @@ export default function LoginPage() {
         {/* Logo/Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-white mb-2">
-            <span className="text-white">CHESS</span>
-            <span className="text-orange-500"> KLUB</span>
+            <span className="text-white">Chess</span>
+            <span className="text-orange-500"> Tourneys</span>
           </h1>
           <p className="text-gray-300">Learn Chess. Learn Life Lessons.</p>
         </div>
@@ -238,6 +238,15 @@ export default function LoginPage() {
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition"
                 placeholder="Enter your password"
               />
+            </div>
+
+            <div className="flex justify-end">
+              <Link
+                href="/forgot-password"
+                className="text-sm text-orange-500 hover:text-orange-600 font-medium"
+              >
+                Forgot password?
+              </Link>
             </div>
 
             <button

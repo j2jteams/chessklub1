@@ -715,6 +715,7 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
         type: formData.type, // New type field
         createdBy: user.uid,
         createdByEmail: user.email || '',
+        createdByName: user.displayName || user.email?.split('@')[0] || 'Organizer',
         status: 'pendingApproval', // Will be overridden by createEvent based on role
         registeredUsers: [],
         savedByUsers: [],
@@ -981,7 +982,7 @@ export default function ChessEventForm({ initialData, mode, onSaveSuccess }: Che
               Search Location *
             </label>
             <LocationAutocomplete
-              value={formData.locationSearchQuery || formData.locationAddressLine1 || formData.venue}
+              value={formData.locationSearchQuery || ''}
               onInputChange={(query) => {
                 // Track what user is typing
                 setFormData({ ...formData, locationSearchQuery: query });

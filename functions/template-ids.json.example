@@ -1,0 +1,15 @@
+{
+  "WELCOME_EMAIL": "d-xxxxxxxxxxxxxxxxxxxxxxxx",
+  "CREATOR_SUBMISSION_RECEIPT": "d-xxxxxxxxxxxxxxxxxxxxxxxx",
+  "CREATOR_APPROVAL_EMAIL": "d-xxxxxxxxxxxxxxxxxxxxxxxx",
+  "TOURNAMENT_REGISTRATION_CONFIRMATION": "d-xxxxxxxxxxxxxxxxxxxxxxxx",
+  "REMINDER_24H": "d-xxxxxxxxxxxxxxxxxxxxxxxx",
+  "REMINDER_2H": "d-xxxxxxxxxxxxxxxxxxxxxxxx",
+  "TOURNAMENT_UPDATED_NOTIFICATION": "d-xxxxxxxxxxxxxxxxxxxxxxxx",
+  "PAYMENT_RECEIPT": "d-xxxxxxxxxxxxxxxxxxxxxxxx",
+  "PAYMENT_FAILED": "d-xxxxxxxxxxxxxxxxxxxxxxxx",
+  "ADMIN_REQUEST_APPROVED": "d-xxxxxxxxxxxxxxxxxxxxxxxx",
+  "ADMIN_REQUEST_REJECTED": "d-xxxxxxxxxxxxxxxxxxxxxxxx",
+  "ADMIN_REQUEST_SUBMITTED": "d-xxxxxxxxxxxxxxxxxxxxxxxx",
+  "PASSWORD_RESET": "d-xxxxxxxxxxxxxxxxxxxxxxxx"
+}

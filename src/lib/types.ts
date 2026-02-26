@@ -220,6 +220,7 @@ export interface EventData {
   contactPhone?: string; // Contact phone for the event
   createdBy: string;
   createdByEmail: string;
+  createdByName?: string;  // For creator receipt email (e.g. display name)
   status: EventStatus;
   registeredUsers: string[];
   savedByUsers: string[];
