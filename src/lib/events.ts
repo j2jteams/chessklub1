@@ -288,17 +288,6 @@ export async function createEvent(
       }
     }
 
-    // Admin-created events should never stay pending
-    if (
-      finalStatus === 'pendingApproval' &&
-      (role === 'superAdmin' || role === 'franchisee' || role === 'standaloneAdmin')
-    ) {
-      console.warn(
-        `[createEvent] Status was pendingApproval for admin role ${role} — forcing to approved`
-      );
-      finalStatus = 'approved';
-    }
-    
     // Filter out undefined values (Firestore doesn't accept undefined)
     const eventData: any = {
       title: event.title,
