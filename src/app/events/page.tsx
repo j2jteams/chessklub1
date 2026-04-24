@@ -14,6 +14,7 @@ import { TournamentFilters as FilterType } from '@/components/tournaments/Filter
 import { filterTournaments } from '@/lib/tournamentSearch';
 import { getAllChessCountries, getAllChessCities } from '@/lib/chessCountries';
 import { progressiveRadiusExpansion, calculateDistanceMiles } from '@/lib/locationHelpers';
+import { isOngoingOrFutureForPublicBrowse } from '@/lib/tournamentHelpers';
 import { getLocationContext, type LocationContext } from '@/lib/locationContext';
 import LocationPermissionPrompt from '@/components/tournaments/LocationPermissionPrompt';
 import UnifiedLocationControl from '@/components/tournaments/UnifiedLocationControl';
@@ -104,7 +105,11 @@ function EventsContent() {
         if (createdDate) {
           createdDate.setHours(0, 0, 0, 0);
         }
-        return createdDate && createdDate >= sevenDaysAgo;
+        return (
+          !!createdDate &&
+          createdDate >= sevenDaysAgo &&
+          isOngoingOrFutureForPublicBrowse(event, now)
+        );
       } else if (filter === 'upcoming') {
         try {
           const eventDate = event.startDate 
@@ -120,7 +125,8 @@ function EventsContent() {
           return false;
         }
       }
-      return true; // 'all'
+      // 'all' — hide past events on public browse (admins use /dashboard/admin for full history)
+      return isOngoingOrFutureForPublicBrowse(event, now);
     });
   }, [events, filter, now, sevenDaysAgo]);
 

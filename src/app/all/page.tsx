@@ -20,6 +20,7 @@ import LocationPermissionPrompt from '@/components/tournaments/LocationPermissio
 import UnifiedLocationControl from '@/components/tournaments/UnifiedLocationControl';
 import TournamentCard from '@/components/tournament/TournamentCard';
 import { useCallback } from 'react';
+import { isOngoingOrFutureForPublicBrowse } from '@/lib/tournamentHelpers';
 
 function AllContent() {
   const searchParams = useSearchParams();
@@ -66,6 +67,7 @@ function AllContent() {
 
   // Filter - show BOTH tournaments AND events together
   const now = new Date();
+  now.setHours(0, 0, 0, 0);
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
   // Get all relevant items (tournaments and events)
@@ -109,7 +111,7 @@ function AllContent() {
       if (filter === 'new') {
         const createdDate = item.createdAt ? new Date(item.createdAt) : null;
         const isNew = createdDate && createdDate >= sevenDaysAgo;
-        return isNew;
+        return !!isNew && isOngoingOrFutureForPublicBrowse(item, now);
       } else if (filter === 'upcoming') {
         try {
           const eventDate = item.startDate 
@@ -122,7 +124,7 @@ function AllContent() {
           return false;
         }
       }
-      return true; // 'all'
+      return isOngoingOrFutureForPublicBrowse(item, now);
     });
     console.log(`📊 [All Page] Basic filter "${filter}": ${allItems.length} → ${filtered.length} items`);
     return filtered;

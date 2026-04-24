@@ -7,6 +7,7 @@ import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
 import { getApprovedEvents } from '@/lib/events';
+import { isOngoingOrFutureForPublicBrowse } from '@/lib/tournamentHelpers';
 import { EventData } from '@/lib/types';
 import { BRAND_NAME } from '@/config/brand';
 
@@ -83,28 +84,21 @@ export default function Header() {
     }
   };
 
-  // Filter events: new (last 7 days) and upcoming (future dates)
+  // Filter events: new (last 7 days) and upcoming — same rules as public browse (no past events)
   const now = new Date();
+  now.setHours(0, 0, 0, 0);
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  
-  // New tournaments/events created in the last 7 days
-  const newTournaments = events.filter(event => {
-    const eventDate = event.createdAt ? new Date(event.createdAt) : null;
-    return eventDate && eventDate >= sevenDaysAgo;
+
+  const newTournaments = events.filter((event) => {
+    const created = event.createdAt ? new Date(event.createdAt) : null;
+    return (
+      !!created &&
+      created >= sevenDaysAgo &&
+      isOngoingOrFutureForPublicBrowse(event, now)
+    );
   });
 
-  // Upcoming events/tournaments (future dates) - includes both tournaments and events
-  const upcomingEvents = events.filter(event => {
-    // Try to parse the date string - handle various formats
-    if (!event.date) return false;
-    try {
-      const eventDate = new Date(event.date);
-      return !isNaN(eventDate.getTime()) && eventDate >= now;
-    } catch {
-      // If date parsing fails, exclude it (don't show invalid dates)
-      return false;
-    }
-  });
+  const upcomingEvents = events.filter((event) => isOngoingOrFutureForPublicBrowse(event, now));
 
   // Separate tournaments and events for better categorization
   const upcomingTournaments = upcomingEvents.filter(event => 

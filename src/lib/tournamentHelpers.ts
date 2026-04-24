@@ -170,6 +170,48 @@ export function getTournamentPrice(
 }
 
 /**
+ * Calendar day used to decide if an item is still "live" for public browse lists.
+ * Prefer `endDate` (last day of a multi-day event), else `startDate`, else legacy `date`.
+ */
+export function getPublicBrowseScheduleDate(event: EventData): Date | null {
+  try {
+    if (event.endDate) {
+      const d = event.endDate instanceof Date ? event.endDate : new Date(event.endDate);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    if (event.startDate) {
+      const d =
+        event.startDate instanceof Date ? event.startDate : new Date(event.startDate);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    if (event.date) {
+      const d = new Date(event.date);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * True if the event should appear on public browse pages (not wholly in the past).
+ * Items with no parseable schedule date stay visible (same as legacy tournaments list).
+ */
+export function isOngoingOrFutureForPublicBrowse(
+  event: EventData,
+  nowStartOfDay: Date
+): boolean {
+  const d = getPublicBrowseScheduleDate(event);
+  if (!d) return true;
+  const day = new Date(d);
+  day.setHours(0, 0, 0, 0);
+  const n = new Date(nowStartOfDay);
+  n.setHours(0, 0, 0, 0);
+  return day.getTime() >= n.getTime();
+}
+
+/**
  * Get tournament start date for sorting
  */
 export function getTournamentStartDate(tournament: EventData): Date | null {

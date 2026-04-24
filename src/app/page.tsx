@@ -13,6 +13,7 @@ import AboutSection from "@/components/landing/AboutSection";
 import FinalCTA from "@/components/landing/FinalCTA";
 import LocationPermissionPrompt from "@/components/tournaments/LocationPermissionPrompt";
 import { getUserLocation, getCountryFromCoordinates } from '@/lib/locationHelpers';
+import { isOngoingOrFutureForPublicBrowse } from '@/lib/tournamentHelpers';
 
 export default function Page() {
   const [allTournaments, setAllTournaments] = useState<EventData[]>([]);
@@ -30,13 +31,12 @@ export default function Page() {
       const now = new Date();
       now.setHours(0, 0, 0, 0);
 
-      // Get all events - be very lenient with filtering
       const validEvents: EventData[] = [];
 
-      // Show ALL approved events for now - no date filtering
-      // This ensures tournaments are visible regardless of date
       allEvents.forEach((event) => {
-        validEvents.push(event);
+        if (isOngoingOrFutureForPublicBrowse(event, now)) {
+          validEvents.push(event);
+        }
       });
 
       console.log('Valid events after filtering:', validEvents.length);

@@ -241,39 +241,27 @@ export async function createEvent(
     console.log(`[createEvent] Final role determined: ${role}, initial status: ${finalStatus}`);
     
     if (role === 'superAdmin') {
-      // Super Admin can create with or without franchise
-      // Status is always approved (override any passed status)
+      // Super Admin can create with or without franchise — always approved
       finalStatus = 'approved';
       console.log(`[createEvent] Super Admin detected - setting status to 'approved'`);
-      // Use provided franchiseId (can be null for standalone)
     } else if (role === 'franchisee') {
-      // Franchisee: if franchiseId is explicitly null (standalone event), needs approval
-      // Otherwise, default to their own UID (franchise event), auto-approve
+      // All franchisee-created events are auto-approved; preserve franchise linkage
+      finalStatus = 'approved';
       if (finalFranchiseId === null || finalFranchiseId === undefined) {
-        // Explicitly set to null/undefined - standalone event - needs approval
-        finalStatus = 'pendingApproval';
         finalFranchiseId = null;
-        console.log(`[createEvent] Franchisee creating standalone event - status: ${finalStatus}`);
+        console.log(`[createEvent] Franchisee creating standalone event - status: approved`);
       } else {
-        // Franchise event - auto-approve
-        finalStatus = 'approved';
-        // Use provided franchiseId or default to creator's UID
         finalFranchiseId = finalFranchiseId || event.createdBy;
-        console.log(`[createEvent] Franchisee creating franchise event - status: ${finalStatus}`);
+        console.log(`[createEvent] Franchisee creating franchise-linked event - status: approved`);
       }
     } else if (role === 'standaloneAdmin') {
-      // Standalone Admin: if franchiseId is provided (franchise event), needs approval
-      // Otherwise, standalone event (null), auto-approve
-      if (finalFranchiseId !== null && finalFranchiseId !== undefined) {
-        // Standalone admin creating franchise event - needs approval
-        finalStatus = 'pendingApproval';
-        console.log(`[createEvent] Standalone Admin creating franchise event - status: ${finalStatus}`);
-        // Keep the provided franchiseId
-      } else {
-        // Standalone admin creating standalone event - auto-approve
+      // All standalone-admin-created events are auto-approved
+      finalStatus = 'approved';
+      if (finalFranchiseId === null || finalFranchiseId === undefined) {
         finalFranchiseId = null;
-        finalStatus = 'approved';
-        console.log(`[createEvent] Standalone Admin creating standalone event - status: ${finalStatus}`);
+        console.log(`[createEvent] Standalone Admin creating standalone event - status: approved`);
+      } else {
+        console.log(`[createEvent] Standalone Admin creating franchise-linked event - status: approved`);
       }
     } else {
       console.error(`[createEvent] Invalid role: ${role}. User: ${event.createdBy}`);
@@ -293,13 +281,21 @@ export async function createEvent(
         role = 'superAdmin';
         finalStatus = 'approved';
         console.log(`[createEvent] Final check: Super Admin detected - forcing status to 'approved'`);
+      } else if (finalRoleCheck === 'franchisee' || finalRoleCheck === 'standaloneAdmin') {
+        role = finalRoleCheck;
+        finalStatus = 'approved';
+        console.log(`[createEvent] Final check: ${finalRoleCheck} detected - forcing status to 'approved'`);
       }
     }
-    
-    // FINAL SAFETY CHECK: If status is still pendingApproval but we have a role, ensure Super Admin events are approved
-    // This is a last-ditch safety net to prevent Super Admin events from being created as pending
-    if (finalStatus === 'pendingApproval' && role === 'superAdmin') {
-      console.warn(`[createEvent] CRITICAL: Status is pendingApproval but role is superAdmin - forcing to approved!`);
+
+    // Admin-created events should never stay pending
+    if (
+      finalStatus === 'pendingApproval' &&
+      (role === 'superAdmin' || role === 'franchisee' || role === 'standaloneAdmin')
+    ) {
+      console.warn(
+        `[createEvent] Status was pendingApproval for admin role ${role} — forcing to approved`
+      );
       finalStatus = 'approved';
     }
     

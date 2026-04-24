@@ -15,7 +15,12 @@ import { getUniqueCountries, getUniqueCities } from '@/lib/tournamentSearch';
 import { filterTournamentsUnified } from '@/lib/unifiedTournamentFilter';
 import { getAllChessCountries, getAllChessCities } from '@/lib/chessCountries';
 import TournamentCard from '@/components/tournament/TournamentCard';
-import { getTournamentStartDate, getTournamentCreatedDate, getTournamentPrice } from '@/lib/tournamentHelpers';
+import {
+  getTournamentStartDate,
+  getTournamentCreatedDate,
+  getTournamentPrice,
+  isOngoingOrFutureForPublicBrowse,
+} from '@/lib/tournamentHelpers';
 import { getUserLocation, getCountryFromCoordinates } from '@/lib/locationHelpers';
 import { getLocationContext, resetLocationContext, type LocationContext } from '@/lib/locationContext';
 import LocationPermissionPrompt from '@/components/tournaments/LocationPermissionPrompt';
@@ -229,43 +234,25 @@ function TournamentsContent() {
       if (tournament.id && tournament.id.startsWith('featured-')) {
         return false;
       }
-      
-      // Get tournament start date
-      let eventDate: Date | null = null;
-      try {
-        if (tournament.startDate) {
-          eventDate = tournament.startDate instanceof Date 
-            ? tournament.startDate 
-            : new Date(tournament.startDate);
-        } else if (tournament.date) {
-          // tournament.date is typed as string, so always convert to Date
-          eventDate = new Date(tournament.date);
-        }
-        
-        if (eventDate) {
-          eventDate.setHours(0, 0, 0, 0); // Set to start of day for comparison
-        }
-      } catch {
-        eventDate = null;
-      }
-      
-      // Check if event is finished (end date or start date is in the past)
-      const isFinished = eventDate && !isNaN(eventDate.getTime()) && eventDate < now;
-      
+
+      const stillBrowseable = isOngoingOrFutureForPublicBrowse(tournament, now);
+
       if (filter === 'new') {
         const createdDate = tournament.createdAt ? new Date(tournament.createdAt) : null;
         if (createdDate) {
           createdDate.setHours(0, 0, 0, 0);
         }
-        // New tournaments created in last 7 days AND not finished
-        return createdDate && createdDate >= sevenDaysAgo && !isFinished;
-      } else if (filter === 'upcoming') {
-        // Upcoming: future events only
-        return eventDate && !isNaN(eventDate.getTime()) && eventDate >= now;
+        return createdDate && createdDate >= sevenDaysAgo && stillBrowseable;
       }
-      
-      // 'all' filter: show upcoming events only (exclude finished)
-      return !isFinished;
+      if (filter === 'upcoming') {
+        const eventDate = getTournamentStartDate(tournament);
+        if (!eventDate) return false;
+        eventDate.setHours(0, 0, 0, 0);
+        return !isNaN(eventDate.getTime()) && eventDate >= now;
+      }
+
+      // 'all' and other tabs: hide past (uses endDate when set)
+      return stillBrowseable;
     });
     return filtered;
   }, [allEvents, filter, now, sevenDaysAgo]);
